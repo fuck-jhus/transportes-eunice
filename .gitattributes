@@ -4,3 +4,8 @@
 *.yaml text eol=lf
 *.png binary
 *.jpg binary
+
+# Graphify artifacts are generated; exclude them from language statistics and diffs.
+**/graphify-out/** linguist-generated=true linguist-detectable=false
+**/.graphify_cache/** linguist-generated=true linguist-detectable=false
+**/.graphify_manifest.json linguist-generated=true linguist-detectable=false
