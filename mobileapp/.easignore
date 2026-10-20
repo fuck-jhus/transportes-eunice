@@ -1,0 +1,44 @@
+node_modules/
+.expo/
+.git/
+
+# Variables locales y secretos
+.env
+.env.*
+!.env.example
+
+# Exportaciones, paquetes y binarios generados
+builds/
+dist-*/
+dist-web/
+entregables/
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+*.zip
+
+# Archivos temporales de inspeccion
+early_leaflet.json
+scratch_leaflet.txt
+.graphify_cache/
+.graphify_manifest.json
+src/.graphify_cache/
+src/.graphify_manifest.json
+src/graphify-out/
+*.p8
+*.p12
+*.jks
+*.keystore
+*firebase-adminsdk*.json
+*service-account*.json
+*service_account*.json
+credentials.json
+store.config.json
+tests/
+
+# Sistema, editor y registros
+.DS_Store
+Thumbs.db
+*.log

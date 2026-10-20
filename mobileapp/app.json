@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "Transportes Eunice IoT",
+    "slug": "transportes-eunice-iot",
+    "sdkVersion": "57.0.0",
+    "version": "1.0.12",
+    "scheme": "eunice",
+    "icon": "./assets/icon.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.transporteseunice.mobile",
+      "buildNumber": "22",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Esta app requiere acceso al GPS para monitorear la velocidad y trayectoria del autobús durante el viaje.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Durante un viaje activo, Eunice comparte la ubicación con despacho incluso si la app está en segundo plano.",
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "NSMotionUsageDescription": "Esta app utiliza el acelerómetro y giroscopio para detectar frenados bruscos y maniobras de riesgo."
+      }
+    },
+    "android": {
+      "package": "com.transporteseunice.mobile",
+      "versionCode": 14,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0D2026"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "HIGH_SAMPLING_RATE_SENSORS",
+        "WAKE_LOCK"
+      ]
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-status-bar",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Durante un viaje activo, Eunice comparte la ubicación con despacho incluso si la app está en segundo plano.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#D85F28",
+          "defaultChannel": "operaciones"
+        }
+      ]
+    ],
+    "web": {
+      "favicon": "./assets/icon.png"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Mi viaje con Transportes Eunice",
+  "short_name": "Viaje Eunice",
+  "display": "standalone",
+  "scope": "/viaje/",
+  "theme_color": "#0d1e2b",
+  "background_color": "#0d1e2b",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

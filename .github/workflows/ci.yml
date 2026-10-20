@@ -1,0 +1,52 @@
+name: Validación de código y publicación
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  publication:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/check_publication.py
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore AccesoDatos/AccesoDatos.slnx
+      - run: dotnet test AccesoDatos/AccesoDatos.slnx --configuration Release --no-restore
+  clients:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            mobileapp/package-lock.json
+            frontend/frontendgarma/package-lock.json
+      - run: npm ci
+        working-directory: mobileapp
+      - run: npm run test:all
+        working-directory: mobileapp
+      - run: npx tsc --noEmit
+        working-directory: mobileapp
+      - run: npm ci
+        working-directory: frontend/frontendgarma
+      - run: npm test
+        working-directory: frontend/frontendgarma
+      - run: npm run lint
+        working-directory: frontend/frontendgarma
+      - run: npm run build
+        working-directory: frontend/frontendgarma
