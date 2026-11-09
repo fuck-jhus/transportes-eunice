@@ -14,25 +14,38 @@ public static class ObservationCoverage
 
     public static (double Covered, double Driving, double Calibrated) Seconds(IEnumerable<TelemetriaIot> readings)
     {
-        double covered = 0, driving = 0, calibrated = 0;
-        foreach (var trip in readings.GroupBy(x => x.IdViaje))
+        var accumulator = new Accumulator();
+        foreach (var reading in readings.OrderBy(x => x.IdViaje).ThenBy(x => x.FechaHoraDispositivo))
+            accumulator.Add(new Sample(reading.IdViaje, reading.FechaHoraDispositivo, reading.PrecisionMetros, reading.VelocidadKmh, reading.SensoresCalibrados));
+        return accumulator.Result;
+    }
+
+    public readonly record struct Sample(int TripId, DateTime ObservedAt, decimal? AccuracyMeters, decimal SpeedKmh, bool SensorsCalibrated);
+
+    /// <summary>
+    /// Suma la cobertura de lecturas recibidas en orden (viaje, hora) sin guardarlas en memoria.
+    /// Permite recorrer un mes completo de telemetría leyendo una fila a la vez.
+    /// </summary>
+    public sealed class Accumulator
+    {
+        private Sample? _previous;
+        private double _covered, _driving, _calibrated;
+
+        public (double Covered, double Driving, double Calibrated) Result => (_covered, _driving, _calibrated);
+
+        public void Add(Sample reading)
         {
-            TelemetriaIot? previous = null;
-            foreach (var reading in trip.OrderBy(x => x.FechaHoraDispositivo))
+            if (_previous is { } previous && previous.TripId == reading.TripId)
             {
-                if (previous != null)
+                var seconds = (reading.ObservedAt - previous.ObservedAt).TotalSeconds;
+                if (seconds is > 0 and <= 15 && reading.AccuracyMeters is <= 50 && previous.AccuracyMeters is <= 50)
                 {
-                    var seconds = (reading.FechaHoraDispositivo - previous.FechaHoraDispositivo).TotalSeconds;
-                    if (seconds is > 0 and <= 15 && reading.PrecisionMetros is <= 50 && previous.PrecisionMetros is <= 50)
-                    {
-                        covered += seconds;
-                        if (reading.VelocidadKmh > 3 && previous.VelocidadKmh > 3) driving += seconds;
-                        if (reading.SensoresCalibrados && previous.SensoresCalibrados) calibrated += seconds;
-                    }
+                    _covered += seconds;
+                    if (reading.SpeedKmh > 3 && previous.SpeedKmh > 3) _driving += seconds;
+                    if (reading.SensorsCalibrated && previous.SensorsCalibrated) _calibrated += seconds;
                 }
-                previous = reading;
             }
+            _previous = reading;
         }
-        return (covered, driving, calibrated);
     }
 }

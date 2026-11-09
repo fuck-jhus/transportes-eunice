@@ -18,20 +18,23 @@ public class EvaluacionService : IEvaluacionService
 
     public async Task ProcesarEvaluacionesMensualesAsync(int anio, int mes)
     {
-        await webapi.Core.DatabaseOperation.ExecuteAsync(_context, () => ProcesarEvaluacionesTransactionalAsync(anio, mes));
+        // Las lecturas se resumen fuera de la transacción: leer un mes completo bajo
+        // aislamiento serializable bloquearía la telemetría en vivo durante el cálculo.
+        var summary = await ResumirPeriodoAsync(anio, mes);
+        await webapi.Core.DatabaseOperation.ExecuteAsync(_context, () => GuardarEvaluacionesAsync(anio, mes, summary));
     }
 
-    private async Task ProcesarEvaluacionesTransactionalAsync(int anio, int mes)
+    private sealed record PilotSummary(int TripCount, double ScheduledSeconds, double Covered, double Driving, double Calibrated);
+
+    private async Task<Dictionary<int, PilotSummary>> ResumirPeriodoAsync(int anio, int mes)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var (periodStart, periodEnd) = ObservationCoverage.Month(anio, mes);
-        var dateKey = DateOnly.FromDateTime(periodStart);
         var calculationEnd = DateTime.UtcNow < periodEnd ? DateTime.UtcNow : periodEnd;
 
-        var pilots = await _context.Usuarios
+        var pilotIds = await _context.Usuarios
             .AsNoTracking()
             .Where(user => (user.TipoRol == "Piloto" && user.Estado == "Activo") || user.ViajeDiarios.Any(t => t.FechaInicio < periodEnd && (!t.FechaFin.HasValue || t.FechaFin >= periodStart)))
-            .Select(user => new { user.IdUsuario, user.NombreCompleto })
+            .Select(user => user.IdUsuario)
             .ToListAsync();
 
         var trips = await _context.ViajesDiarios
@@ -39,6 +42,58 @@ public class EvaluacionService : IEvaluacionService
             .Where(trip => trip.FechaInicio < periodEnd && (!trip.FechaFin.HasValue || trip.FechaFin >= periodStart))
             .Select(trip => new { trip.IdViaje, trip.IdUsuario, trip.FechaInicio, trip.FechaFin })
             .ToListAsync();
+
+        var inRange = _context.TelemetriaIots.AsNoTracking()
+            .Where(t => t.FechaHoraDispositivo >= periodStart && t.FechaHoraDispositivo < calculationEnd);
+
+        // Dueño de cada viaje con lecturas en el período.
+        var tripOwners = await inRange
+            .Select(t => new { t.IdViaje, t.IdViajeNavigation.IdUsuario })
+            .Distinct()
+            .ToDictionaryAsync(t => t.IdViaje, t => t.IdUsuario);
+        var accumulators = new Dictionary<int, ObservationCoverage.Accumulator>();
+
+        // Se procesa un viaje a la vez y solo con las columnas necesarias: la memoria usada
+        // depende del viaje más largo, no del total de lecturas del mes de toda la flota.
+        // (Con reintentos activados, EF guarda en memoria cada resultado completo antes de
+        // entregarlo, por eso no basta con recorrer una sola consulta grande.)
+        foreach (var (tripId, ownerId) in tripOwners.OrderBy(pair => pair.Key))
+        {
+            var samples = await inRange
+                .Where(t => t.IdViaje == tripId)
+                .OrderBy(t => t.FechaHoraDispositivo)
+                .Select(t => new ObservationCoverage.Sample(t.IdViaje, t.FechaHoraDispositivo, t.PrecisionMetros, t.VelocidadKmh, t.SensoresCalibrados))
+                .ToListAsync();
+            if (!accumulators.TryGetValue(ownerId, out var accumulator))
+                accumulators[ownerId] = accumulator = new ObservationCoverage.Accumulator();
+            foreach (var sample in samples) accumulator.Add(sample);
+        }
+
+        var summary = new Dictionary<int, PilotSummary>();
+        foreach (var pilotId in pilotIds.Union(accumulators.Keys))
+        {
+            var pilotTrips = trips.Where(trip => trip.IdUsuario == pilotId).ToList();
+            var scheduledSeconds = pilotTrips.Sum(trip =>
+            {
+                var effectiveEnd = trip.FechaFin ?? calculationEnd;
+                if (effectiveEnd > calculationEnd) effectiveEnd = calculationEnd;
+                var start = trip.FechaInicio < periodStart ? periodStart : trip.FechaInicio;
+                if (effectiveEnd <= start) return 0d;
+                return (effectiveEnd - start).TotalSeconds;
+            });
+            var coverage = accumulators.TryGetValue(pilotId, out var found) ? found.Result : (0d, 0d, 0d);
+            summary[pilotId] = new PilotSummary(pilotTrips.Count, scheduledSeconds, coverage.Item1, coverage.Item2, coverage.Item3);
+        }
+        return summary;
+    }
+
+    private async Task GuardarEvaluacionesAsync(int anio, int mes, IReadOnlyDictionary<int, PilotSummary> summary)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        // Evita que dos procesos (el automático y un administrador) escriban el mismo mes a la vez.
+        await TripLifecycle.LockAsync(_context, $"evaluation:{anio}:{mes}");
+        var (periodStart, periodEnd) = ObservationCoverage.Month(anio, mes);
+        var dateKey = DateOnly.FromDateTime(periodStart);
 
         var alerts = await _context.AlertaRiesgos
             .AsNoTracking()
@@ -56,29 +111,15 @@ public class EvaluacionService : IEvaluacionService
             .Where(evaluation => evaluation.MesAnio == dateKey)
             .ToDictionaryAsync(evaluation => evaluation.IdUsuario);
 
-        var samples = await _context.TelemetriaIots.AsNoTracking()
-            .Where(t => t.FechaHoraDispositivo >= periodStart && t.FechaHoraDispositivo < calculationEnd)
-            .Include(t => t.IdViajeNavigation).ToListAsync();
-
-        foreach (var pilot in pilots)
+        foreach (var (pilotId, pilot) in summary)
         {
-            var pilotTrips = trips.Where(trip => trip.IdUsuario == pilot.IdUsuario).ToList();
-            var scheduledSeconds = pilotTrips.Sum(trip =>
-            {
-                var effectiveEnd = trip.FechaFin ?? calculationEnd;
-                if (effectiveEnd > calculationEnd) effectiveEnd = calculationEnd;
-                var start = trip.FechaInicio < periodStart ? periodStart : trip.FechaInicio;
-                if (effectiveEnd <= start) return 0d;
-                return (effectiveEnd - start).TotalSeconds;
-            });
-            var coverage = ObservationCoverage.Seconds(samples.Where(x => x.IdViajeNavigation.IdUsuario == pilot.IdUsuario));
-            var drivingHours = Math.Round((decimal)coverage.Driving / 3600m, 2, MidpointRounding.AwayFromZero);
-            var coveragePercent = scheduledSeconds > 0 ? Math.Min(100m, (decimal)(coverage.Covered / scheduledSeconds * 100)) : 0m;
+            var drivingHours = Math.Round((decimal)pilot.Driving / 3600m, 2, MidpointRounding.AwayFromZero);
+            var coveragePercent = pilot.ScheduledSeconds > 0 ? Math.Min(100m, (decimal)(pilot.Covered / pilot.ScheduledSeconds * 100)) : 0m;
             var enoughGps = drivingHours >= 0.5m && coveragePercent >= 60m;
-            var enoughSensors = coverage.Covered > 0 && coverage.Calibrated / coverage.Covered >= 0.8;
+            var enoughSensors = pilot.Covered > 0 && pilot.Calibrated / pilot.Covered >= 0.8;
 
             int CountAlerts(params string[] types) => alerts
-                .Where(alert => alert.IdUsuario == pilot.IdUsuario && types.Contains(alert.TipoAlerta))
+                .Where(alert => alert.IdUsuario == pilotId && types.Contains(alert.TipoAlerta))
                 .Sum(alert => alert.Count);
 
             var speedAlerts = CountAlerts("Exceso de Velocidad");
@@ -86,17 +127,17 @@ public class EvaluacionService : IEvaluacionService
             var maneuverAlerts = CountAlerts("Aceleración Peligrosa", "Giro Brusco");
             var result = EvaluationScoreCalculator.Calculate(speedAlerts, brakingAlerts, maneuverAlerts, drivingHours);
 
-            if (!existing.TryGetValue(pilot.IdUsuario, out var evaluation))
+            if (!existing.TryGetValue(pilotId, out var evaluation))
             {
                 evaluation = new EvaluacionPilotoMensual
                 {
-                    IdUsuario = pilot.IdUsuario,
+                    IdUsuario = pilotId,
                     MesAnio = dateKey
                 };
                 _context.EvaluacionesPilotoMensuales.Add(evaluation);
             }
 
-            evaluation.TotalViajes = pilotTrips.Count;
+            evaluation.TotalViajes = pilot.TripCount;
             evaluation.AlertasVelocidad = speedAlerts;
             evaluation.AlertasFrenado = brakingAlerts;
             evaluation.AlertasManiobras = maneuverAlerts;

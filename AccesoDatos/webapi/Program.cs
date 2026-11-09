@@ -132,6 +132,7 @@ builder.Services.AddScoped<GuestWebPushService>();
 builder.Services.AddHttpClient("GuestWebPush", client => client.Timeout = TimeSpan.FromSeconds(10))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddHostedService<PushBackgroundService>();
+builder.Services.AddHostedService<MonthlyEvaluationService>();
 
 // Configuración de JWT
 var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? builder.Configuration["Jwt:Key"];
