@@ -12,6 +12,8 @@ import { DashboardHeader } from './DashboardHeader';
 import { DashboardSidebar } from './DashboardSidebar';
 import { PilotTrackingBar } from './PilotTrackingBar';
 import { PassengerInbox } from './PassengerInbox';
+import { BusQrModal } from './BusQrModal';
+import { RouteStopsModal } from './RouteStopsModal';
 import { usePilotTelemetry, type PilotNavigationState } from '../hooks/usePilotTelemetry';
 import { getDashboardStyles } from '../styles/dashboardStyles';
 import { hasValidCoordinates } from '../utils/mapSupport';
@@ -345,6 +347,8 @@ export const TelemetryDashboard: React.FC = () => {
   // Estados para el Módulo de Chat en Tiempo Real (General & Privado)
   const [chatMode, setChatMode] = useState<'general' | 'private'>('general');
   const [showPassengerInbox, setShowPassengerInbox] = useState(false);
+  const [qrBus, setQrBus] = useState<Autobus | null>(null);
+  const [stopsRoute, setStopsRoute] = useState<Ruta | null>(null);
   const [selectedChatPilotId, setSelectedChatPilotId] = useState<number>(0);
   const [selectedChatPilotName, setSelectedChatPilotName] = useState<string>('Piloto');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -2189,6 +2193,11 @@ export const TelemetryDashboard: React.FC = () => {
                         <span className="route-line" aria-hidden="true"><ArrowRight size={14} /></span>
                         <span className="route-stop is-end">{route.destino}</span>
                       </div>
+                      {canManageOperations && (
+                        <button type="button" className="pill-button is-ghost route-stops-button" onClick={() => setStopsRoute(route)}>
+                          <MapPin size={14} aria-hidden="true" /> Paradas
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -2295,6 +2304,7 @@ export const TelemetryDashboard: React.FC = () => {
                       {canManageOperations && (
                         <div className="bus-tile-actions">
                           <button type="button" className="pill-button is-ghost" onClick={() => openEditBusModal(entry.bus)}><Pencil size={14} aria-hidden="true" /> Editar</button>
+                          <button type="button" className="pill-button is-ghost" onClick={() => setQrBus(entry.bus)}><QrCode size={14} aria-hidden="true" /> QR</button>
                           {entry.trip && (
                             <button type="button" className="pill-button is-ghost" onClick={() => { setFocusedBusPlaca(entry.bus.placa); setActiveTab('map'); }}>
                               <Navigation size={14} aria-hidden="true" /> Mapa
@@ -3907,6 +3917,14 @@ export const TelemetryDashboard: React.FC = () => {
         </div>
       )}
 
+      {qrBus && <BusQrModal idAutobus={qrBus.idAutobus} placa={qrBus.placa} onClose={() => setQrBus(null)} />}
+      {stopsRoute && (
+        <RouteStopsModal
+          route={stopsRoute}
+          onClose={() => setStopsRoute(null)}
+          onSaved={(count) => { setStopsRoute(null); notify(count ? `Ruta con ${count} paradas guardada.` : 'La ruta quedó sin paradas.', 'success'); }}
+        />
+      )}
       {showPassengerInbox && <PassengerInbox readOnly={user?.tipoRol === 'Supervisor'} onClose={() => setShowPassengerInbox(false)} />}
 
       {/* Menú Contextual Flotante de Click Derecho en Mensajes */}

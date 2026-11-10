@@ -645,7 +645,7 @@ export const ChatScreen: React.FC<{
         {loading ? (
           <ActivityIndicator color={colors.accent} style={styles.loader} />
         ) : mode === 'passengers' && passengerConversations.length === 0 ? (
-          <View style={styles.emptyChat}><View style={styles.emptyIcon}><Feather name="users" size={24} color={colors.subtle} /></View><Text style={styles.emptyTitle}>Sin consultas de pasajeros</Text><Text style={styles.emptyText}>Las conversaciones del enlace público aparecerán aquí.</Text></View>
+          <View style={styles.emptyChat}><View style={styles.emptyIcon}><Feather name="users" size={24} color={colors.subtle} /></View><Text style={styles.emptyTitle}>Sin consultas de pasajeros</Text><Text style={styles.emptyText}>{isPilot ? 'El centro de control atiende a los pasajeros. Aquí verás solo las consultas que te pase o las que nadie respondió en 3 minutos.' : 'Las conversaciones del enlace público y del QR del bus aparecerán aquí.'}</Text></View>
         ) : (mode === 'passengers' ? passengerMessages : visibleMessages).length === 0 ? (
           <View style={styles.emptyChat}><View style={styles.emptyIcon}><Feather name="message-square" size={24} color={colors.subtle} /></View><Text style={styles.emptyTitle}>Sin mensajes todavía</Text><Text style={styles.emptyText}>Inicia la conversación o utiliza una respuesta rápida.</Text></View>
         ) : (mode === 'passengers' ? passengerMessages : visibleMessages).map((rawMessage) => {

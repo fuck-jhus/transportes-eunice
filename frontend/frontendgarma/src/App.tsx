@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import { PublicTripPage } from './components/PublicTripPage';
+import { PublicBusPage } from './components/PublicBusPage';
 import { PublicInfoPage } from './components/PublicInfoPage';
 
 const TelemetryDashboard = lazy(() =>
@@ -46,6 +47,9 @@ const App = () => {
 
   const publicTripMatch = window.location.pathname.match(/^\/viaje\/([A-Za-z0-9_-]{24,96})\/?$/);
   if (publicTripMatch) return <PublicTripPage token={publicTripMatch[1]} />;
+
+  const publicBusMatch = window.location.pathname.match(/^\/bus\/([A-Za-z0-9_-]{24,96})\/?$/);
+  if (publicBusMatch) return <PublicBusPage code={publicBusMatch[1]} />;
 
   return (
     <AuthProvider>

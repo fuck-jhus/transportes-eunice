@@ -13,6 +13,7 @@ interface PassengerConversation {
   unidad: string;
   fechaUltimaActividad: string;
   bloqueada: boolean;
+  derivadaPiloto?: boolean;
   noLeidos: number;
   ultimoMensaje?: string;
 }
@@ -166,6 +167,22 @@ export function PassengerInbox({ onClose, readOnly = false }: PassengerInboxProp
   };
 
   const selected = conversations.find((item) => item.idConversacion === selectedId);
+  const canDerive = !readOnly && (user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador');
+  const [deriving, setDeriving] = useState(false);
+  const deriveToPilot = async () => {
+    if (!selected || deriving) return;
+    try {
+      setDeriving(true);
+      setError('');
+      await api.post(`/conversaciones-pasajeros/${selected.idConversacion}/derivar`);
+      await loadConversations(true);
+    } catch (requestError: unknown) {
+      const apiMessage = isAxiosError<{ mensaje?: string }>(requestError) ? requestError.response?.data?.mensaje : undefined;
+      setError(apiMessage || 'No se pudo pasar la conversación al conductor.');
+    } finally {
+      setDeriving(false);
+    }
+  };
 
   return (
     <div className="passenger-inbox-backdrop" role="dialog" aria-modal="true" aria-label="Conversaciones con pasajeros">
@@ -191,6 +208,7 @@ export function PassengerInbox({ onClose, readOnly = false }: PassengerInboxProp
                 <div className="passenger-conversation-copy">
                   <div><strong>{conversation.aliasPasajero}</strong>{conversation.noLeidos > 0 && <span className="passenger-unread">{conversation.noLeidos}</span>}</div>
                   <small><BusFront size={12} /> {conversation.unidad} · {conversation.nombreRuta}</small>
+                  <span className={`passenger-owner${conversation.derivadaPiloto ? ' is-pilot' : ''}`}>{conversation.derivadaPiloto ? 'También la ve el conductor' : 'Solo centro de control'}</span>
                   <p>{conversation.ultimoMensaje || 'Conversación iniciada'}</p>
                 </div>
               </button>
@@ -201,6 +219,11 @@ export function PassengerInbox({ onClose, readOnly = false }: PassengerInboxProp
             <div className="passenger-thread-title">
               <div><strong>{selected?.aliasPasajero || 'Selecciona una consulta'}</strong><span>{selected ? `${selected.unidad} · ${selected.nombreRuta}` : 'Mensajería privada por viaje'}</span></div>
               {selected?.bloqueada && <span className="passenger-blocked">Bloqueada</span>}
+              {selected && canDerive && !selected.derivadaPiloto && !selected.bloqueada && (
+                <button type="button" className="passenger-derive" onClick={() => void deriveToPilot()} disabled={deriving}>
+                  <BusFront size={14} aria-hidden="true" /> {deriving ? 'Pasando…' : 'Pasar al conductor'}
+                </button>
+              )}
             </div>
             {selectedId && <div className="passenger-quick-replies">
               <button type="button" disabled={!messages.length} onClick={() => { nearBottom.current = false; void loadMessages(selectedId, false, messages[0]?.idMensaje); }}>Cargar mensajes anteriores</button>

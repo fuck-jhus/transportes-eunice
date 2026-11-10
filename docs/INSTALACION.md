@@ -14,8 +14,9 @@ Abre SQL Server Management Studio o `sqlcmd` y ejecuta en este orden:
 4. `AccesoDatos/webapi/Sql/20261016_integridad.sql`.
 5. `AccesoDatos/webapi/Sql/20261017_push_operations.sql`.
 6. `AccesoDatos/webapi/Sql/20261110_evaluacion_sin_calificar.sql`.
+7. `AccesoDatos/webapi/Sql/20261111_pasajeros.sql` (QR por bus, paradas de ruta y atención de pasajeros por el centro de control).
 
-Los tres últimos archivos son migraciones T-SQL, no migraciones de PostgreSQL ni comandos de Entity Framework. Ejecuta cada archivo completo, en una consulta sin transacciones pendientes. Si falla una migración, revisa el error y ejecuta `IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;` en esa misma sesión antes de corregirla y reintentar. No ignores un error para continuar con el siguiente archivo.
+Los últimos archivos de `Sql/` son migraciones T-SQL, no migraciones de PostgreSQL ni comandos de Entity Framework. Ejecuta cada archivo completo, en una consulta sin transacciones pendientes. Si falla una migración, revisa el error y ejecuta `IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;` en esa misma sesión antes de corregirla y reintentar. No ignores un error para continuar con el siguiente archivo.
 
 Los scripts `20261016_runtime_permissions.sql` y `20261016_rls.sql` son opcionales y requieren una revisión deliberada del administrador de base de datos. No actives RLS como un paso automático de instalación. La API debe ejecutar sin privilegios de modificación de esquema en producción; aplica migraciones con una identidad separada.
 

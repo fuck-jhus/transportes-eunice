@@ -13,6 +13,15 @@ interface PositionPoint {
   fechaHora: string;
 }
 
+interface StopPoint {
+  nombre: string;
+  latitud: number;
+  longitud: number;
+  pasada: boolean;
+  minutos?: number | null;
+  distanciaKm?: number | null;
+}
+
 interface PublicTrip {
   estadoViaje: string;
   nombreRuta: string;
@@ -31,12 +40,14 @@ interface PublicTrip {
   destinoLongitud?: number;
   destinoNombre?: string;
   recorrido: PositionPoint[];
+  paradas?: StopPoint[];
 }
 
 interface PublicRoute {
   coordenadas: [number, number][];
   distanciaKm: number;
   duracionMinutos: number;
+  paradas?: StopPoint[];
 }
 
 interface GuestSession { idConversacion: string; alias: string; bloqueada: boolean }
@@ -206,8 +217,10 @@ export const PublicTripPage = ({ token }: { token: string }) => {
     return () => document.removeEventListener('visibilitychange', acknowledgeVisible);
   }, [acknowledgeVisible]);
 
+  // El mapa se monta cuando la página deja de mostrar "cargando"; antes no existe su contenedor.
+  const mapReady = !loading && !error && trip !== null;
   useEffect(() => {
-    if (!mapElementRef.current || mapRef.current) return;
+    if (!mapReady || !mapElementRef.current || mapRef.current) return;
     const map = L.map(mapElementRef.current, {
       center: DEFAULT_CENTER,
       zoom: 13,
@@ -234,7 +247,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
       mapRef.current = null;
       layersRef.current = null;
     };
-  }, []);
+  }, [mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -250,7 +263,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
     }
     if (route?.coordenadas?.length) {
       const remaining = route.coordenadas.map(([lat, lng]) => [Number(lat), Number(lng)] as L.LatLngTuple);
-      L.polyline(remaining, { color: '#267485', weight: 5, opacity: 0.82, dashArray: '9 10', lineCap: 'round' }).addTo(layers);
+      L.polyline(remaining, { color: '#e8a317', weight: 5, opacity: 0.9, dashArray: '9 10', lineCap: 'round' }).addTo(layers);
       bounds.push(...remaining);
     }
     if (trip.posicionActual) {
@@ -264,9 +277,20 @@ export const PublicTripPage = ({ token }: { token: string }) => {
       L.marker(current, { icon, zIndexOffset: 1000 }).addTo(layers).bindTooltip(`Unidad ${trip.unidad}`, { direction: 'top', offset: [0, -20] });
       bounds.push(current);
     }
+    (trip.paradas || []).forEach((stop, index) => {
+      const point: L.LatLngTuple = [Number(stop.latitud), Number(stop.longitud)];
+      const icon = L.divIcon({
+        className: 'stop-pin-wrap',
+        html: `<span class="stop-pin${stop.pasada ? ' is-passed' : ''}">${index + 1}</span>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+      L.marker(point, { icon, title: stop.nombre }).addTo(layers).bindTooltip(stop.nombre, { direction: 'top', offset: [0, -12] });
+      bounds.push(point);
+    });
     if (trip.destinoLatitud && trip.destinoLongitud) {
       const destination: L.LatLngTuple = [Number(trip.destinoLatitud), Number(trip.destinoLongitud)];
-      L.circleMarker(destination, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#267485', fillOpacity: 1 }).addTo(layers)
+      L.circleMarker(destination, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1f5c46', fillOpacity: 1 }).addTo(layers)
         .bindTooltip(trip.destinoNombre || trip.destino, { direction: 'top' });
       bounds.push(destination);
     }
@@ -274,7 +298,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
       fittedRef.current = true;
       map.fitBounds(L.latLngBounds(bounds), { padding: [44, 44], maxZoom: 16 });
     }
-  }, [route, trip]);
+  }, [route, trip, mapReady]);
 
   const newestMessageId = messages.at(-1)?.idMensaje;
   useEffect(() => {
@@ -322,6 +346,12 @@ export const PublicTripPage = ({ token }: { token: string }) => {
     }
   };
 
+  const tripFinished = trip ? trip.estadoViaje !== 'En Curso' : false;
+  const tripStops = trip?.paradas ?? [];
+  const pendingStops = route?.paradas?.length
+    ? route.paradas
+    : tripStops.filter((stop) => !stop.pasada);
+  const nextStop = tripFinished ? undefined : pendingStops[0];
   const lastUpdate = trip?.posicionActual?.fechaHora
     ? new Date(trip.posicionActual.fechaHora).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })
     : 'Sin señal';
@@ -361,7 +391,9 @@ export const PublicTripPage = ({ token }: { token: string }) => {
         <div className="public-trip-metrics">
           <div><BusFront size={17} /><span><small>Unidad</small><strong>{trip.unidad}</strong></span></div>
           <div><Clock3 size={17} /><span><small>Última señal</small><strong>{lastUpdate}</strong></span></div>
-          <div><MapPin size={17} /><span><small>Restante</small><strong>{route ? `${route.distanciaKm} km` : trip.destinoLatitud && trip.destinoLongitud ? 'Calculando' : 'Por definir'}</strong></span></div>
+          {nextStop
+            ? <div className="is-next-stop"><MapPin size={17} /><span><small>Próxima parada</small><strong>{nextStop.nombre}{nextStop.minutos != null ? ` · ${nextStop.minutos} min` : ''}</strong></span></div>
+            : <div><MapPin size={17} /><span><small>Restante</small><strong>{route ? `${route.distanciaKm} km` : trip.destinoLatitud && trip.destinoLongitud ? 'Calculando' : 'Por definir'}</strong></span></div>}
         </div>
       </section>
 
@@ -371,12 +403,27 @@ export const PublicTripPage = ({ token }: { token: string }) => {
           {(!trip.ubicacionDisponible || trip.modoPrivacidad) && (
             <div className="public-map-notice"><RefreshCw size={18} /><span>{trip.estadoViaje !== 'En Curso' ? 'El viaje terminó y la ubicación ya no se comparte.' : trip.modoPrivacidad ? 'El conductor pausó temporalmente la ubicación.' : 'Esperando la primera señal GPS del viaje.'}</span></div>
           )}
-          {route && <div className="public-route-eta"><Navigation size={16} /><div><small>Tiempo aproximado</small><strong>{route.duracionMinutos} min</strong></div></div>}
+          {route && <div className="public-route-eta"><Navigation size={16} /><div><small>Llegada a {trip.destinoNombre || trip.destino}</small><strong>{route.duracionMinutos} min</strong></div></div>}
+          {tripStops.length > 0 && (
+            <ol className="public-stops" aria-label="Paradas del recorrido">
+              {tripStops.map((stop, index) => {
+                const estimate = route?.paradas?.find((item) => item.nombre === stop.nombre && item.latitud === stop.latitud);
+                const isNext = !tripFinished && nextStop?.nombre === stop.nombre && nextStop.latitud === stop.latitud;
+                return (
+                  <li key={`${stop.nombre}-${index}`} className={stop.pasada ? 'is-passed' : isNext ? 'is-next' : ''}>
+                    <span className="public-stops-dot" aria-hidden="true" />
+                    <span className="public-stops-name">{stop.nombre}</span>
+                    <span className="public-stops-time">{stop.pasada ? 'Pasó' : estimate?.minutos != null ? `${estimate.minutos} min` : ''}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </section>
 
         <aside className="public-chat-card">
-          <div className="public-chat-header"><span><MessageCircle size={20} /></span><div><h2>Habla con tu conductor</h2><p>{session ? `Conectado como ${session.alias}` : 'Canal privado disponible'}</p></div></div>
-          <div className="public-chat-safety"><ShieldCheck size={15} /><span>La conversación es privada y también puede ser atendida por el centro de control.</span></div>
+          <div className="public-chat-header"><span><MessageCircle size={20} /></span><div><h2>Escribe a Transportes Eunice</h2><p>{session ? `Conectado como ${session.alias}` : 'Canal privado disponible'}</p></div></div>
+          <div className="public-chat-safety"><ShieldCheck size={15} /><span>Te atiende el centro de control. Si hace falta, le pasa tu mensaje al conductor cuando sea seguro.</span></div>
           {chatError && <div className="public-chat-error">{chatError}</div>}
           {session && trip.chatHabilitado && !session.bloqueada && <GuestPushControls key={`${token}:${session.idConversacion}`} token={token} />}
           <div className="public-chat-messages" aria-live="polite" onScroll={event => {
@@ -386,7 +433,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
           }}>
             {messages.length > 0 && <button type="button" onClick={() => { nearBottomRef.current = false; void fetchMessages(messages[0]?.idMensaje); }}>Cargar mensajes anteriores</button>}
             {messages.length === 0 ? (
-              <div className="public-chat-empty"><MessageCircle size={25} /><strong>¿Necesitas ayuda con el viaje?</strong><span>Envía un mensaje. El conductor responderá cuando sea seguro hacerlo.</span></div>
+              <div className="public-chat-empty"><MessageCircle size={25} /><strong>¿Necesitas ayuda con el viaje?</strong><span>Escribe tu consulta y el centro de control te responde por aquí.</span></div>
             ) : messages.map((item) => {
               const mine = item.tipoEmisor === 'Pasajero';
               return <div key={item.idMensaje} className={`public-message-row ${mine ? 'mine' : ''}`}><div className="public-message"><small>{mine ? 'Tú' : item.nombreEmisor}</small><p>{item.contenido}</p><time>{new Date(item.fechaHora).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}</time></div></div>;
