@@ -1745,19 +1745,18 @@ export const TelemetryDashboard: React.FC = () => {
         activeTab={activeTab}
         isDark={isDark}
         role={user?.tipoRol}
+        userName={user?.nombreCompleto}
         onTabChange={setActiveTab}
+        onToggleTheme={toggleTheme}
         onLogout={handleLogout}
       />
 
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
       <main className="main-content" style={mainContentWrapperStyle}>
-        <DashboardHeader
-          activeTab={activeTab}
-          isDark={isDark}
-          user={user}
-          onToggleTheme={toggleTheme}
-        />
+        {activeTab !== 'map' && activeTab !== 'telemetry' && (
+          <DashboardHeader activeTab={activeTab} isDark={isDark} />
+        )}
 
         {user?.tipoRol === 'Piloto' && (
           <PilotTrackingBar
@@ -1770,262 +1769,106 @@ export const TelemetryDashboard: React.FC = () => {
 
         {/* VISTA DE TRACKING SPLIT-SCREEN (MAPA + LISTA DE UNIDADES SAAS) */}
         {(activeTab === 'map' || activeTab === 'telemetry') && (
-          <div className="tracking-grid" style={{ display: 'flex', gap: '24px', width: '100%', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <section className="fleet-quickbar" aria-label="Resumen de flota">
-              <div className="quickbar-lead"><span className="section-eyebrow"><Navigation size={13} /> Pulso de la operación</span><strong>Flota en movimiento</strong></div>
-              <div className="quickbar-metric"><span>Transmitiendo</span><strong>{getDeduplicatedLiveBuses(liveBuses).filter(b => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud)).length}</strong></div>
-              <div className="quickbar-metric"><span>Flota registrada</span><strong>{getTrackingFleet().length}</strong></div>
-              <div className="quickbar-metric"><span>Privacidad</span><strong>{getDeduplicatedLiveBuses(liveBuses).filter(b => b.isPrivacyMode).length}</strong></div>
-              <div className="quickbar-metric"><span>Sin señal GPS</span><strong>{getTrackingFleet().filter(b => !b.isPrivacyMode && (!isTelemetryFresh(b, freshnessTimestamp) || !hasValidCoordinates(b.latitud, b.longitud))).length}</strong></div>
-              <div className="quickbar-sync"><Radio size={14} /><span>{lastTelemetrySyncAt ? `Actualizado ${new Date(lastTelemetrySyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Sin sincronizar'}</span></div>
-            </section>
-            {/* Columna Izquierda: Feed de Vehículos / Bookings */}
-            <div className="fleet-panel" style={{
-              width: '360px',
-              maxWidth: '100%',
-              backgroundColor: 'var(--surface)',
-              borderRadius: '20px',
-              border: `1px solid ${'var(--line)'}`,
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              boxShadow: isDark ? '0 4px 20px -2px rgba(0, 0, 0, 0.4)' : '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-              boxSizing: 'border-box',
-              maxHeight: 'calc(100vh - 160px)',
-              overflowY: 'auto'
-            }}>
-              {/* Toggle Pills: [ En Ruta ] [ Flota Completa ] */}
-              <div style={{
-                display: 'flex',
-                backgroundColor: 'var(--surface-soft)',
-                padding: '4px',
-                borderRadius: '12px',
-                gap: '4px'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setTrackingTabFilter('active')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '9px',
-                    border: 'none',
-                    backgroundColor: trackingTabFilter === 'active' ? 'var(--accent)' : 'transparent',
-                    color: trackingTabFilter === 'active' ? 'var(--on-accent)' : 'var(--muted)',
-                    fontWeight: 600,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    boxShadow: trackingTabFilter === 'active' ? '0 7px 18px var(--accent-shadow)' : 'none',
-                    transition: 'all 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Radio size={14} />
-                  <span>En Vivo ({getDeduplicatedLiveBuses(liveBuses).filter(b => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud)).length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTrackingTabFilter('all')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '9px',
-                    border: 'none',
-                    backgroundColor: trackingTabFilter === 'all' ? 'var(--accent)' : 'transparent',
-                    color: trackingTabFilter === 'all' ? 'var(--on-accent)' : 'var(--muted)',
-                    fontWeight: 600,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    boxShadow: trackingTabFilter === 'all' ? '0 7px 18px var(--accent-shadow)' : 'none',
-                    transition: 'all 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Bus size={14} />
-                  <span>Flota ({getTrackingFleet().length})</span>
-                </button>
-              </div>
+          <div className={`ops-live${canMonitorOperations ? '' : ' is-pilot'}`}>
+            {canMonitorOperations && (() => {
+              const fleet = getTrackingFleet();
+              const isTracking = (b: LiveTelemetryData) => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud);
+              const trackingCount = fleet.filter(isTracking).length;
+              const privacyCount = getDeduplicatedLiveBuses(liveBuses).filter(b => b.isPrivacyMode).length;
+              const noSignalCount = fleet.filter(b => !b.isPrivacyMode && !isTracking(b)).length;
+              const speedingCount = fleet.filter(b => isTracking(b) && (b.velocidadKmh || 0) > 80).length;
+              const query = trackingSearchQuery.trim().toLowerCase();
+              const visible = (trackingTabFilter === 'active' ? fleet.filter(isTracking) : fleet).filter(b => !query
+                || b.placaAutobus?.toLowerCase().includes(query)
+                || b.nombrePiloto?.toLowerCase().includes(query)
+                || b.nombreRuta?.toLowerCase().includes(query));
+              const routeLabel = (b: LiveTelemetryData) => b.isOffline
+                ? (b.marcaModelo || 'Sin conexión')
+                : (b.destinoNombre ? `Hacia ${b.destinoNombre}` : (b.nombreRuta && b.nombreRuta !== 'N/D' && b.nombreRuta !== 'Sin Ruta Asignada' ? b.nombreRuta : 'Sin ruta asignada'));
 
-              {/* Input de Búsqueda */}
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  placeholder="Buscar unidad, piloto o ruta..."
-                  value={trackingSearchQuery}
-                  onChange={(e) => setTrackingSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px 10px 38px',
-                    borderRadius: '10px',
-                    border: `1.5px solid ${'var(--line)'}`,
-                    backgroundColor: 'var(--surface-soft)',
-                    color: 'var(--ink)',
-                    fontSize: '0.85rem',
-                    fontWeight: 500,
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                <span style={{ position: 'absolute', left: '12px', top: '11px', color: 'var(--subtle)', display: 'flex', alignItems: 'center' }}>
-                  <Search size={16} />
-                </span>
-              </div>
+              return (
+                <aside className="ops-rail" aria-label="Unidades de la flota">
+                  <div className="ops-rail-head">
+                    <h1>Flota en vivo</h1>
+                    <span className="ops-sync"><Radio size={13} aria-hidden="true" />
+                      {lastTelemetrySyncAt ? new Date(lastTelemetrySyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sin sincronizar'}
+                    </span>
+                  </div>
 
-              {/* Lista de Tarjetas */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {(() => {
-                  const busList = getTrackingFleet();
-                  const filtered = (trackingTabFilter === 'active'
-                    ? busList.filter(b => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud))
-                    : busList
-                  ).filter(b => {
-                    if (!trackingSearchQuery) return true;
-                    const q = trackingSearchQuery.toLowerCase();
-                    return (
-                      b.placaAutobus?.toLowerCase().includes(q) ||
-                      b.nombrePiloto?.toLowerCase().includes(q) ||
-                      b.nombreRuta?.toLowerCase().includes(q)
-                    );
-                  });
+                  <div className="ops-chips">
+                    <span className="ops-chip is-ok">{trackingCount} en línea</span>
+                    {noSignalCount > 0 && <span className="ops-chip is-warn">{noSignalCount} sin GPS</span>}
+                    {speedingCount > 0 && <span className="ops-chip is-alert">{speedingCount} con exceso</span>}
+                    {privacyCount > 0 && <span className="ops-chip">{privacyCount} en privacidad</span>}
+                  </div>
 
-                  if (filtered.length === 0) {
-                    return (
-                      <div style={{ textAlign: 'center', color: 'var(--subtle)', fontSize: '0.85rem', padding: '30px 10px' }}>
-                        {trackingTabFilter === 'active' ? 'No hay unidades transmitiendo en este momento.' : 'No se encontraron unidades registradas.'}
-                      </div>
-                    );
-                  }
+                  <label className="ops-search">
+                    <Search size={16} aria-hidden="true" />
+                    <input
+                      type="search"
+                      placeholder="Placa, piloto o ruta"
+                      aria-label="Buscar unidad, piloto o ruta"
+                      value={trackingSearchQuery}
+                      onChange={(e) => setTrackingSearchQuery(e.target.value)}
+                    />
+                  </label>
 
-                  return filtered.map((bus) => {
-                    const isPriv = Boolean(bus.isPrivacyMode);
-                    const isFresh = isTelemetryFresh(bus, freshnessTimestamp);
-                    const hasPosition = isFresh && hasValidCoordinates(bus.latitud, bus.longitud);
-                    const isStale = !bus.isOffline && !isPriv && !isFresh;
-                    return (
-                      <div
-                        className={`fleet-tracking-card${bus.isOffline ? ' is-offline' : ''}`}
-                        key={bus.placaAutobus}
-                        role={hasPosition ? 'button' : undefined}
-                        tabIndex={hasPosition ? 0 : undefined}
-                        aria-label={hasPosition ? `Enfocar unidad ${bus.placaAutobus} en el mapa` : undefined}
-                        aria-pressed={hasPosition ? focusedBusPlaca === bus.placaAutobus : undefined}
-                        onClick={() => {
-                          if (hasPosition) setFocusedBusPlaca(bus.placaAutobus);
-                        }}
-                        onKeyDown={(event) => {
-                          if (hasPosition && (event.key === 'Enter' || event.key === ' ')) {
-                            event.preventDefault();
-                            setFocusedBusPlaca(bus.placaAutobus);
-                          }
-                        }}
-                        style={{
-                          backgroundColor: 'var(--surface)',
-                          border: `1px solid ${'var(--line)'}`,
-                          borderRadius: '16px',
-                          padding: '16px',
-                          cursor: hasPosition ? 'pointer' : 'default',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '12px',
-                          boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
-                          userSelect: 'none'
-                        }}
-                      >
-                        {/* Header: Placa */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--muted)' }}>
-                            Unidad Asignada
+                  <div className="ops-segment" role="group" aria-label="Qué unidades mostrar">
+                    <button type="button" aria-pressed={trackingTabFilter === 'active'} onClick={() => setTrackingTabFilter('active')}>
+                      En ruta <span>{trackingCount}</span>
+                    </button>
+                    <button type="button" aria-pressed={trackingTabFilter === 'all'} onClick={() => setTrackingTabFilter('all')}>
+                      Toda la flota <span>{fleet.length}</span>
+                    </button>
+                  </div>
+
+                  <ul className="ops-list">
+                    {visible.length === 0 && (
+                      <li className="ops-empty">
+                        {query ? 'Ninguna unidad coincide con la búsqueda.' : (trackingTabFilter === 'active' ? 'No hay unidades transmitiendo ahora.' : 'Aún no hay unidades registradas.')}
+                      </li>
+                    )}
+                    {visible.map((bus) => {
+                      const hasPosition = isTracking(bus);
+                      const speed = bus.velocidadKmh || 0;
+                      const state = !hasPosition ? 'off' : speed > 80 ? 'alert' : speed > 50 ? 'warn' : 'ok';
+                      const statusText = bus.isPrivacyMode ? 'Privacidad' : bus.isOffline ? 'Fuera de línea' : !isTelemetryFresh(bus, freshnessTimestamp) ? 'Sin señal' : 'Sin GPS';
+                      const content = (
+                        <>
+                          <span className="ops-unit-top">
+                            <strong>{bus.placaAutobus}</strong>
+                            {hasPosition
+                              ? <span className="ops-speed" style={speedChipColors(speed)}>{speed} km/h</span>
+                              : <span className="ops-speed is-off">{statusText}</span>}
                           </span>
-                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--ink)' }}>
-                            {bus.placaAutobus}
-                          </span>
-                        </div>
-
-                        {/* Driver Info */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '12px',
-                            backgroundColor: 'var(--surface-soft)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 700,
-                            fontSize: '0.9rem',
-                            color: 'var(--accent)',
-                            border: `1px solid ${'var(--line)'}`
-                          }}>
-                            {bus.nombrePiloto?.charAt(0) || 'P'}
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--ink)' }}>
-                              {bus.nombrePiloto || 'Piloto'}
-                            </span>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                              {bus.isOffline
-                                ? (bus.marcaModelo || 'Unidad registrada · sin conexión')
-                                : (bus.destinoNombre ? `Destino: ${bus.destinoNombre}` : (bus.nombreRuta && bus.nombreRuta !== 'N/D' && bus.nombreRuta !== 'Sin Ruta Asignada' ? `Ruta: ${bus.nombreRuta}` : 'Sin ruta asignada'))}
-                            </span>
-                          </div>
-                          {hasPosition && (
-                            <div style={{
-                              ...speedChipColors(bus.velocidadKmh),
-                              borderRadius: '999px',
-                              padding: '3px 8px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700
-                            }}>
-                              {bus.velocidadKmh || 0} km/h
-                            </div>
+                          <span className="ops-unit-sub">{bus.nombrePiloto || 'Sin piloto'} · {routeLabel(bus)}</span>
+                        </>
+                      );
+                      return (
+                        <li key={bus.placaAutobus}>
+                          {hasPosition ? (
+                            <button
+                              type="button"
+                              className="ops-unit"
+                              data-state={state}
+                              aria-pressed={focusedBusPlaca === bus.placaAutobus}
+                              aria-label={`Ver ${bus.placaAutobus} en el mapa`}
+                              onClick={() => setFocusedBusPlaca(bus.placaAutobus)}
+                            >
+                              {content}
+                            </button>
+                          ) : (
+                            <div className="ops-unit" data-state={state}>{content}</div>
                           )}
-                        </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </aside>
+              );
+            })()}
 
-                        {/* Footer con Estado */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: `1px solid ${isDark ? '#374151' : '#f1f5f9'}` }}>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--subtle)' }}>
-                            {bus.fechaHoraDispositivo
-                              ? new Date(bus.fechaHoraDispositivo).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                              : (bus.isOffline ? 'Sin transmisión reciente' : 'En línea')}
-                          </span>
-                          <span style={{
-                            backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : ('var(--surface-soft)'),
-                            border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : ('var(--line)')}`,
-                            color: hasPosition ? ('var(--success)') : ('var(--muted)'),
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            padding: '3px 10px',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            {hasPosition ? (
-                              <>
-                                <Radio size={12} />
-                                <span>En Rastreo</span>
-                              </>
-                            ) : (
-                              <span>{isPriv ? 'Privacidad' : (bus.isOffline ? 'Fuera de línea' : (isStale ? 'Sin señal reciente' : 'GPS no disponible'))}</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-
-            {/* Columna Derecha: Mapa Interactivo con Tarjeta Flotante */}
-            <div className="map-panel" style={{ flex: 1, minWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
+            <section className="ops-map" aria-label="Mapa en vivo">
               <GoogleMapWeb
                 buses={(() => {
                   const activeMap = new Map<string, LiveTelemetryData>();
@@ -2089,125 +1932,45 @@ export const TelemetryDashboard: React.FC = () => {
                 onSavePilotRoute={handleSavePilotRoute}
               />
 
-              {/* Tarjeta Flotante Inferior en el Mapa (Overlay SaaS) */}
-              {(() => {
+              {canMonitorOperations && (() => {
                 const focusedBus = (focusedBusPlaca ? liveBuses[focusedBusPlaca] : undefined)
                   || Object.values(liveBuses).find(b => !b.isPrivacyMode && hasValidCoordinates(b.latitud, b.longitud));
-
                 if (!focusedBus) return null;
 
-                const isPriv = Boolean(focusedBus.isPrivacyMode);
-                const hasPosition = hasValidCoordinates(focusedBus.latitud, focusedBus.longitud);
+                const hasPosition = !focusedBus.isPrivacyMode && hasValidCoordinates(focusedBus.latitud, focusedBus.longitud);
+                const speed = focusedBus.velocidadKmh || 0;
+                const hasNavRoute = Boolean(hasPosition && focusedBus.isTripActive && hasValidCoordinates(focusedBus.destinoLat, focusedBus.destinoLng));
+                const showingRoute = activeLiveRoutePlaca === focusedBus.placaAutobus;
 
                 return (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '24px',
-                    left: '24px',
-                    right: '24px',
-                    backgroundColor: 'var(--surface)',
-                    border: `1px solid ${'var(--line)'}`,
-                    borderRadius: '18px',
-                    padding: '16px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    boxShadow: isDark ? '0 10px 30px -5px rgba(0, 0, 0, 0.6)' : '0 10px 30px -5px rgba(0, 0, 0, 0.15)',
-                    zIndex: 500,
-                    flexWrap: 'wrap',
-                    gap: '14px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <div style={{
-                        width: '46px',
-                        height: '46px',
-                        borderRadius: '14px',
-                        backgroundColor: 'var(--accent-soft)',
-                        border: '1px solid var(--accent-line)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                        fontSize: '1rem',
-                        color: 'var(--accent)'
-                      }}>
-                        {focusedBus.nombrePiloto?.charAt(0) || 'P'}
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <strong style={{ fontSize: '0.98rem', color: 'var(--ink)' }}>{focusedBus.nombrePiloto}</strong>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--accent)', backgroundColor: 'var(--accent-soft)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                            Piloto
-                          </span>
-                        </div>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--muted)' }}>
-                          Ruta: <strong>{focusedBus.nombreRuta || 'Ruta Principal'}</strong> • Autobús: <strong>{focusedBus.placaAutobus}</strong>
-                        </p>
-                      </div>
+                  <div className="ops-focus" data-state={!hasPosition ? 'off' : speed > 80 ? 'alert' : speed > 50 ? 'warn' : 'ok'}>
+                    <div className="ops-focus-id">
+                      <span>{focusedBus.nombrePiloto || 'Sin piloto'}</span>
+                      <strong>{focusedBus.placaAutobus}</strong>
+                      <span>{focusedBus.destinoNombre ? `Hacia ${focusedBus.destinoNombre}` : (focusedBus.nombreRuta || 'Sin ruta asignada')}</span>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {hasPosition && (
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Velocidad</div>
-                          <strong style={{ fontSize: '1rem', color: speedChipColors(focusedBus.velocidadKmh).color }}>{focusedBus.velocidadKmh || 0} km/h</strong>
-                        </div>
+                    <div className="ops-focus-speed">
+                      {hasPosition ? (
+                        <>
+                          <strong style={{ color: speedChipColors(speed).color }}>{speed}</strong>
+                          <span>km/h{speed > 80 ? ' · exceso' : ''}</span>
+                        </>
+                      ) : (
+                        <span>{focusedBus.isPrivacyMode ? 'En privacidad' : 'Sin GPS'}</span>
                       )}
-                      <span style={{
-                        backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : ('var(--surface-soft)'),
-                        border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : ('var(--line)')}`,
-                        color: hasPosition ? ('var(--success)') : ('var(--muted)'),
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        padding: '5px 12px',
-                        borderRadius: '8px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        {hasPosition ? (
-                          <>
-                            <Radio size={12} />
-                            <span>En Rastreo</span>
-                          </>
-                        ) : (
-                          <span>{isPriv ? 'Privacidad' : 'GPS no disponible'}</span>
-                        )}
-                      </span>
-                      {(() => {
-                        const hasNavRoute = Boolean(hasPosition && focusedBus.isTripActive && hasValidCoordinates(focusedBus.destinoLat, focusedBus.destinoLng));
-                        return (
-                          <button
-                            type="button"
-                            disabled={!hasNavRoute}
-                            onClick={() => {
-                              if (!hasNavRoute) return;
-                              handleToggleLiveRoute(focusedBus.placaAutobus);
-                            }}
-                            style={{
-                              backgroundColor: activeLiveRoutePlaca === focusedBus.placaAutobus ? '#ef4444' : (hasNavRoute ? 'var(--accent)' : '#64748b'),
-                              color: activeLiveRoutePlaca !== focusedBus.placaAutobus && hasNavRoute ? 'var(--on-accent)' : '#ffffff',
-                              border: 'none',
-                              borderRadius: '10px',
-                              padding: '8px 14px',
-                              fontSize: '0.8rem',
-                              fontWeight: 600,
-                              cursor: hasNavRoute ? 'pointer' : 'default',
-                              opacity: hasNavRoute ? 1 : 0.65,
-                              pointerEvents: hasNavRoute ? 'auto' : 'none',
-                              boxShadow: hasNavRoute ? '0 7px 18px var(--accent-shadow)' : 'none',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            {activeLiveRoutePlaca === focusedBus.placaAutobus ? 'Ocultar Recorrido' : (hasNavRoute ? 'Trazar Recorrido' : 'Sin Ruta Establecida')}
-                          </button>
-                        );
-                      })()}
                     </div>
+                    <button
+                      type="button"
+                      className={showingRoute ? 'ops-button is-secondary' : 'ops-button'}
+                      disabled={!hasNavRoute && !showingRoute}
+                      onClick={() => handleToggleLiveRoute(focusedBus.placaAutobus)}
+                    >
+                      {showingRoute ? 'Ocultar recorrido' : (hasNavRoute ? 'Ver recorrido' : 'Sin destino fijado')}
+                    </button>
                   </div>
                 );
               })()}
-            </div>
+            </section>
           </div>
         )}
 

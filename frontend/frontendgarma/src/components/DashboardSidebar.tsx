@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BarChart3, Bus, ClipboardList, LogOut, MapPinned, MessageSquare, Navigation, Users } from 'lucide-react';
+import { BarChart3, Bus, ClipboardList, LogOut, MapPinned, MessageSquare, Moon, Navigation, Sun, Users } from 'lucide-react';
 import { getDashboardStyles } from '../styles/dashboardStyles';
 import type { DashboardTab, ManagedUser } from '../types/dashboard';
 
@@ -7,7 +7,9 @@ interface DashboardSidebarProps {
   activeTab: DashboardTab;
   isDark: boolean;
   role?: ManagedUser['tipoRol'];
+  userName?: string;
   onTabChange: (tab: DashboardTab) => void;
+  onToggleTheme: () => void;
   onLogout: () => void;
 }
 
@@ -15,7 +17,9 @@ export const DashboardSidebar = ({
   activeTab,
   isDark,
   role,
+  userName,
   onTabChange,
+  onToggleTheme,
   onLogout,
 }: DashboardSidebarProps) => {
   const styles = getDashboardStyles(isDark);
@@ -92,12 +96,21 @@ export const DashboardSidebar = ({
         </nav>
       </div>
 
-      <div className="sidebar-actions" style={{
-        paddingTop: '16px', borderTop: '1px solid var(--nav-line)',
-        display: 'flex', flexDirection: 'column', gap: '8px'
-      }}>
-        <button type="button" onClick={onLogout} style={styles.sidebarLogoutButtonStyle}>
-          <LogOut size={18} /><span>Cerrar Sesión</span>
+      <div className="sidebar-actions">
+        <button type="button" className="topbar-icon-button" onClick={onToggleTheme}
+          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          title={isDark ? 'Modo claro' : 'Modo oscuro'}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+        <div className="topbar-user" title={userName}>
+          <span className="topbar-user-avatar" aria-hidden="true">{userName?.trim().charAt(0).toUpperCase() || 'U'}</span>
+          <span className="topbar-user-copy">
+            <strong>{userName || 'Usuario'}</strong>
+            <span>{role}</span>
+          </span>
+        </div>
+        <button type="button" className="topbar-icon-button" onClick={onLogout} aria-label="Cerrar sesión" title="Cerrar sesión">
+          <LogOut size={18} />
         </button>
       </div>
     </aside>

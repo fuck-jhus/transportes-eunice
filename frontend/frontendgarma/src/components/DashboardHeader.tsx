@@ -1,12 +1,9 @@
-import { Moon, Sun } from 'lucide-react';
 import { getDashboardStyles } from '../styles/dashboardStyles';
-import type { DashboardTab, ManagedUser } from '../types/dashboard';
+import type { DashboardTab } from '../types/dashboard';
 
 interface DashboardHeaderProps {
   activeTab: DashboardTab;
   isDark: boolean;
-  user?: Pick<ManagedUser, 'nombreCompleto' | 'tipoRol'> | null;
-  onToggleTheme: () => void;
 }
 
 const TITLES: Record<DashboardTab, string> = {
@@ -33,32 +30,13 @@ const SUBTITLES: Record<DashboardTab, string> = {
   trips: 'Planifica salidas, asignaciones y cierres de viaje.',
 };
 
-export const DashboardHeader = ({ activeTab, isDark, user, onToggleTheme }: DashboardHeaderProps) => {
+export const DashboardHeader = ({ activeTab, isDark }: DashboardHeaderProps) => {
   const styles = getDashboardStyles(isDark);
   return (
-    <header className="top-header" style={styles.topHeaderBarStyle}>
+    <header className="top-header page-header" style={styles.topHeaderBarStyle}>
       <div className="page-heading">
-        <span className="page-context">Centro de control / {activeTab === 'map' || activeTab === 'telemetry' ? 'En vivo' : TITLES[activeTab]}</span>
         <h1 style={styles.topHeaderTitleStyle}>{TITLES[activeTab]}</h1>
         <p style={styles.topHeaderSubtitleStyle}>{SUBTITLES[activeTab]}</p>
-      </div>
-      <div className="header-actions" style={styles.topHeaderRightStyle}>
-        <button className="theme-toggle" type="button" onClick={onToggleTheme} title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} style={{
-          display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--surface)',
-          border: '1px solid var(--line)', borderRadius: '11px', padding: '8px 13px',
-          color: 'var(--ink)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
-          boxShadow: 'none'
-        }}>
-          {isDark ? <Sun size={17} /> : <Moon size={17} />}
-          <span>{isDark ? 'Modo Claro' : 'Modo Oscuro'}</span>
-        </button>
-        <div className="user-profile-chip" style={styles.userProfileChipStyle}>
-          <div style={styles.userAvatarInitialsStyle}>{user?.nombreCompleto?.charAt(0) || 'U'}</div>
-          <div className="user-profile-copy" style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={styles.userProfileNameStyle}>{user?.nombreCompleto}</span>
-            <span style={styles.userProfileRoleStyle}>{user?.tipoRol}</span>
-          </div>
-        </div>
       </div>
     </header>
   );
