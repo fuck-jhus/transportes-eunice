@@ -63,7 +63,7 @@ namespace webapi.Services
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var normalizedLogin = dto.UsuarioLogin.Trim();
-            if (string.Equals(normalizedLogin, "superadmin", StringComparison.OrdinalIgnoreCase)
+            if (UserAccounts.IsSuperAdminLogin(normalizedLogin)
                 || UserAccounts.IsDeletedLogin(normalizedLogin))
             {
                 throw new InvalidOperationException("Ese nombre de usuario está reservado por el sistema.");
@@ -120,12 +120,12 @@ namespace webapi.Services
             if (UserAccounts.IsDeletedLogin(normalizedLogin)
                 && !string.Equals(usuario.UsuarioLogin, normalizedLogin, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Ese nombre de usuario está reservado por el sistema.");
-            var isProtectedAccount = string.Equals(usuario.UsuarioLogin, "superadmin", StringComparison.OrdinalIgnoreCase);
-            if (isProtectedAccount && !string.Equals(normalizedLogin, "superadmin", StringComparison.OrdinalIgnoreCase))
+            var isProtectedAccount = UserAccounts.IsSuperAdminLogin(usuario.UsuarioLogin);
+            if (isProtectedAccount && !UserAccounts.IsSuperAdminLogin(normalizedLogin))
             {
                 throw new InvalidOperationException("La cuenta principal no puede cambiar su nombre de usuario.");
             }
-            if (!isProtectedAccount && string.Equals(normalizedLogin, "superadmin", StringComparison.OrdinalIgnoreCase))
+            if (!isProtectedAccount && UserAccounts.IsSuperAdminLogin(normalizedLogin))
             {
                 throw new InvalidOperationException("Ese nombre de usuario está reservado por el sistema.");
             }
@@ -154,7 +154,7 @@ namespace webapi.Services
                 usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(dto.Contrasena);
             }
 
-            var finalizedTrips = usuario.TipoRol != "Piloto" || usuario.Estado != "Activo"
+            var finalizedTrips = usuario.TipoRol != RolesUsuario.Piloto || usuario.Estado != EstadosRegistro.Activo
                 ? await FinalizeActiveTripsAsync(usuario)
                 : [];
 
@@ -186,7 +186,7 @@ namespace webapi.Services
             if (usuario == null) return (false, []);
 
             usuario.Estado = nuevoEstado;
-            var finalizedTrips = nuevoEstado != "Activo"
+            var finalizedTrips = nuevoEstado != EstadosRegistro.Activo
                 ? await FinalizeActiveTripsAsync(usuario)
                 : [];
             await _context.SaveChangesAsync();
@@ -238,7 +238,7 @@ namespace webapi.Services
 
             if (tieneHistorial)
             {
-                usuario.Estado = "Inactivo";
+                usuario.Estado = EstadosRegistro.Inactivo;
                 usuario.NombreCompleto = "Cuenta eliminada";
                 var deletedLogin = $"deleted_{id}_{Guid.NewGuid():N}";
                 usuario.UsuarioLogin = deletedLogin[..Math.Min(50, deletedLogin.Length)];
@@ -317,7 +317,7 @@ namespace webapi.Services
         {
             var activeTrips = await _context.ViajesDiarios
                 .Include(trip => trip.IdAutobusNavigation)
-                .Where(trip => trip.IdUsuario == user.IdUsuario && trip.EstadoViaje == "En Curso")
+                .Where(trip => trip.IdUsuario == user.IdUsuario && trip.EstadoViaje == EstadosViaje.EnCurso)
                 .ToListAsync();
 
             foreach (var trip in activeTrips)

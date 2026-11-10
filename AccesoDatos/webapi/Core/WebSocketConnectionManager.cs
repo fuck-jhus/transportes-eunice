@@ -85,7 +85,7 @@ namespace webapi.Core
             lock (_lock)
             {
                 targets = _connections.Where(c => c.Socket.State == WebSocketState.Open
-                    && c.Rol is "Administrador" or "SuperAdministrador" or "Supervisor").ToList();
+                    && c.Rol is RolesUsuario.Administrador or RolesUsuario.SuperAdministrador or RolesUsuario.Supervisor).ToList();
             }
             await SendToSocketsAsync(targets, new
             {
@@ -157,9 +157,9 @@ namespace webapi.Core
                 _connections.RemoveAll(c => c.Socket.State != WebSocketState.Open);
                 // Las alertas se envían a los perfiles operativos y al piloto involucrado.
                 targets = _connections.Where(c => 
-                    c.Rol == "Administrador" || 
-                    c.Rol == "SuperAdministrador" || 
-                    c.Rol == "Supervisor" || 
+                    c.Rol == RolesUsuario.Administrador || 
+                    c.Rol == RolesUsuario.SuperAdministrador || 
+                    c.Rol == RolesUsuario.Supervisor || 
                     (idPilotoAfectado.HasValue && c.UserId == idPilotoAfectado.Value)
                 ).ToList();
             }
@@ -215,9 +215,9 @@ namespace webapi.Core
                 }
                 // Telemetría en vivo para monitores autorizados (panel de control / flota)
                 targets = _connections.Where(c => 
-                    c.Rol == "Administrador" || 
-                    c.Rol == "SuperAdministrador" || 
-                    c.Rol == "Supervisor"
+                    c.Rol == RolesUsuario.Administrador || 
+                    c.Rol == RolesUsuario.SuperAdministrador || 
+                    c.Rol == RolesUsuario.Supervisor
                 ).ToList();
             }
 
@@ -246,9 +246,9 @@ namespace webapi.Core
                 {
                     // Canal Privado: SOLO Administradores, Supervisores y el Piloto específico involucrado
                     targets = _connections.Where(c => 
-                        c.Rol == "Administrador" || 
-                        c.Rol == "SuperAdministrador" || 
-                        c.Rol == "Supervisor" || 
+                        c.Rol == RolesUsuario.Administrador || 
+                        c.Rol == RolesUsuario.SuperAdministrador || 
+                        c.Rol == RolesUsuario.Supervisor || 
                         c.UserId == idPilotoCanal || 
                         c.UserId == idEmisor
                     ).ToList();
@@ -278,9 +278,9 @@ namespace webapi.Core
                 else
                 {
                     targets = _connections.Where(c => 
-                        c.Rol == "Administrador" || 
-                        c.Rol == "SuperAdministrador" || 
-                        c.Rol == "Supervisor" || 
+                        c.Rol == RolesUsuario.Administrador || 
+                        c.Rol == RolesUsuario.SuperAdministrador || 
+                        c.Rol == RolesUsuario.Supervisor || 
                         c.UserId == idPilotoCanal
                     ).ToList();
                 }
@@ -302,9 +302,9 @@ namespace webapi.Core
             {
                 _connections.RemoveAll(connection => connection.Socket.State != WebSocketState.Open);
                 targets = _connections.Where(connection =>
-                    connection.Rol == "Administrador" ||
-                    connection.Rol == "SuperAdministrador" ||
-                    connection.Rol == "Supervisor" ||
+                    connection.Rol == RolesUsuario.Administrador ||
+                    connection.Rol == RolesUsuario.SuperAdministrador ||
+                    connection.Rol == RolesUsuario.Supervisor ||
                     connection.UserId == pilotUserId
                 ).ToList();
             }
@@ -330,9 +330,9 @@ namespace webapi.Core
                 else
                 {
                     targets = _connections.Where(c => 
-                        c.Rol == "Administrador" || 
-                        c.Rol == "SuperAdministrador" || 
-                        c.Rol == "Supervisor" || 
+                        c.Rol == RolesUsuario.Administrador || 
+                        c.Rol == RolesUsuario.SuperAdministrador || 
+                        c.Rol == RolesUsuario.Supervisor || 
                         c.UserId == idPilotoCanal
                     ).ToList();
                 }
@@ -363,9 +363,9 @@ namespace webapi.Core
                     _activeTelemetry.Remove(key);
                 }
                 targets = _connections.Where(c =>
-                    c.Rol == "Administrador" ||
-                    c.Rol == "SuperAdministrador" ||
-                    c.Rol == "Supervisor" ||
+                    c.Rol == RolesUsuario.Administrador ||
+                    c.Rol == RolesUsuario.SuperAdministrador ||
+                    c.Rol == RolesUsuario.Supervisor ||
                     c.UserId == idUsuario
                 ).ToList();
             }

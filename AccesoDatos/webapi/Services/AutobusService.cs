@@ -31,11 +31,11 @@ namespace webapi.Services
                     MarcaModelo = bus.MarcaModelo,
                     Estado = bus.Estado ?? string.Empty,
                     Version = bus.Version,
-                    IdViajeActivo = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => (int?)t.IdViaje).FirstOrDefault(),
-                    IdPilotoAsignado = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => (int?)t.IdUsuario).FirstOrDefault(),
-                    IdRutaAsignada = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => t.IdRuta).FirstOrDefault(),
-                    NombrePiloto = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => t.IdUsuarioNavigation.NombreCompleto).FirstOrDefault(),
-                    Disponibilidad = bus.Estado != "Activo" ? bus.Estado! : bus.ViajeDiarios.Any(t => t.EstadoViaje == "En Curso") ? "En viaje" : "Disponible"
+                    IdViajeActivo = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => (int?)t.IdViaje).FirstOrDefault(),
+                    IdPilotoAsignado = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => (int?)t.IdUsuario).FirstOrDefault(),
+                    IdRutaAsignada = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => t.IdRuta).FirstOrDefault(),
+                    NombrePiloto = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => t.IdUsuarioNavigation.NombreCompleto).FirstOrDefault(),
+                    Disponibilidad = bus.Estado != EstadosRegistro.Activo ? bus.Estado! : bus.ViajeDiarios.Any(t => t.EstadoViaje == EstadosViaje.EnCurso) ? "En viaje" : "Disponible"
                 })
                 .ToListAsync();
         }
@@ -52,11 +52,11 @@ namespace webapi.Services
                     MarcaModelo = bus.MarcaModelo,
                     Estado = bus.Estado ?? string.Empty,
                     Version = bus.Version,
-                    IdViajeActivo = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => (int?)t.IdViaje).FirstOrDefault(),
-                    IdPilotoAsignado = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => (int?)t.IdUsuario).FirstOrDefault(),
-                    IdRutaAsignada = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => t.IdRuta).FirstOrDefault(),
-                    NombrePiloto = bus.ViajeDiarios.Where(t => t.EstadoViaje == "En Curso").Select(t => t.IdUsuarioNavigation.NombreCompleto).FirstOrDefault(),
-                    Disponibilidad = bus.Estado != "Activo" ? bus.Estado! : bus.ViajeDiarios.Any(t => t.EstadoViaje == "En Curso") ? "En viaje" : "Disponible"
+                    IdViajeActivo = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => (int?)t.IdViaje).FirstOrDefault(),
+                    IdPilotoAsignado = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => (int?)t.IdUsuario).FirstOrDefault(),
+                    IdRutaAsignada = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => t.IdRuta).FirstOrDefault(),
+                    NombrePiloto = bus.ViajeDiarios.Where(t => t.EstadoViaje == EstadosViaje.EnCurso).Select(t => t.IdUsuarioNavigation.NombreCompleto).FirstOrDefault(),
+                    Disponibilidad = bus.Estado != EstadosRegistro.Activo ? bus.Estado! : bus.ViajeDiarios.Any(t => t.EstadoViaje == EstadosViaje.EnCurso) ? "En viaje" : "Disponible"
                 })
                 .FirstOrDefaultAsync();
         }
@@ -86,7 +86,7 @@ namespace webapi.Services
                 throw new InvalidOperationException("No se puede asignar una ruta sin seleccionar un piloto.");
             }
 
-            if (pilotId.HasValue && dto.Estado != "Activo")
+            if (pilotId.HasValue && dto.Estado != EstadosRegistro.Activo)
             {
                 throw new InvalidOperationException("Solo se puede asignar un piloto a un autobús activo.");
             }
@@ -116,7 +116,7 @@ namespace webapi.Services
                     IdAutobusNavigation = nuevoAutobus,
                     IdRuta = ruta?.IdRuta,
                     FechaInicio = DateTime.UtcNow,
-                    EstadoViaje = "En Curso"
+                    EstadoViaje = EstadosViaje.EnCurso
                 };
                 webapi.Core.TripLifecycle.Snapshot(trip, piloto, nuevoAutobus, ruta);
                 _context.ViajesDiarios.Add(trip);
@@ -154,7 +154,7 @@ namespace webapi.Services
             }
 
             var activeTrips = await _context.ViajesDiarios
-                .Where(v => v.IdAutobus == id && v.EstadoViaje == "En Curso")
+                .Where(v => v.IdAutobus == id && v.EstadoViaje == EstadosViaje.EnCurso)
                 .ToListAsync();
             if (activeTrips.Count > 1)
             {
@@ -171,7 +171,7 @@ namespace webapi.Services
             if (dto.GestionarAsignacion && dto.IdViajeEsperado != currentTrip?.IdViaje)
                 throw new InvalidOperationException("La asignación cambió. Recarga la unidad antes de reasignarla.");
 
-            if (!dto.GestionarAsignacion && dto.Estado != "Activo" && currentTrip != null)
+            if (!dto.GestionarAsignacion && dto.Estado != EstadosRegistro.Activo && currentTrip != null)
             {
                 throw new InvalidOperationException("Finaliza o retira la asignación activa antes de cambiar el estado del autobús.");
             }
@@ -183,7 +183,7 @@ namespace webapi.Services
                     throw new InvalidOperationException("No se puede asignar una ruta sin seleccionar un piloto.");
                 }
 
-                if (requestedPilotId.HasValue && dto.Estado != "Activo")
+                if (requestedPilotId.HasValue && dto.Estado != EstadosRegistro.Activo)
                 {
                     throw new InvalidOperationException("Solo se puede asignar un piloto a un autobús activo.");
                 }
@@ -232,7 +232,7 @@ namespace webapi.Services
                     IdAutobus = autobus.IdAutobus,
                     IdRuta = requestedRouteId,
                     FechaInicio = DateTime.UtcNow,
-                    EstadoViaje = "En Curso"
+                    EstadoViaje = EstadosViaje.EnCurso
                 };
                 webapi.Core.TripLifecycle.Snapshot(newTrip, await _context.Usuarios.FindAsync(requestedPilotId.Value), autobus,
                     requestedRouteId.HasValue ? await _context.Ruta.FindAsync(requestedRouteId.Value) : null);
@@ -280,18 +280,18 @@ namespace webapi.Services
             {
                 throw new InvalidOperationException("El piloto especificado no existe.");
             }
-            if (pilot.TipoRol != "Piloto")
+            if (pilot.TipoRol != RolesUsuario.Piloto)
             {
                 throw new InvalidOperationException("El usuario seleccionado no es un piloto.");
             }
-            if (pilot.Estado != "Activo")
+            if (pilot.Estado != EstadosRegistro.Activo)
             {
                 throw new InvalidOperationException("El piloto seleccionado está inactivo.");
             }
 
             bool pilotBusy = await _context.ViajesDiarios.AnyAsync(v =>
                 v.IdUsuario == pilotId
-                && v.EstadoViaje == "En Curso"
+                && v.EstadoViaje == EstadosViaje.EnCurso
                 && (!activeTripIdToIgnore.HasValue || v.IdViaje != activeTripIdToIgnore.Value));
             if (pilotBusy)
             {

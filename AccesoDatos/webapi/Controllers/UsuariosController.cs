@@ -127,7 +127,7 @@ namespace webapi.Controllers
 
             try
             {
-                var guardResult = await GuardSensitiveAccountAsync(id, preventSelfAction: dto.Estado == "Inactivo");
+                var guardResult = await GuardSensitiveAccountAsync(id, preventSelfAction: dto.Estado == EstadosRegistro.Inactivo);
                 if (guardResult != null) return guardResult;
 
                 var resultado = await _userService.CambiarEstadoUsuarioAsync(id, dto.Estado);
@@ -178,8 +178,8 @@ namespace webapi.Controllers
             var target = await _userService.GetUsuarioByIdAsync(targetUserId);
             var currentRole = User.FindFirstValue(ClaimTypes.Role);
             if (target != null
-                && string.Equals(target.UsuarioLogin, "superadmin", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(currentRole, "SuperAdministrador", StringComparison.Ordinal))
+                && UserAccounts.IsSuperAdminLogin(target.UsuarioLogin)
+                && !string.Equals(currentRole, RolesUsuario.SuperAdministrador, StringComparison.Ordinal))
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new { mensaje = "La cuenta principal solo puede ser administrada por el SuperAdministrador." });
             }

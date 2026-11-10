@@ -13,7 +13,7 @@ namespace webapi.Controllers;
 
 [ApiController]
 [Route(ApiRoutes.ConversacionesPasajeros)]
-[Authorize(Roles = "Piloto,Administrador,SuperAdministrador,Supervisor")]
+[Authorize(Roles = RolesUsuario.Todos)]
 public sealed class PassengerConversationsController : ControllerBase
 {
     private readonly PrevencionAccidentesBusesContext _context;
@@ -35,7 +35,7 @@ public sealed class PassengerConversationsController : ControllerBase
         // Internal history survives expiration/revocation of the public credential.
         var query = _context.ConversacionesPasajeros.AsNoTracking().AsQueryable();
 
-        if (role == "Piloto")
+        if (role == RolesUsuario.Piloto)
         {
             query = query.Where(item => item.IdAccesoNavigation.IdViajeNavigation.IdUsuario == userId);
         }
@@ -110,7 +110,7 @@ public sealed class PassengerConversationsController : ControllerBase
     [HttpPost("{id:guid}/leido")]
     public async Task<IActionResult> Acknowledge(Guid id, PassengerReadReceiptDto dto, CancellationToken cancellationToken)
     {
-        if (User.IsInRole("Supervisor")) return Forbid();
+        if (User.IsInRole(RolesUsuario.Supervisor)) return Forbid();
         var conversation = await GetAuthorizedConversationAsync(id, cancellationToken);
         if (conversation == null) return NotFound();
         var messages = await _context.MensajesPasajeros.Where(x => x.IdConversacion == id && dto.IdsMensaje.Contains(x.IdMensaje)
@@ -130,7 +130,7 @@ public sealed class PassengerConversationsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (!TryGetUser(out var userId, out var role)) return Unauthorized();
-        if (role == "Supervisor")
+        if (role == RolesUsuario.Supervisor)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new
             {
@@ -142,12 +142,12 @@ public sealed class PassengerConversationsController : ControllerBase
         if (conversation.Bloqueada) return BadRequest(new { mensaje = "La conversación está bloqueada." });
         if (conversation.IdAccesoNavigation.FechaRevocacion != null || conversation.IdAccesoNavigation.FechaExpiracion <= DateTime.UtcNow)
             return BadRequest(new { mensaje = "El enlace público expiró. El historial es de consulta y no admite respuestas nuevas." });
-        if (conversation.IdAccesoNavigation.IdViajeNavigation.EstadoViaje != "En Curso")
+        if (conversation.IdAccesoNavigation.IdViajeNavigation.EstadoViaje != EstadosViaje.EnCurso)
         {
             return BadRequest(new { mensaje = "El viaje finalizó y la conversación está cerrada." });
         }
 
-        if (role == "Piloto" && !dto.RespuestaRapida)
+        if (role == RolesUsuario.Piloto && !dto.RespuestaRapida)
         {
             var latestSpeed = await _context.TelemetriaIots.AsNoTracking()
                 .Where(item => item.IdViaje == conversation.IdAccesoNavigation.IdViaje)
@@ -183,7 +183,7 @@ public sealed class PassengerConversationsController : ControllerBase
                 return previous.IdUsuarioEmisor == userId && previous.IdConversacion == id && previous.Contenido == content
                     ? Ok(ToMessageDto(previous)) : Conflict(new { mensaje = "El identificador de envío ya fue utilizado." });
         }
-        var senderName = User.FindFirstValue(ClaimTypes.Name) ?? (role == "Piloto" ? "Conductor" : "Centro de control");
+        var senderName = User.FindFirstValue(ClaimTypes.Name) ?? (role == RolesUsuario.Piloto ? "Conductor" : "Centro de control");
         var message = new MensajePasajero
         {
             IdMensaje = dto.IdCliente ?? Guid.NewGuid(),
@@ -217,7 +217,7 @@ public sealed class PassengerConversationsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/bloqueo")]
-    [Authorize(Roles = "Piloto,Administrador,SuperAdministrador")]
+    [Authorize(Roles = RolesUsuario.PilotosYAdministradores)]
     public async Task<IActionResult> SetBlocked(Guid id, [FromQuery] bool bloqueada, CancellationToken cancellationToken)
     {
         var conversation = await GetAuthorizedConversationAsync(id, cancellationToken);
@@ -228,7 +228,7 @@ public sealed class PassengerConversationsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/mensajes/{idMensaje:guid}/reportes")]
-    [Authorize(Roles = "Piloto,Administrador,SuperAdministrador")]
+    [Authorize(Roles = RolesUsuario.PilotosYAdministradores)]
     [EnableRateLimiting("ChatRateLimit")]
     public async Task<IActionResult> ReportPassengerMessage(
         Guid id,
@@ -276,7 +276,7 @@ public sealed class PassengerConversationsController : ControllerBase
             FechaReporte = DateTime.UtcNow
         });
         await _pushNotifications.SendToRolesAsync(
-            ["Administrador", "SuperAdministrador"],
+            [RolesUsuario.Administrador, RolesUsuario.SuperAdministrador],
             "Contenido de pasajero denunciado",
             "Hay un mensaje de pasajero pendiente de revisión.",
             new Dictionary<string, string?>
@@ -302,9 +302,9 @@ public sealed class PassengerConversationsController : ControllerBase
                 .ThenInclude(item => item.IdViajeNavigation)
             .SingleOrDefaultAsync(item => item.IdConversacion == id, cancellationToken);
         if (conversation is null) return null;
-        return role == "Piloto" && conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario != userId
+        return role == RolesUsuario.Piloto && conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario != userId
             ? null
-            : IsOperator(role) || role == "Piloto"
+            : IsOperator(role) || role == RolesUsuario.Piloto
                 ? conversation
                 : null;
     }
@@ -315,7 +315,7 @@ public sealed class PassengerConversationsController : ControllerBase
         return int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
     }
 
-    private static bool IsOperator(string role) => role is "Administrador" or "SuperAdministrador" or "Supervisor";
+    private static bool IsOperator(string role) => role is RolesUsuario.Administrador or RolesUsuario.SuperAdministrador or RolesUsuario.Supervisor;
 
     private static DateTime EnsureUtc(DateTime value) =>
         value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);

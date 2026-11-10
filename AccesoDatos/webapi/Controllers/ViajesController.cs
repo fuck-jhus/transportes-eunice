@@ -127,7 +127,7 @@ namespace webapi.Controllers
         }
 
         [HttpPost("{id:int}/guardar-ruta")]
-        [Authorize(Roles = "Piloto,Administrador,SuperAdministrador")]
+        [Authorize(Roles = RolesUsuario.PilotosYAdministradores)]
         public async Task<IActionResult> GuardarRuta(int id, [FromBody] GuardarRutaViajeDto dto)
         {
             if (!ModelState.IsValid)
@@ -165,7 +165,7 @@ namespace webapi.Controllers
         [HttpPost("{id:int}/finalizar")]
         // Se autoriza por rol para que los JWT de pilotos ya emitidos sigan funcionando
         // tras el despliegue. El servicio aplica además el filtro de propiedad del viaje.
-        [Authorize(Roles = "Piloto,Administrador,SuperAdministrador")]
+        [Authorize(Roles = RolesUsuario.PilotosYAdministradores)]
         public async Task<IActionResult> Finalizar(int id)
         {
             try
@@ -197,7 +197,7 @@ namespace webapi.Controllers
 
         private int? GetPilotUserFilter()
         {
-            if (!User.IsInRole("Piloto")) return null;
+            if (!User.IsInRole(RolesUsuario.Piloto)) return null;
             return int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId) ? userId : -1;
         }
     }

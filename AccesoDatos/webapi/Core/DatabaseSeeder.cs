@@ -41,17 +41,17 @@ namespace webapi.Core
                     : null;
 
                 // 1. SuperAdministrador
-                if (!await context.Usuarios.AnyAsync(u => u.UsuarioLogin == "superadmin"))
+                if (!await context.Usuarios.AnyAsync(u => u.UsuarioLogin == UserAccounts.SuperAdminLogin))
                 {
                     context.Usuarios.Add(new Usuario
                     {
                         NombreCompleto = "Super Administrador del Sistema",
                         // La elevación de la cuenta principal se deriva de su identidad protegida;
                         // mantener el rol persistido como Administrador evita exponer ese rol en DTOs editables.
-                        TipoRol = "Administrador",
-                        UsuarioLogin = "superadmin",
+                        TipoRol = RolesUsuario.Administrador,
+                        UsuarioLogin = UserAccounts.SuperAdminLogin,
                         Contrasena = BCrypt.Net.BCrypt.HashPassword(adminPassword),
-                        Estado = "Activo"
+                        Estado = EstadosRegistro.Activo
                     });
                     logger.LogInformation("DatabaseSeeder: Cuenta 'superadmin' inicial creada con éxito.");
                 }
@@ -62,10 +62,10 @@ namespace webapi.Core
                     context.Usuarios.Add(new Usuario
                     {
                         NombreCompleto = "Administrador General",
-                        TipoRol = "Administrador",
+                        TipoRol = RolesUsuario.Administrador,
                         UsuarioLogin = "admin",
                         Contrasena = BCrypt.Net.BCrypt.HashPassword(adminPassword),
-                        Estado = "Activo"
+                        Estado = EstadosRegistro.Activo
                     });
                     logger.LogInformation("DatabaseSeeder: Cuenta 'admin' inicial creada con éxito.");
                 }
@@ -76,10 +76,10 @@ namespace webapi.Core
                     context.Usuarios.Add(new Usuario
                     {
                         NombreCompleto = "Juan Pérez (Piloto de Pruebas)",
-                        TipoRol = "Piloto",
+                        TipoRol = RolesUsuario.Piloto,
                         UsuarioLogin = "piloto",
                         Contrasena = BCrypt.Net.BCrypt.HashPassword(pilotPassword!),
-                        Estado = "Activo"
+                        Estado = EstadosRegistro.Activo
                     });
                     logger.LogInformation("DatabaseSeeder: Cuenta de prueba 'piloto' creada con éxito.");
                 }

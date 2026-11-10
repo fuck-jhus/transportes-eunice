@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using webapi.Core;
 
 namespace webapi.Dtos
 {
@@ -21,7 +22,7 @@ namespace webapi.Dtos
         public string Contrasena { get; set; } = string.Empty;
 
         [RegularExpression("^(Activo|Inactivo)$", ErrorMessage = "El estado debe ser 'Activo' o 'Inactivo'.")]
-        public string Estado { get; set; } = "Activo";
+        public string Estado { get; set; } = EstadosRegistro.Activo;
     }
 
     public class EditarUsuarioDto

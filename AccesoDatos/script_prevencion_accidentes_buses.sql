@@ -215,7 +215,7 @@ BEGIN
         alertas_maniobras INT NOT NULL CONSTRAINT DF_eval_alertas_man DEFAULT 0,
         horas_conduccion DECIMAL(10,2) NOT NULL CONSTRAINT DF_eval_horas_conduccion DEFAULT 0,
         puntos_riesgo_por_10h DECIMAL(10,2) NOT NULL CONSTRAINT DF_eval_puntos_riesgo DEFAULT 0,
-        calificacion_desempeno DECIMAL(5, 2) NOT NULL CONSTRAINT DF_eval_calificacion DEFAULT 100.00,
+        calificacion_desempeno DECIMAL(5, 2) NULL, -- NULL = mes sin cobertura suficiente para calificar
         CONSTRAINT PK_evaluacion_piloto_mensual PRIMARY KEY CLUSTERED (id_evaluacion),
         CONSTRAINT FK_evaluacion_piloto_usuario FOREIGN KEY (id_usuario) REFERENCES dbo.usuario (id_usuario),
         CONSTRAINT unq_piloto_mes UNIQUE (id_usuario, mes_anio)

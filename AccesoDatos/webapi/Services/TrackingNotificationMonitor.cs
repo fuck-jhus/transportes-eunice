@@ -12,7 +12,7 @@ public sealed class TrackingNotificationMonitor(PrevencionAccidentesBusesContext
     {
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         await TripLifecycle.LockAsync(db, "push:gps-monitor");
-        var trips = await db.ViajesDiarios.AsNoTracking().Where(x => x.EstadoViaje == "En Curso")
+        var trips = await db.ViajesDiarios.AsNoTracking().Where(x => x.EstadoViaje == EstadosViaje.EnCurso)
             .Select(x => new { x.IdViaje, x.ModoPrivacidad, x.FechaInicio, x.PlacaSnapshot }).ToListAsync(ct);
         var ids = trips.Select(x => x.IdViaje).ToArray();
         var states = await db.TrackingNotificationStates.Where(x => ids.Contains(x.TripId)).ToDictionaryAsync(x => x.TripId, ct);

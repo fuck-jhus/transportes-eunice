@@ -10,7 +10,7 @@ namespace webapi.Controllers;
 
 public record TrackingSourceRequest([Required, StringLength(100, MinimumLength = 1)] string IdFuente, bool TomarControl = false);
 
-[ApiController, Authorize(Roles = "Piloto"), Route("api/viajes/{id:int}/fuente-rastreo")]
+[ApiController, Authorize(Roles = RolesUsuario.Piloto), Route("api/viajes/{id:int}/fuente-rastreo")]
 public class TrackingSourceController(PrevencionAccidentesBusesContext db) : ControllerBase
 {
     [HttpPost]
@@ -20,7 +20,7 @@ public class TrackingSourceController(PrevencionAccidentesBusesContext db) : Con
         return await DatabaseOperation.ExecuteAsync(db, async () => {
             await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             await TripLifecycle.LockAsync(db, $"trip:{id}");
-            var trip = await db.ViajesDiarios.SingleOrDefaultAsync(x => x.IdViaje == id && x.IdUsuario == pilot && x.EstadoViaje == "En Curso");
+            var trip = await db.ViajesDiarios.SingleOrDefaultAsync(x => x.IdViaje == id && x.IdUsuario == pilot && x.EstadoViaje == EstadosViaje.EnCurso);
             if (trip == null) return (IActionResult)NotFound();
             if (trip.IdFuenteRastreo != null && !TrackingSourcePolicy.MayPublish(trip, dto.IdFuente) && !dto.TomarControl)
                 return Conflict(new { mensaje = "Otro dispositivo tiene el control del GPS. Puedes consultar sin interrumpirlo o tomar el control expresamente.", codigo = "OTRA_FUENTE", expira = trip.FuenteRastreoExpira });

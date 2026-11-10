@@ -15,6 +15,7 @@ namespace webapi.Services
     {
         private readonly PrevencionAccidentesBusesContext _context;
         private readonly IPushNotificationService _pushNotifications;
+        private readonly AlertThresholds _thresholds;
         private static readonly ConcurrentDictionary<int, SemaphoreSlim> PilotWrites = new();
 
         private async Task<ViajeDiario> ResolveTelemetryTripAsync(int pilotId, IReadOnlyList<CrearTelemetriaDto> readings)
@@ -24,7 +25,7 @@ namespace webapi.Services
             var tripId = tripIds[0];
             var trip = await _context.ViajesDiarios
                 .Include(v => v.IdUsuarioNavigation).Include(v => v.IdAutobusNavigation).Include(v => v.IdRutaNavigation)
-                .FirstOrDefaultAsync(v => v.IdUsuario == pilotId && (tripId.HasValue ? v.IdViaje == tripId : v.EstadoViaje == "En Curso"));
+                .FirstOrDefaultAsync(v => v.IdUsuario == pilotId && (tripId.HasValue ? v.IdViaje == tripId : v.EstadoViaje == EstadosViaje.EnCurso));
             if (trip == null) throw new InvalidOperationException("El viaje no pertenece al piloto o ya no está disponible. Se conservan las posiciones para revisión.");
             if (tripId.HasValue && readings.Any(item => {
                 var time = NormalizeTimestampUtc(item.FechaHoraDispositivo);
@@ -36,8 +37,10 @@ namespace webapi.Services
 
         public TelemetriaService(
             PrevencionAccidentesBusesContext context,
-            IPushNotificationService? pushNotifications = null)
+            IPushNotificationService? pushNotifications = null,
+            Microsoft.Extensions.Options.IOptions<AlertThresholds>? thresholds = null)
         {
+            _thresholds = thresholds?.Value ?? new AlertThresholds();
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _pushNotifications = pushNotifications ?? NullPushNotificationService.Instance;
         }
@@ -155,7 +158,7 @@ namespace webapi.Services
                 if (latest.HasValue) orderedDtos = orderedDtos.Where(item => item.TimestampUtc > NormalizeTimestampUtc(latest.Value)).ToList();
             }
             if (orderedDtos.Count == 0) { await _context.SaveChangesAsync(); await transaction.CommitAsync(); return 0; }
-            var active = viaje.EstadoViaje == "En Curso";
+            var active = viaje.EstadoViaje == EstadosViaje.EnCurso;
             if (active && orderedDtos.Any(x => x.Dto.IdFuente != null && x.Dto.IdFuente == viaje.IdFuenteRastreo
                 && x.TimestampUtc >= DateTime.UtcNow.AddSeconds(-30))) viaje.FuenteRastreoExpira = DateTime.UtcNow.AddMinutes(2);
 
@@ -191,7 +194,7 @@ namespace webapi.Services
                 _context.TelemetriaIots.Add(telemetria);
                 lastTelemetry = telemetria;
 
-                var nuevasAlertas = BuildRiskAlerts(viaje.IdViaje, telemetria, dto, nowUtc);
+                var nuevasAlertas = BuildRiskAlerts(viaje.IdViaje, telemetria, dto, nowUtc, _thresholds);
                 // A continuous episode is one incident, not one per GPS packet.
                 foreach (var candidate in nuevasAlertas.ToArray())
                 {
@@ -237,7 +240,7 @@ namespace webapi.Services
             if (alertasCreadas.Count > 0)
             {
                 await _pushNotifications.SendToRolesAsync(
-                    ["Administrador", "SuperAdministrador", "Supervisor"],
+                    RolesUsuario.ListaOperadores,
                     "Alertas sincronizadas",
                     $"{viaje.IdAutobusNavigation?.Placa ?? "Unidad"}: {alertasCreadas.Count} evento(s) de riesgo.",
                     new Dictionary<string, string?>
@@ -314,7 +317,7 @@ namespace webapi.Services
                 .Include(v => v.IdUsuarioNavigation)
                 .Include(v => v.IdAutobusNavigation)
                 .Include(v => v.IdRutaNavigation)
-                .FirstOrDefaultAsync(v => v.IdUsuario == idPiloto && v.EstadoViaje == "En Curso");
+                .FirstOrDefaultAsync(v => v.IdUsuario == idPiloto && v.EstadoViaje == EstadosViaje.EnCurso);
 
             if (viaje == null)
             {
@@ -357,7 +360,8 @@ namespace webapi.Services
             int tripId,
             TelemetriaIot telemetry,
             CrearTelemetriaDto dto,
-            DateTime detectedAtUtc)
+            DateTime detectedAtUtc,
+            AlertThresholds limits)
         {
             var alerts = new List<AlertaRiesgo>();
 
@@ -374,30 +378,30 @@ namespace webapi.Services
                 IdTelemetriaNavigation = telemetry
             });
 
-            if (dto.VelocidadKmh > 80.0M)
+            if (dto.VelocidadKmh > limits.VelocidadMaximaKmh)
             {
-                Add("Exceso de Velocidad", dto.VelocidadKmh, 80.0M);
+                Add("Exceso de Velocidad", dto.VelocidadKmh, limits.VelocidadMaximaKmh);
             }
 
             // Uncalibrated phone axes are not vehicle axes; GPS-only/background data
             // must never imply that braking/turning was observed and safe.
             if (!dto.SensoresCalibrados) return alerts;
-            if (dto.AceleracionY is < -3.0M)
+            if (dto.AceleracionY < -limits.FrenadoBruscoMs2)
             {
-                Add("Frenado Brusco", dto.AceleracionY.Value, -3.0M);
+                Add("Frenado Brusco", dto.AceleracionY.Value, -limits.FrenadoBruscoMs2);
             }
-            else if (dto.AceleracionY is > 3.0M)
+            else if (dto.AceleracionY > limits.AceleracionPeligrosaMs2)
             {
-                Add("Aceleración Peligrosa", dto.AceleracionY.Value, 3.0M);
+                Add("Aceleración Peligrosa", dto.AceleracionY.Value, limits.AceleracionPeligrosaMs2);
             }
 
-            if (dto.AceleracionX.HasValue && Math.Abs(dto.AceleracionX.Value) > 3.0M)
+            if (dto.AceleracionX.HasValue && Math.Abs(dto.AceleracionX.Value) > limits.GiroBruscoLateralMs2)
             {
-                Add("Giro Brusco", dto.AceleracionX.Value, 3.0M);
+                Add("Giro Brusco", dto.AceleracionX.Value, limits.GiroBruscoLateralMs2);
             }
-            else if (dto.GiroscopioZ.HasValue && Math.Abs(dto.GiroscopioZ.Value) > 2.5M)
+            else if (dto.GiroscopioZ.HasValue && Math.Abs(dto.GiroscopioZ.Value) > limits.GiroBruscoRadS)
             {
-                Add("Giro Brusco", dto.GiroscopioZ.Value, 2.5M);
+                Add("Giro Brusco", dto.GiroscopioZ.Value, limits.GiroBruscoRadS);
             }
 
             return alerts;
