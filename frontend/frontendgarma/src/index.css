@@ -5164,3 +5164,45 @@ button.ops-unit[aria-pressed="true"] {
     max-width: none;
   }
 }
+
+/* Personal: columnas fijas para que todas las filas queden alineadas */
+.dir-row {
+  grid-template-columns: 44px minmax(0, 1fr) 140px 120px auto;
+}
+
+.dir-actions {
+  display: grid;
+  grid-template-columns: 96px 150px 38px;
+  justify-content: end;
+}
+
+.dir-actions .pill-button {
+  width: 100%;
+}
+
+.icon-pill.is-placeholder {
+  visibility: hidden;
+}
+
+.dir-row .role-chip,
+.dir-row .state-text {
+  justify-self: start;
+}
+
+@media (max-width: 900px) {
+  .dir-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+
+  .dir-actions {
+    grid-template-columns: auto auto 38px;
+    justify-content: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .dir-actions {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 38px;
+  }
+}

@@ -2037,11 +2037,11 @@ export const TelemetryDashboard: React.FC = () => {
                       <button type="button" className="pill-button is-ghost" onClick={() => handleToggleEstado(u)}>
                         {u.estado === 'Activo' ? <><UserRoundX size={14} aria-hidden="true" /> Quitar acceso</> : <><UserRoundCheck size={14} aria-hidden="true" /> Dar acceso</>}
                       </button>
-                      {u.usuarioLogin !== 'superadmin' && u.usuarioLogin !== 'admin' && (
+                      {u.usuarioLogin !== 'superadmin' && u.usuarioLogin !== 'admin' ? (
                         <button type="button" className="icon-pill is-danger" aria-label={`Eliminar a ${u.nombreCompleto}`} title="Eliminar" onClick={() => handleDeleteUser(u)}>
                           <Trash2 size={15} aria-hidden="true" />
                         </button>
-                      )}
+                      ) : <span className="icon-pill is-placeholder" aria-hidden="true" />}
                     </div>
                   </li>
                 ))}
