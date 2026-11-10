@@ -14,7 +14,11 @@ DECLARE @default sysname = (
     JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id
     WHERE dc.parent_object_id = OBJECT_ID('dbo.evaluacion_piloto_mensual') AND c.name = 'calificacion_desempeno');
 IF @default IS NOT NULL
-    EXEC('ALTER TABLE dbo.evaluacion_piloto_mensual DROP CONSTRAINT ' + QUOTENAME(@default));
+BEGIN
+    -- EXEC(...) no admite llamadas a funciones; se arma el texto antes y se usa sp_executesql.
+    DECLARE @dropDefault nvarchar(400) = N'ALTER TABLE dbo.evaluacion_piloto_mensual DROP CONSTRAINT ' + QUOTENAME(@default);
+    EXEC sys.sp_executesql @dropDefault;
+END;
 
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.evaluacion_piloto_mensual')
            AND name = 'calificacion_desempeno' AND is_nullable = 0)
