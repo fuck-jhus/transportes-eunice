@@ -52,6 +52,11 @@ interface GuestMessage {
 }
 
 const DEFAULT_CENTER: L.LatLngTuple = [14.8347, -91.5180];
+const sessionFlagKey = (token: string) => `eunice-guest-chat:${token}`;
+const readSessionFlag = (token: string) => { try { return localStorage.getItem(sessionFlagKey(token)) === '1'; } catch { return false; } };
+const writeSessionFlag = (token: string, active: boolean) => {
+  try { if (active) localStorage.setItem(sessionFlagKey(token), '1'); else localStorage.removeItem(sessionFlagKey(token)); } catch { /* Almacenamiento opcional. */ }
+};
 
 export const PublicTripPage = ({ token }: { token: string }) => {
   const mapElementRef = useRef<HTMLDivElement>(null);
@@ -96,15 +101,17 @@ export const PublicTripPage = ({ token }: { token: string }) => {
     }
   }, [token]);
 
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async (resume = false) => {
     try {
       setStartingSession(true);
       setChatError('');
       const response = await api.post<GuestSession>(`/public/viajes/${encodeURIComponent(token)}/sesion`, {});
       setSession(response.data);
+      writeSessionFlag(token, true);
     } catch {
       setSession(null);
-      setChatError('No se pudo abrir la conversación. Intenta nuevamente.');
+      if (resume) writeSessionFlag(token, false);
+      else setChatError('No se pudo abrir la conversación. Intenta nuevamente.');
     } finally {
       setStartingSession(false);
     }
@@ -170,6 +177,34 @@ export const PublicTripPage = ({ token }: { token: string }) => {
   useEffect(() => {
     localStorage.setItem('eunice-public-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
+
+  // Al recargar la página se retoma la conversación de este dispositivo sin pedir otro clic.
+  const resumeTried = useRef(false);
+  const chatOpen = Boolean(trip?.chatHabilitado);
+  useEffect(() => {
+    if (!chatOpen || session || resumeTried.current || !readSessionFlag(token)) return;
+    resumeTried.current = true;
+    void startSession(true);
+  }, [chatOpen, session, startSession, token]);
+
+  // Las respuestas se marcan como leídas solas cuando el pasajero las tiene a la vista.
+  const acknowledgedIds = useRef(new Set<string>());
+  const acknowledgeVisible = useCallback(() => {
+    if (!session || document.visibilityState !== 'visible' || !nearBottomRef.current) return;
+    const ids = messages
+      .filter(item => item.tipoEmisor !== 'Pasajero' && !item.fechaLectura && !acknowledgedIds.current.has(item.idMensaje))
+      .map(item => item.idMensaje)
+      .slice(-200);
+    if (!ids.length) return;
+    ids.forEach(id => acknowledgedIds.current.add(id));
+    void api.post(`/public/viajes/${encodeURIComponent(token)}/leido`, { idsMensaje: ids })
+      .catch(() => ids.forEach(id => acknowledgedIds.current.delete(id)));
+  }, [messages, session, token]);
+  useEffect(() => {
+    acknowledgeVisible();
+    document.addEventListener('visibilitychange', acknowledgeVisible);
+    return () => document.removeEventListener('visibilitychange', acknowledgeVisible);
+  }, [acknowledgeVisible]);
 
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) return;
@@ -270,8 +305,18 @@ export const PublicTripPage = ({ token }: { token: string }) => {
       pendingMessages.current.delete(operationKey);
       try { sessionStorage.removeItem(operationKey); } catch { /* Storage is optional. */ }
       setMessage(current => current.trim() === content ? '' : current);
-    } catch {
-      setChatError('El mensaje no se pudo enviar. Conservamos el texto para que lo intentes de nuevo.');
+    } catch (requestError: unknown) {
+      const status = isAxiosError(requestError) ? requestError.response?.status : undefined;
+      if (status === 403) {
+        setSession(current => current ? { ...current, bloqueada: true } : current);
+        setChatError('Esta conversación fue bloqueada por el centro de control.');
+      } else if (status === 401) {
+        setChatError('La conversación ya no admite mensajes. Puede que el viaje haya terminado.');
+        void fetchTrip(true);
+      } else {
+        const apiMessage = isAxiosError<{ mensaje?: string }>(requestError) ? requestError.response?.data?.mensaje : undefined;
+        setChatError(apiMessage || 'El mensaje no se pudo enviar. Conservamos el texto para que lo intentes de nuevo.');
+      }
     } finally {
       setSending(false);
     }
@@ -324,7 +369,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
         <section className="public-map-card">
           <div ref={mapElementRef} className={`public-trip-map ${isDark ? 'map-dark' : ''}`} />
           {(!trip.ubicacionDisponible || trip.modoPrivacidad) && (
-            <div className="public-map-notice"><RefreshCw size={18} /><span>{trip.modoPrivacidad ? 'El conductor pausó temporalmente la ubicación.' : 'Esperando la primera señal GPS del viaje.'}</span></div>
+            <div className="public-map-notice"><RefreshCw size={18} /><span>{trip.estadoViaje !== 'En Curso' ? 'El viaje terminó y la ubicación ya no se comparte.' : trip.modoPrivacidad ? 'El conductor pausó temporalmente la ubicación.' : 'Esperando la primera señal GPS del viaje.'}</span></div>
           )}
           {route && <div className="public-route-eta"><Navigation size={16} /><div><small>Tiempo aproximado</small><strong>{route.duracionMinutos} min</strong></div></div>}
         </section>
@@ -337,7 +382,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
           <div className="public-chat-messages" aria-live="polite" onScroll={event => {
             const node = event.currentTarget;
             nearBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
-            if (nearBottomRef.current) setUnseenMessages(false);
+            if (nearBottomRef.current) { setUnseenMessages(false); acknowledgeVisible(); }
           }}>
             {messages.length > 0 && <button type="button" onClick={() => { nearBottomRef.current = false; void fetchMessages(messages[0]?.idMensaje); }}>Cargar mensajes anteriores</button>}
             {messages.length === 0 ? (
@@ -348,8 +393,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
             })}
             <div ref={messagesEndRef} />
           </div>
-          {unseenMessages && <button type="button" onClick={() => { nearBottomRef.current = true; setUnseenMessages(false); messagesEndRef.current?.scrollIntoView({ block: 'nearest' }); }}>Ver mensajes nuevos</button>}
-          {messages.length > 0 && <button type="button" onClick={() => void api.post(`/public/viajes/${encodeURIComponent(token)}/leido`, { idsMensaje: messages.slice(-200).map(x => x.idMensaje) }).catch(() => setChatError('No se pudo confirmar la lectura.'))}>Confirmar lectura de los mensajes mostrados</button>}
+          {unseenMessages && <button type="button" onClick={() => { nearBottomRef.current = true; setUnseenMessages(false); messagesEndRef.current?.scrollIntoView({ block: 'nearest' }); acknowledgeVisible(); }}>Ver mensajes nuevos</button>}
           {trip.chatHabilitado ? (
             session ? (
               <form className="public-chat-composer" onSubmit={sendMessage}>
@@ -357,9 +401,9 @@ export const PublicTripPage = ({ token }: { token: string }) => {
                 <button type="submit" disabled={!message.trim() || sending || session.bloqueada} aria-label="Enviar mensaje"><Send size={18} /></button>
               </form>
             ) : (
-              <div className="public-chat-start"><button type="button" onClick={() => void startSession()} disabled={startingSession}><MessageCircle size={17} />{startingSession ? 'Abriendo conversación...' : 'Iniciar conversación'}</button></div>
+              <div className="public-chat-start"><button type="button" onClick={() => void startSession(false)} disabled={startingSession}><MessageCircle size={17} />{startingSession ? 'Abriendo conversación...' : 'Iniciar conversación'}</button></div>
             )
-          ) : <div className="public-chat-closed">La conversación se cerró al finalizar el viaje.</div>}
+          ) : <div className="public-chat-closed">{trip.estadoViaje !== 'En Curso' ? 'La conversación se cerró al finalizar el viaje.' : 'La mensajería no está activa para este viaje.'}</div>}
         </aside>
       </div>
     </main>

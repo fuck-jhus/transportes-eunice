@@ -147,7 +147,18 @@ public sealed class PassengerConversationsController : ControllerBase
             return BadRequest(new { mensaje = "El viaje finalizó y la conversación está cerrada." });
         }
 
-        if (role == RolesUsuario.Piloto && !dto.RespuestaRapida)
+        var content = PublicTripToken.NormalizeMessage(dto.Contenido);
+        if (string.IsNullOrWhiteSpace(content)) return BadRequest(new { mensaje = "El mensaje no puede estar vacío." });
+        if (!ContentModeration.IsAllowed(content))
+        {
+            return BadRequest(new
+            {
+                mensaje = "El mensaje contiene lenguaje no permitido. Modifícalo antes de enviarlo."
+            });
+        }
+
+        // Solo cuenta como respuesta rápida si el texto es una de las respuestas fijas.
+        if (role == RolesUsuario.Piloto && !PassengerQuickReplies.IsQuickReply(content))
         {
             var latestSpeed = await _context.TelemetriaIots.AsNoTracking()
                 .Where(item => item.IdViaje == conversation.IdAccesoNavigation.IdViaje)
@@ -163,16 +174,6 @@ public sealed class PassengerConversationsController : ControllerBase
                     mensaje = "Por seguridad, mientras la unidad está en movimiento solo puedes usar respuestas rápidas."
                 });
             }
-        }
-
-        var content = PublicTripToken.NormalizeMessage(dto.Contenido);
-        if (string.IsNullOrWhiteSpace(content)) return BadRequest(new { mensaje = "El mensaje no puede estar vacío." });
-        if (!ContentModeration.IsAllowed(content))
-        {
-            return BadRequest(new
-            {
-                mensaje = "El mensaje contiene lenguaje no permitido. Modifícalo antes de enviarlo."
-            });
         }
 
         if (dto.IdCliente.HasValue)
