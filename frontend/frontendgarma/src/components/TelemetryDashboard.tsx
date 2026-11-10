@@ -141,13 +141,14 @@ const speedChipColors = (speed: number | undefined) => {
   return { backgroundColor: 'var(--success-soft)', color: 'var(--success)', border: '1px solid transparent' };
 };
 
+// Tonos de la paleta Ruta cálida que se leen bien en modo claro y oscuro.
 const CHAT_SENDER_PALETTE = [
-  { accent: '#2563eb', light: '#eff6ff', dark: 'rgba(37, 99, 235, 0.18)' },
-  { accent: '#7c3aed', light: '#f5f3ff', dark: 'rgba(124, 58, 237, 0.18)' },
-  { accent: '#059669', light: '#ecfdf5', dark: 'rgba(5, 150, 105, 0.18)' },
-  { accent: '#db2777', light: '#fdf2f8', dark: 'rgba(219, 39, 119, 0.18)' },
-  { accent: '#b45309', light: '#fffbeb', dark: 'rgba(180, 83, 9, 0.2)' },
-  { accent: '#0891b2', light: '#ecfeff', dark: 'rgba(8, 145, 178, 0.18)' },
+  { accent: '#2F8A66', light: '#e3f0e9', dark: 'rgba(47, 138, 102, 0.18)' },
+  { accent: '#A8740F', light: '#f7ecd4', dark: 'rgba(168, 116, 15, 0.2)' },
+  { accent: '#B9493A', light: '#f6e2de', dark: 'rgba(185, 73, 58, 0.18)' },
+  { accent: '#3F7AA3', light: '#e2edf4', dark: 'rgba(63, 122, 163, 0.2)' },
+  { accent: '#7D62A8', light: '#ece6f4', dark: 'rgba(125, 98, 168, 0.2)' },
+  { accent: '#2A8A8A', light: '#ddefee', dark: 'rgba(42, 138, 138, 0.2)' },
 ];
 
 const getChatSenderVisual = (id: number, name: string) => {
@@ -1760,7 +1761,7 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
       <main className="main-content" style={mainContentWrapperStyle}>
-        {!['map', 'telemetry', 'alerts', 'activity', 'users', 'routes', 'buses'].includes(activeTab) && (
+        {!['map', 'telemetry', 'alerts', 'activity', 'users', 'routes', 'buses', 'chat'].includes(activeTab) && (
           <DashboardHeader activeTab={activeTab} isDark={isDark} />
         )}
 
@@ -3278,7 +3279,7 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* VISTA DE CHAT OPERATIVO EN TIEMPO REAL - CANAL GENERAL Y PRIVADO */}
       {activeTab === 'chat' && (
-        <div className="dashboard-view chat-view" style={{ display: 'flex', gap: '20px', width: '100%', height: 'calc(100vh - 220px)', minHeight: '600px' }}>
+        <div className="dashboard-view chat-view">
           {/* Panel Izquierdo: Selector de Canales (General vs Privados) */}
           <div className="chat-channel-panel" style={{
             width: '320px',
@@ -3361,7 +3362,7 @@ export const TelemetryDashboard: React.FC = () => {
                   }}
                 >
                   <Users size={14} />
-                  <span>Piloto y despacho</span>
+                  <span>Privado</span>
                 </button>
                 <button
                   type="button"
@@ -3581,17 +3582,16 @@ export const TelemetryDashboard: React.FC = () => {
             }}>
               <div>
                 <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
-                  <MessageSquare size={18} color="var(--accent)" />
                   <span>
                     {chatMode === 'general'
-                      ? 'Canal General de la Flota'
-                      : (user?.tipoRol === 'Piloto' ? 'Piloto y despacho' : `${selectedChatPilotName} y despacho`)}
+                      ? 'Toda la flota'
+                      : (user?.tipoRol === 'Piloto' ? 'Despacho' : selectedChatPilotName)}
                   </span>
                 </h3>
                 <p style={{ margin: '2px 0 0 0', color: 'var(--muted)', fontSize: '0.82rem' }}>
                   {chatMode === 'general'
-                    ? 'Comunicación abierta y sincronizada entre Administración y todos los Pilotos'
-                    : (user?.tipoRol === 'Piloto' ? 'Línea directa y confidencial con el Centro de Control' : 'Conversación privada 1-a-1 con el conductor')}
+                    ? 'Lo ven todos los pilotos y la administración.'
+                    : (user?.tipoRol === 'Piloto' ? 'Solo tú, despacho y supervisión.' : 'Solo este piloto, despacho y supervisión.')}
                 </p>
               </div>
 
@@ -3684,7 +3684,7 @@ export const TelemetryDashboard: React.FC = () => {
                           style={{
                             width: '34px',
                             height: '34px',
-                            borderRadius: '11px',
+                            borderRadius: '999px',
                             flexShrink: 0,
                             display: 'flex',
                             alignItems: 'center',
@@ -3707,12 +3707,11 @@ export const TelemetryDashboard: React.FC = () => {
                         title={isCurrentViewerAdmin ? "Click para ver fecha/hora • Click derecho para eliminar" : "Click para ver fecha/hora"}
                         style={{
                           maxWidth: '72%',
-                          backgroundColor: isMine ? 'var(--accent)' : (isDark ? senderVisual.dark : senderVisual.light),
-                          border: `1px solid ${isMine ? 'var(--accent)' : senderVisual.accent}`,
-                          borderLeftWidth: isMine ? '1px' : '4px',
-                          borderRadius: '14px',
-                          borderBottomRightRadius: isMine ? '3px' : '14px',
-                          borderBottomLeftRadius: isMine ? '14px' : '3px',
+                          backgroundColor: isMine ? 'var(--accent)' : 'var(--surface)',
+                          border: `1px solid ${isMine ? 'var(--accent)' : 'var(--line)'}`,
+                          borderRadius: '18px',
+                          borderBottomRightRadius: isMine ? '6px' : '18px',
+                          borderBottomLeftRadius: isMine ? '18px' : '6px',
                           padding: '10px 16px',
                           color: isMine ? 'var(--on-accent)' : ('var(--ink)'),
                           cursor: 'pointer',
@@ -3941,7 +3940,7 @@ export const TelemetryDashboard: React.FC = () => {
               alignItems: 'center',
               backgroundColor: 'transparent',
               border: 'none',
-              color: '#0f172a',
+              color: 'var(--ink)',
               padding: '8px 12px',
               borderRadius: '8px',
               cursor: 'pointer',
@@ -3951,7 +3950,7 @@ export const TelemetryDashboard: React.FC = () => {
               width: '100%',
               transition: 'background 0.15s ease'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-soft)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             Ver Fecha y Hora
