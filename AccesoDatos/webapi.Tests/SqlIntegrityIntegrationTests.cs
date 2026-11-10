@@ -58,6 +58,10 @@ public class SqlIntegrityIntegrationTests
                     """);
                 // The official creation script used to define the monthly rating as NOT NULL DEFAULT 100.
                 await db.Database.ExecuteSqlRawAsync("""
+                    DECLARE @ratingDefault sysname = (SELECT d.name FROM sys.default_constraints d
+                        JOIN sys.columns c ON c.object_id=d.parent_object_id AND c.column_id=d.parent_column_id
+                        WHERE d.parent_object_id=OBJECT_ID(N'dbo.evaluacion_piloto_mensual') AND c.name=N'calificacion_desempeno');
+                    IF @ratingDefault IS NOT NULL EXEC(N'ALTER TABLE dbo.evaluacion_piloto_mensual DROP CONSTRAINT ' + QUOTENAME(@ratingDefault));
                     ALTER TABLE dbo.evaluacion_piloto_mensual ALTER COLUMN calificacion_desempeno decimal(5,2) NOT NULL;
                     ALTER TABLE dbo.evaluacion_piloto_mensual ADD CONSTRAINT DF_eval_calificacion DEFAULT 100.00 FOR calificacion_desempeno;
                     """);

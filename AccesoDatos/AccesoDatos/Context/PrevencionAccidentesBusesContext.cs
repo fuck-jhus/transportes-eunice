@@ -137,8 +137,9 @@ public partial class PrevencionAccidentesBusesContext : DbContext
                 .HasDefaultValue(0m)
                 .HasColumnType("decimal(10, 2)")
                 .HasColumnName("puntos_riesgo_por_10h");
+            // Sin valor por defecto: NULL significa "sin calificar" (cobertura insuficiente).
+            // Un DEFAULT 100 haría que EF omitiera el NULL al insertar y el mes quedara como perfecto.
             entity.Property(e => e.CalificacionDesempeno)
-                .HasDefaultValue(100.00m)
                 .HasColumnType("decimal(5, 2)")
                 .HasColumnName("calificacion_desempeno");
             entity.Property(e => e.IdUsuario).HasColumnName("id_usuario");
