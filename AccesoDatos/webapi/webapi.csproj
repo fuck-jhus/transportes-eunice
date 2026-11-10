@@ -20,6 +20,7 @@
     <EmbeddedResource Include="Sql\20261016_integridad.sql" />
     <EmbeddedResource Include="Sql\20261016_rls.sql" />
     <EmbeddedResource Include="Sql\20261017_push_operations.sql" />
+    <EmbeddedResource Include="Sql\20261110_evaluacion_sin_calificar.sql" />
   </ItemGroup>
 
 </Project>

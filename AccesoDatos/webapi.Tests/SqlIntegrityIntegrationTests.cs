@@ -56,7 +56,17 @@ public class SqlIntegrityIntegrationTests
                     ALTER TABLE dbo.telemetria_iot ALTER COLUMN fecha_hora_servidor datetime NOT NULL;
                     ALTER TABLE dbo.telemetria_iot ADD CONSTRAINT DF_telemetria_servidor DEFAULT GETUTCDATE() FOR fecha_hora_servidor;
                     """);
+                // The official creation script used to define the monthly rating as NOT NULL DEFAULT 100.
+                await db.Database.ExecuteSqlRawAsync("""
+                    ALTER TABLE dbo.evaluacion_piloto_mensual ALTER COLUMN calificacion_desempeno decimal(5,2) NOT NULL;
+                    ALTER TABLE dbo.evaluacion_piloto_mensual ADD CONSTRAINT DF_eval_calificacion DEFAULT 100.00 FOR calificacion_desempeno;
+                    """);
+                await Assert.ThrowsAsync<InvalidOperationException>(() => DatabaseSchemaInitializer.ValidateAsync(db));
                 await DatabaseSchemaInitializer.ApplyAsync(db, NullLogger.Instance);
+                Assert.Equal(1, await db.Database.SqlQueryRaw<int>("""
+                    SELECT CAST(is_nullable AS int) AS [Value] FROM sys.columns
+                    WHERE object_id=OBJECT_ID(N'dbo.evaluacion_piloto_mensual') AND name=N'calificacion_desempeno'
+                    """).SingleAsync());
                 // Exercise the production migration path on an older database without push.
                 await db.Database.ExecuteSqlRawAsync("DROP TABLE dbo.dispositivo_push");
                 await Assert.ThrowsAsync<InvalidOperationException>(() => DatabaseSchemaInitializer.ValidateAsync(db));
