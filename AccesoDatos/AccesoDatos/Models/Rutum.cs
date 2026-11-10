@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace AccesoDatos.Models;
@@ -20,6 +20,8 @@ public partial class Rutum
     public decimal? DestinoLatitud { get; set; }
 
     public decimal? DestinoLongitud { get; set; }
+
+    public virtual ICollection<ParadaRuta> Paradas { get; set; } = new List<ParadaRuta>();
 
     public virtual ICollection<ViajeDiario> ViajeDiarios { get; set; } = new List<ViajeDiario>();
 }

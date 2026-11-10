@@ -77,6 +77,7 @@ public sealed class PublicTripsController : ControllerBase
             routeHistory = Downsample(newestFirst, MaxHistoryPoints).ToArray();
         }
 
+        var stops = await RouteStops.ForTripAsync(_context, trip, trackProgress: !trip.ModoPrivacidad, cancellationToken);
         var lastUpdate = latest?.FechaHora;
         var stale = !lastUpdate.HasValue || DateTime.UtcNow - EnsureUtc(lastUpdate.Value) > TimeSpan.FromSeconds(30)
             || EnsureUtc(lastUpdate.Value) > DateTime.UtcNow.AddSeconds(5);
@@ -103,7 +104,11 @@ public sealed class PublicTripsController : ControllerBase
             DestinoLatitud = trip.DestinoLatitud,
             DestinoLongitud = trip.DestinoLongitud,
             DestinoNombre = trip.DestinoNombre ?? route?.Destino,
-            Recorrido = routeHistory
+            Recorrido = routeHistory,
+            Paradas = stops.Select(x => new ParadaPublicaDto
+            {
+                Nombre = x.Stop.Nombre, Latitud = x.Stop.Latitud, Longitud = x.Stop.Longitud, Pasada = x.Passed
+            }).ToList()
         });
     }
 
@@ -126,13 +131,20 @@ public sealed class PublicTripsController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
         if (latest is null) return NotFound(new { mensaje = "Aún no hay una posición disponible." });
 
-        var cacheKey = $"public-route:{trip.IdViaje}:{Math.Round(latest.Latitud, 3)}:{Math.Round(latest.Longitud, 3)}:{trip.DestinoLatitud}:{trip.DestinoLongitud}";
+        var remaining = (await RouteStops.ForTripAsync(_context, trip, trackProgress: true, cancellationToken))
+            .Where(x => !x.Passed).Select(x => x.Stop).ToList();
+        var stopKey = string.Join(',', remaining.Select(x => x.IdParada));
+        var cacheKey = $"public-route:{trip.IdViaje}:{Math.Round(latest.Latitud, 3)}:{Math.Round(latest.Longitud, 3)}:{trip.DestinoLatitud}:{trip.DestinoLongitud}:{stopKey}";
         if (_cache.TryGetValue<RutaPublicaDto>(cacheKey, out var cached) && cached is not null)
         {
             return Ok(cached);
         }
 
-        var points = FormattableString.Invariant($"{latest.Longitud},{latest.Latitud};{trip.DestinoLongitud},{trip.DestinoLatitud}");
+        // Posición actual -> paradas pendientes -> destino. Cada tramo da el tiempo hasta cada parada.
+        var waypoints = new List<(decimal Lat, decimal Lng)> { (latest.Latitud, latest.Longitud) };
+        waypoints.AddRange(remaining.Select(x => (x.Latitud, x.Longitud)));
+        waypoints.Add((trip.DestinoLatitud.Value, trip.DestinoLongitud.Value));
+        var points = string.Join(';', waypoints.Select(x => FormattableString.Invariant($"{x.Lng},{x.Lat}")));
         var osrmPath = $"route/v1/driving/{points}?overview=full&geometries=geojson&steps=false&alternatives=false";
         foreach (var provider in new[] { "Osrm", "OsrmFallback" })
         {
@@ -144,11 +156,17 @@ public sealed class PublicTripsController : ControllerBase
                 var firstRoute = document.RootElement.GetProperty("routes").EnumerateArray().FirstOrDefault();
                 if (firstRoute.ValueKind == JsonValueKind.Undefined) continue;
 
+                var legs = firstRoute.TryGetProperty("legs", out var legNode) && legNode.ValueKind == JsonValueKind.Array
+                    ? legNode.EnumerateArray().Select(leg => (Seconds: leg.GetProperty("duration").GetDecimal(), Meters: leg.GetProperty("distance").GetDecimal())).ToList()
+                    : [];
+                var totalSeconds = firstRoute.GetProperty("duration").GetDecimal();
+                var totalMeters = firstRoute.GetProperty("distance").GetDecimal();
                 var result = new RutaPublicaDto
                 {
                     Coordenadas = ReadCoordinates(firstRoute.GetProperty("geometry")),
-                    DistanciaKm = Math.Round(firstRoute.GetProperty("distance").GetDecimal() / 1000M, 1),
-                    DuracionMinutos = Math.Round(firstRoute.GetProperty("duration").GetDecimal() / 60M, 0)
+                    DistanciaKm = Math.Round(totalMeters / 1000M, 1),
+                    DuracionMinutos = Math.Round(totalSeconds / 60M, 0),
+                    Paradas = StopEstimates(remaining, waypoints, legs, totalSeconds, totalMeters)
                 };
                 _cache.Set(cacheKey, result, TimeSpan.FromSeconds(30));
                 return Ok(result);
@@ -176,16 +194,19 @@ public sealed class PublicTripsController : ControllerBase
                 var properties = feature.TryGetProperty("properties", out var propertyNode)
                     ? propertyNode
                     : default;
+                var totalMeters = ReadDecimal(properties, "track-length")
+                    ?? ReadDecimal(properties, "total-length")
+                    ?? ReadDecimal(properties, "distance")
+                    ?? 0M;
+                var totalSeconds = ReadDecimal(properties, "total-time")
+                    ?? ReadDecimal(properties, "duration")
+                    ?? 0M;
                 var result = new RutaPublicaDto
                 {
                     Coordenadas = ReadCoordinates(feature.GetProperty("geometry")),
-                    DistanciaKm = Math.Round((ReadDecimal(properties, "track-length")
-                        ?? ReadDecimal(properties, "total-length")
-                        ?? ReadDecimal(properties, "distance")
-                        ?? 0M) / 1000M, 1),
-                    DuracionMinutos = Math.Round((ReadDecimal(properties, "total-time")
-                        ?? ReadDecimal(properties, "duration")
-                        ?? 0M) / 60M, 0)
+                    DistanciaKm = Math.Round(totalMeters / 1000M, 1),
+                    DuracionMinutos = Math.Round(totalSeconds / 60M, 0),
+                    Paradas = StopEstimates(remaining, waypoints, [], totalSeconds, totalMeters)
                 };
                 _cache.Set(cacheKey, result, TimeSpan.FromSeconds(30));
                 return Ok(result);
@@ -328,7 +349,7 @@ public sealed class PublicTripsController : ControllerBase
             $"{conversation.AliasPasajero}: {content}", new Dictionary<string, string?>
             { ["type"] = "passenger_message", ["tab"] = "chat", ["tripId"] = trip.IdViaje.ToString(),
                 ["conversationId"] = conversation.IdConversacion.ToString() },
-            [trip.IdUsuario], PushOutbox.Operators, ct: cancellationToken);
+            conversation.FechaDerivadaPiloto != null ? [trip.IdUsuario] : null, PushOutbox.Operators, ct: cancellationToken);
         _context.MensajesPasajeros.Add(message);
         try { await _context.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateException) when (!string.IsNullOrWhiteSpace(dto.IdCliente))
@@ -343,7 +364,7 @@ public sealed class PublicTripsController : ControllerBase
         var response = ToMessageDto(message);
         await WebSocketConnectionManager.BroadcastPassengerMessageAsync(
             response,
-            conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario);
+            conversation.FechaDerivadaPiloto != null ? conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario : null);
 
         return Ok(response);
     }
@@ -389,6 +410,51 @@ public sealed class PublicTripsController : ControllerBase
             _logger.LogWarning(exception, "No fue posible consultar el proveedor público {Provider}.", clientName);
             return null;
         }
+    }
+
+    // Con tramos del proveedor se suma tramo a tramo; sin tramos se reparte el total según la distancia en línea recta.
+    public static List<ParadaPublicaDto> StopEstimates(
+        IReadOnlyList<ParadaRuta> remaining,
+        IReadOnlyList<(decimal Lat, decimal Lng)> waypoints,
+        IReadOnlyList<(decimal Seconds, decimal Meters)> legs,
+        decimal totalSeconds,
+        decimal totalMeters)
+    {
+        var result = new List<ParadaPublicaDto>(remaining.Count);
+        if (remaining.Count == 0) return result;
+        var useLegs = legs.Count == waypoints.Count - 1;
+        var straight = new List<double>();
+        for (var i = 1; i < waypoints.Count; i++)
+            straight.Add(RouteStops.DistanceKm((double)waypoints[i - 1].Lat, (double)waypoints[i - 1].Lng, (double)waypoints[i].Lat, (double)waypoints[i].Lng));
+        var straightTotal = straight.Sum();
+        decimal seconds = 0, meters = 0;
+        double straightSoFar = 0;
+        for (var i = 0; i < remaining.Count; i++)
+        {
+            if (useLegs)
+            {
+                seconds += legs[i].Seconds;
+                meters += legs[i].Meters;
+            }
+            else
+            {
+                straightSoFar += straight[i];
+                var share = straightTotal > 0 ? (decimal)(straightSoFar / straightTotal) : 0M;
+                seconds = totalSeconds * share;
+                meters = totalMeters * share;
+            }
+
+            result.Add(new ParadaPublicaDto
+            {
+                Nombre = remaining[i].Nombre,
+                Latitud = remaining[i].Latitud,
+                Longitud = remaining[i].Longitud,
+                Minutos = Math.Max(1, Math.Round(seconds / 60M, 0)),
+                DistanciaKm = Math.Round(meters / 1000M, 1)
+            });
+        }
+
+        return result;
     }
 
     private static decimal[][] ReadCoordinates(JsonElement geometry) =>

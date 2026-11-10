@@ -38,6 +38,8 @@ public partial class PrevencionAccidentesBusesContext : DbContext
 
     public virtual DbSet<Rutum> Ruta { get; set; }
 
+    public virtual DbSet<ParadaRuta> ParadasRuta { get; set; }
+
     public virtual DbSet<TelemetriaIot> TelemetriaIots { get; set; }
 
     public virtual DbSet<Usuario> Usuarios { get; set; }
@@ -109,6 +111,31 @@ public partial class PrevencionAccidentesBusesContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("placa");
+            entity.Property(e => e.CodigoPublico)
+                .HasMaxLength(48)
+                .IsUnicode(false)
+                .HasColumnName("codigo_publico");
+            entity.HasIndex(e => e.CodigoPublico, "UX_autobus_codigo_publico")
+                .IsUnique()
+                .HasFilter("[codigo_publico] IS NOT NULL");
+        });
+
+        modelBuilder.Entity<ParadaRuta>(entity =>
+        {
+            entity.HasKey(e => e.IdParada).HasName("PK_parada_ruta");
+            entity.ToTable("parada_ruta");
+            entity.HasIndex(e => new { e.IdRuta, e.Orden }, "UX_parada_ruta_orden").IsUnique();
+            entity.Property(e => e.IdParada).HasColumnName("id_parada");
+            entity.Property(e => e.IdRuta).HasColumnName("id_ruta");
+            entity.Property(e => e.Orden).HasColumnName("orden");
+            entity.Property(e => e.Nombre).HasMaxLength(100).HasColumnName("nombre");
+            entity.Property(e => e.Latitud).HasColumnType("decimal(10, 8)").HasColumnName("latitud");
+            entity.Property(e => e.Longitud).HasColumnType("decimal(11, 8)").HasColumnName("longitud");
+            entity.HasOne(e => e.IdRutaNavigation)
+                .WithMany(e => e.Paradas)
+                .HasForeignKey(e => e.IdRuta)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_parada_ruta_ruta");
         });
 
         modelBuilder.Entity<EvaluacionPilotoMensual>(entity =>
@@ -258,6 +285,7 @@ public partial class PrevencionAccidentesBusesContext : DbContext
             entity.Property(e => e.Bloqueada).HasColumnName("bloqueada");
             entity.Property(e => e.FechaLecturaOperador).HasColumnType("datetime2").HasColumnName("fecha_lectura_operador");
             entity.Property(e => e.FechaLecturaPasajero).HasColumnType("datetime2").HasColumnName("fecha_lectura_pasajero");
+            entity.Property(e => e.FechaDerivadaPiloto).HasColumnType("datetime2").HasColumnName("fecha_derivada_piloto");
 
             entity.HasOne(e => e.IdAccesoNavigation)
                 .WithMany(e => e.Conversaciones)

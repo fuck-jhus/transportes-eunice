@@ -37,7 +37,9 @@ public sealed class PassengerConversationsController : ControllerBase
 
         if (role == RolesUsuario.Piloto)
         {
-            query = query.Where(item => item.IdAccesoNavigation.IdViajeNavigation.IdUsuario == userId);
+            // El conductor solo ve lo que el centro de control le derivó.
+            query = query.Where(item => item.IdAccesoNavigation.IdViajeNavigation.IdUsuario == userId
+                && item.FechaDerivadaPiloto != null);
         }
         else if (!IsOperator(role))
         {
@@ -63,6 +65,7 @@ public sealed class PassengerConversationsController : ControllerBase
                 Unidad = item.IdAccesoNavigation.IdViajeNavigation.IdAutobusNavigation.Placa,
                 FechaUltimaActividad = item.FechaUltimaActividad,
                 Bloqueada = item.Bloqueada,
+                DerivadaPiloto = item.FechaDerivadaPiloto != null,
                 NoLeidos = item.Mensajes.Count(message => message.TipoEmisor == "Pasajero" && message.FechaLectura == null),
                 UltimoMensaje = item.Mensajes
                     .OrderByDescending(message => message.FechaHora)
@@ -213,8 +216,24 @@ public sealed class PassengerConversationsController : ControllerBase
         var response = ToMessageDto(message);
         await WebSocketConnectionManager.BroadcastPassengerMessageAsync(
             response,
-            conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario);
+            conversation.FechaDerivadaPiloto != null ? conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario : null);
         return Ok(response);
+    }
+
+    // Pasa la conversación al conductor, por ejemplo cuando la duda es sobre la parada o el equipaje.
+    [HttpPost("{id:guid}/derivar")]
+    [Authorize(Roles = RolesUsuario.Administradores)]
+    public async Task<IActionResult> DeriveToPilot(Guid id, CancellationToken cancellationToken)
+    {
+        if (!TryGetUser(out var userId, out _)) return Unauthorized();
+        var conversation = await GetAuthorizedConversationAsync(id, cancellationToken);
+        if (conversation is null) return NotFound(new { mensaje = "La conversación no existe o no está disponible." });
+        if (conversation.IdAccesoNavigation.IdViajeNavigation.EstadoViaje != EstadosViaje.EnCurso)
+            return BadRequest(new { mensaje = "El viaje finalizó y la conversación está cerrada." });
+        await PassengerEscalation.DeriveAsync(_context, conversation, DateTime.UtcNow,
+            "el centro de control te pasó esta conversación.", userId, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(new { mensaje = "La conversación ahora también la ve el conductor.", derivadaPiloto = true });
     }
 
     [HttpPost("{id:guid}/bloqueo")]
@@ -303,7 +322,8 @@ public sealed class PassengerConversationsController : ControllerBase
                 .ThenInclude(item => item.IdViajeNavigation)
             .SingleOrDefaultAsync(item => item.IdConversacion == id, cancellationToken);
         if (conversation is null) return null;
-        return role == RolesUsuario.Piloto && conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario != userId
+        return role == RolesUsuario.Piloto
+            && (conversation.IdAccesoNavigation.IdViajeNavigation.IdUsuario != userId || conversation.FechaDerivadaPiloto == null)
             ? null
             : IsOperator(role) || role == RolesUsuario.Piloto
                 ? conversation

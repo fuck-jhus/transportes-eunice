@@ -49,7 +49,8 @@ public class ApiRouteConventionTests
             ApiRoutes.Usuarios,
             ApiRoutes.Viajes,
             ApiRoutes.ConversacionesPasajeros,
-            ApiRoutes.ViajesPublicos
+            ApiRoutes.ViajesPublicos,
+            ApiRoutes.BusesPublicos
         };
 
         Assert.All(routes, route =>

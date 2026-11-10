@@ -232,7 +232,7 @@ public class LogicImplementationTests
     {
         await using var db = TestDb.Create(); await Seed(db);
         var access = new ViajeAccesoPublico { IdAcceso = Guid.NewGuid(), IdViaje = 1, TokenHash = "fixture", FechaExpiracion = DateTime.UtcNow.AddDays(1) };
-        var conversation = new ConversacionPasajero { IdConversacion = Guid.NewGuid(), IdAcceso = access.IdAcceso, SesionHash = "fixture", AliasPasajero = "Pasajero" };
+        var conversation = new ConversacionPasajero { IdConversacion = Guid.NewGuid(), IdAcceso = access.IdAcceso, SesionHash = "fixture", AliasPasajero = "Pasajero", FechaDerivadaPiloto = DateTime.UtcNow };
         db.AddRange(access, conversation);
         db.TelemetriaIots.Add(new TelemetriaIot { IdViaje = 1, Latitud = 15, Longitud = -90, VelocidadKmh = 45, FechaHoraDispositivo = DateTime.UtcNow.AddSeconds(-10) });
         await db.SaveChangesAsync();

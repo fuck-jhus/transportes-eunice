@@ -295,7 +295,7 @@ namespace webapi.Core
             await SendToSocketsAsync(targets, payload);
         }
 
-        public static async Task BroadcastPassengerMessageAsync(object passengerMessage, int pilotUserId)
+        public static async Task BroadcastPassengerMessageAsync(object passengerMessage, int? pilotUserId)
         {
             List<AuthenticatedWebSocket> targets;
             lock (_lock)
@@ -305,7 +305,7 @@ namespace webapi.Core
                     connection.Rol == RolesUsuario.Administrador ||
                     connection.Rol == RolesUsuario.SuperAdministrador ||
                     connection.Rol == RolesUsuario.Supervisor ||
-                    connection.UserId == pilotUserId
+                    (pilotUserId.HasValue && connection.UserId == pilotUserId.Value)
                 ).ToList();
             }
 
