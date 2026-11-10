@@ -224,10 +224,6 @@ export const TelemetryDashboard: React.FC = () => {
     thStyle,
     trStyle,
     tdStyle,
-    actionGroupStyle,
-    editButtonStyle,
-    deactivateButtonStyle,
-    deleteButtonStyle,
     activateButtonStyle,
     statusBadgeStyle,
     errorBannerStyle,
@@ -330,11 +326,20 @@ export const TelemetryDashboard: React.FC = () => {
 
   // Estados para Vista SaaS Tracking Split-Screen
   const [trackingSearchQuery, setTrackingSearchQuery] = useState<string>('');
+  const [directoryQuery, setDirectoryQuery] = useState<string>('');
+  const [directoryFilter, setDirectoryFilter] = useState<string>('all');
   const [trackingTabFilter, setTrackingTabFilter] = useState<'active' | 'all'>('active');
   const [focusedBusPlaca, setFocusedBusPlaca] = useState<string | null>(null);
 
   // Estados para Navegación del Panel
   const [activeTab, setActiveTab] = useState<DashboardTab>('map');
+  // Cada pantalla de directorio tiene sus propios filtros: al cambiar de pantalla se empieza limpio.
+  const [directoryTab, setDirectoryTab] = useState(activeTab);
+  if (directoryTab !== activeTab) {
+    setDirectoryTab(activeTab);
+    setDirectoryQuery('');
+    setDirectoryFilter('all');
+  }
 
   // Estados para el Módulo de Chat en Tiempo Real (General & Privado)
   const [chatMode, setChatMode] = useState<'general' | 'private'>('general');
@@ -1755,7 +1760,7 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
       <main className="main-content" style={mainContentWrapperStyle}>
-        {activeTab !== 'map' && activeTab !== 'telemetry' && activeTab !== 'alerts' && activeTab !== 'activity' && (
+        {!['map', 'telemetry', 'alerts', 'activity', 'users', 'routes', 'buses'].includes(activeTab) && (
           <DashboardHeader activeTab={activeTab} isDark={isDark} />
         )}
 
@@ -1976,63 +1981,75 @@ export const TelemetryDashboard: React.FC = () => {
         )}
 
       {/* VISTA DE GESTIÓN DE USUARIOS (Solo Administrador y SuperAdministrador) */}
-      {activeTab === 'users' && (user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador') && (
-        <div className="dashboard-view data-view" style={usersContainerStyle}>
-          <div className="data-view-header" style={tableHeaderStyle}>
-            <h2 style={cardTitleStyle}>Administración de Usuarios</h2>
-            <button className="button-with-icon" onClick={openCreateModal} style={addButtonStyle}>
-              <Plus size={16} /> Agregar Usuario
-            </button>
-          </div>
+      {activeTab === 'users' && (user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador') && (() => {
+        const q = directoryQuery.trim().toLowerCase();
+        const roleGroup = (rol: string) => rol === 'Piloto' ? 'pilots' : rol === 'Supervisor' ? 'supervisors' : 'admins';
+        const counts = { all: users.length, pilots: 0, supervisors: 0, admins: 0 } as Record<string, number>;
+        users.forEach((u) => { counts[roleGroup(u.tipoRol)] += 1; });
+        const visible = users.filter((u) => (directoryFilter === 'all' || roleGroup(u.tipoRol) === directoryFilter)
+          && (!q || u.nombreCompleto.toLowerCase().includes(q) || u.usuarioLogin.toLowerCase().includes(q)));
+        const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '?';
+        return (
+          <div className="screen directory-screen">
+            <header className="screen-head">
+              <div>
+                <h1>Personal</h1>
+                <p>{users.length} personas con acceso al sistema.</p>
+              </div>
+              <div className="screen-head-actions">
+                <button type="button" className="pill-button is-highlight" onClick={openCreateModal}><Plus size={16} aria-hidden="true" /> Agregar persona</button>
+              </div>
+            </header>
 
-          {crudError && (
-            <div style={errorBannerStyle}>
-               {crudError}
+            <div className="directory-tools">
+              <label className="ops-search">
+                <Search size={16} aria-hidden="true" />
+                <input type="search" placeholder="Nombre o usuario" aria-label="Buscar personal" value={directoryQuery} onChange={(e) => setDirectoryQuery(e.target.value)} />
+              </label>
+              <div className="ops-segment is-inline" role="group" aria-label="Filtrar por perfil">
+                {[['all', 'Todos'], ['pilots', 'Pilotos'], ['supervisors', 'Supervisores'], ['admins', 'Administración']].map(([key, label]) => (
+                  <button key={key} type="button" aria-pressed={directoryFilter === key} onClick={() => setDirectoryFilter(key)}>
+                    {label} <span>{counts[key]}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {loadingUsers ? (
-            <div style={loadingTableStyle}>Cargando usuarios de SQL Server...</div>
-          ) : (
-            <div className="management-grid" aria-label="Personal registrado">
-              {users.map((u) => (
-                <article className="management-card person-card" key={u.idUsuario}>
-                  <div className="management-card-top">
-                    <div className="management-avatar"><Users size={20} /></div>
-                    <div className="management-identity">
-                      <span className="management-kicker">Personal #{String(u.idUsuario).padStart(2, '0')}</span>
-                      <h3>{u.nombreCompleto}</h3>
-                      <span className="management-handle">@{u.usuarioLogin}</span>
+            {crudError && <div role="alert" className="inline-error">{crudError}</div>}
+
+            {loadingUsers ? (
+              <p className="feed-empty">Cargando personal…</p>
+            ) : visible.length === 0 ? (
+              <p className="feed-empty">Nadie coincide con la búsqueda.</p>
+            ) : (
+              <ul className="dir-list" aria-label="Personal registrado">
+                {visible.map((u) => (
+                  <li key={u.idUsuario} className="dir-row person-row" data-inactive={u.estado !== 'Activo' || undefined}>
+                    <span className="dir-avatar" aria-hidden="true">{initials(u.nombreCompleto)}</span>
+                    <div className="dir-main">
+                      <strong>{u.nombreCompleto}</strong>
+                      <span>@{u.usuarioLogin}</span>
                     </div>
-                    <span style={statusBadgeStyle(u.estado)}>{u.estado}</span>
-                  </div>
-                  <div className="management-details">
-                    <div><span>Perfil operativo</span><strong>{u.tipoRol}</strong></div>
-                    <div><span>Acceso</span><strong>{u.estado === 'Activo' ? 'Habilitado' : 'Suspendido'}</strong></div>
-                  </div>
-                  <div className="management-card-actions" style={actionGroupStyle}>
-                    <button className="button-with-icon" onClick={() => openEditModal(u)} style={editButtonStyle}>
-                      <Pencil size={14} /> Editar
-                    </button>
-                    <button
-                      className="button-with-icon"
-                      onClick={() => handleToggleEstado(u)}
-                      style={u.estado === 'Activo' ? deactivateButtonStyle : activateButtonStyle}
-                    >
-                      {u.estado === 'Activo' ? <><UserRoundX size={14} /> Desactivar</> : <><UserRoundCheck size={14} /> Activar</>}
-                    </button>
-                    {u.usuarioLogin !== 'superadmin' && u.usuarioLogin !== 'admin' && (
-                      <button className="icon-action danger" aria-label={`Eliminar a ${u.nombreCompleto}`} title="Eliminar" onClick={() => handleDeleteUser(u)} style={deleteButtonStyle}>
-                        <Trash2 size={15} />
+                    <span className={`role-chip is-${roleGroup(u.tipoRol)}`}>{u.tipoRol}</span>
+                    <span className={`state-text ${u.estado === 'Activo' ? 'is-on' : 'is-off'}`}>{u.estado === 'Activo' ? 'Activo' : 'Sin acceso'}</span>
+                    <div className="dir-actions">
+                      <button type="button" className="pill-button is-ghost" onClick={() => openEditModal(u)}><Pencil size={14} aria-hidden="true" /> Editar</button>
+                      <button type="button" className="pill-button is-ghost" onClick={() => handleToggleEstado(u)}>
+                        {u.estado === 'Activo' ? <><UserRoundX size={14} aria-hidden="true" /> Quitar acceso</> : <><UserRoundCheck size={14} aria-hidden="true" /> Dar acceso</>}
                       </button>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                      {u.usuarioLogin !== 'superadmin' && u.usuarioLogin !== 'admin' && (
+                        <button type="button" className="icon-pill is-danger" aria-label={`Eliminar a ${u.nombreCompleto}`} title="Eliminar" onClick={() => handleDeleteUser(u)}>
+                          <Trash2 size={15} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
 
       {/* MODAL / FORMULARIO FLOTANTE (GLASSMORPHISM) */}
       {showModal && (
@@ -2122,66 +2139,63 @@ export const TelemetryDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'routes' && canMonitorOperations && (
-        <div className="dashboard-view data-view" style={usersContainerStyle}>
-          <div className="data-view-header" style={tableHeaderStyle}>
-            <div>
-              <h2 style={{ ...cardTitleStyle, marginBottom: '4px' }}>Rutas guardadas</h2>
-              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                Trayectos reutilizables para asignar rápidamente a una unidad, como destinos frecuentes.
-              </p>
+      {activeTab === 'routes' && canMonitorOperations && (() => {
+        const q = directoryQuery.trim().toLowerCase();
+        const visible = routes.filter((r) => !q || [r.nombreRuta, r.origen, r.destino].some((v) => v?.toLowerCase().includes(q)));
+        return (
+          <div className="screen directory-screen">
+            <header className="screen-head">
+              <div>
+                <h1>Rutas</h1>
+                <p>Trayectos guardados para despachar más rápido.</p>
+              </div>
+              {canManageOperations && (
+                <div className="screen-head-actions">
+                  <button type="button" className="pill-button is-highlight" onClick={openCreateRouteModal}><Plus size={16} aria-hidden="true" /> Nueva ruta</button>
+                </div>
+              )}
+            </header>
+
+            <div className="directory-tools">
+              <label className="ops-search">
+                <Search size={16} aria-hidden="true" />
+                <input type="search" placeholder="Nombre, origen o destino" aria-label="Buscar rutas" value={directoryQuery} onChange={(e) => setDirectoryQuery(e.target.value)} />
+              </label>
             </div>
-            {canManageOperations && (
-              <button className="button-with-icon" type="button" onClick={openCreateRouteModal} style={addButtonStyle}>
-                <Plus size={16} /> Nueva ruta
-              </button>
+
+            {crudError && <div role="alert" className="inline-error">{crudError}</div>}
+
+            {routes.length === 0 ? (
+              <div className="feed-empty is-column">
+                <MapPinned size={32} strokeWidth={1.5} aria-hidden="true" />
+                <p><strong>Todavía no hay rutas guardadas.</strong></p>
+                <p>Crea una aquí o deja que un piloto guarde su recorrido desde el mapa.</p>
+              </div>
+            ) : visible.length === 0 ? (
+              <p className="feed-empty">Ninguna ruta coincide con la búsqueda.</p>
+            ) : (
+              <ul className="route-list" aria-label="Rutas guardadas">
+                {visible.map((route) => {
+                  const gpsReady = route.destinoLatitud != null && route.destinoLongitud != null;
+                  return (
+                    <li key={route.idRuta} className="route-row">
+                      <div className="route-row-name">
+                        <strong>{route.nombreRuta}</strong>
+                        <span className={gpsReady ? 'is-ready' : ''}>{gpsReady ? 'Lista para navegación GPS' : 'Solo para despacho'}</span>
+                      </div>
+                      <div className="route-path" aria-label={`De ${route.origen} a ${route.destino}`}>
+                        <span className="route-stop is-start">{route.origen}</span>
+                        <span className="route-line" aria-hidden="true"><ArrowRight size={14} /></span>
+                        <span className="route-stop is-end">{route.destino}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
-
-          {crudError && <div role="alert" style={errorBannerStyle}>{crudError}</div>}
-
-          {routes.length === 0 ? (
-            <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <MapPinned size={36} strokeWidth={1.5} style={{ marginBottom: '10px', color: 'var(--accent)' }} />
-              <strong style={{ display: 'block', color: 'var(--ink)', marginBottom: '5px' }}>Todavía no hay rutas guardadas</strong>
-              <span>Crea una desde aquí o deja que un piloto guarde el recorrido elegido en el mapa.</span>
-            </div>
-          ) : (
-            <div className="management-grid routes-management-grid" aria-label="Catálogo de rutas guardadas">
-              {routes.map((route) => (
-                <article className="management-card route-card" key={route.idRuta} style={{ padding: '20px', minHeight: '210px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <span className="management-kicker">Ruta #{String(route.idRuta).padStart(2, '0')}</span>
-                      <h3 style={{ margin: '6px 0 0', color: 'var(--ink)', fontSize: '1.05rem' }}>{route.nombreRuta}</h3>
-                    </div>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '13px', display: 'grid', placeItems: 'center', flexShrink: 0, color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent-line)' }}>
-                      <MapPinned size={21} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '22px minmax(0, 1fr)', marginTop: '22px', gap: '0 10px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent)', marginTop: '4px' }} />
-                      <span style={{ width: '2px', minHeight: '37px', flex: 1, background: 'var(--line)', margin: '4px 0' }} />
-                      <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#ef4444', marginBottom: '4px' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '18px', minWidth: 0 }}>
-                      <div><span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Origen</span><strong style={{ display: 'block', color: 'var(--ink)', fontSize: '0.86rem', overflowWrap: 'anywhere' }}>{route.origen}</strong></div>
-                      <div><span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Destino</span><strong style={{ display: 'block', color: 'var(--ink)', fontSize: '0.86rem', overflowWrap: 'anywhere' }}>{route.destino}</strong></div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', color: 'var(--text-muted)', fontSize: '0.76rem' }}>
-                    <span>{route.destinoLatitud != null && route.destinoLongitud != null ? 'Lista para navegación GPS' : 'Disponible para despacho'}</span>
-                    <ArrowRight size={16} color="var(--accent)" />
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
       {showRouteModal && (
         <div className="modal-overlay" style={modalOverlayStyle}>
@@ -2219,68 +2233,85 @@ export const TelemetryDashboard: React.FC = () => {
       )}
 
       {/* La supervisión puede consultar la flota; solo administración puede modificarla. */}
-      {activeTab === 'buses' && canMonitorOperations && (
-        <div className="dashboard-view data-view" style={usersContainerStyle}>
-          <div className="data-view-header" style={tableHeaderStyle}>
-            <h2 style={cardTitleStyle}>Administración de Autobuses</h2>
-            {canManageOperations && (
-              <button className="button-with-icon" onClick={openCreateBusModal} style={addButtonStyle}>
-                <Plus size={16} /> Agregar Autobús
-              </button>
+      {activeTab === 'buses' && canMonitorOperations && (() => {
+        const q = directoryQuery.trim().toLowerCase();
+        const withTrip = buses.map((b) => ({ bus: b, trip: trips.find(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso') }));
+        const stateOf = (entry: { bus: Autobus; trip?: Viaje }) => entry.bus.estado === 'En Taller' ? 'shop' : entry.bus.estado === 'Inactivo' ? 'off' : entry.trip ? 'road' : 'base';
+        const counts: Record<string, number> = { all: withTrip.length, road: 0, base: 0, shop: 0, off: 0 };
+        withTrip.forEach((e) => { counts[stateOf(e)] += 1; });
+        const visible = withTrip.filter((e) => (directoryFilter === 'all' || stateOf(e) === directoryFilter)
+          && (!q || e.bus.placa.toLowerCase().includes(q) || e.bus.marcaModelo?.toLowerCase().includes(q) || e.trip?.nombrePiloto?.toLowerCase().includes(q)));
+        const stateLabel: Record<string, string> = { road: 'En ruta', base: 'En base', shop: 'En taller', off: 'Inactivo' };
+        return (
+          <div className="screen directory-screen">
+            <header className="screen-head">
+              <div>
+                <h1>Autobuses</h1>
+                <p>{counts.road} en ruta, {counts.base} en base{counts.shop ? `, ${counts.shop} en taller` : ''}.</p>
+              </div>
+              {canManageOperations && (
+                <div className="screen-head-actions">
+                  <button type="button" className="pill-button is-highlight" onClick={openCreateBusModal}><Plus size={16} aria-hidden="true" /> Agregar autobús</button>
+                </div>
+              )}
+            </header>
+
+            <div className="directory-tools">
+              <label className="ops-search">
+                <Search size={16} aria-hidden="true" />
+                <input type="search" placeholder="Placa, modelo o piloto" aria-label="Buscar autobuses" value={directoryQuery} onChange={(e) => setDirectoryQuery(e.target.value)} />
+              </label>
+              <div className="ops-segment is-inline" role="group" aria-label="Filtrar por estado">
+                {[['all', 'Todos'], ['road', 'En ruta'], ['base', 'En base'], ['shop', 'En taller']].map(([key, label]) => (
+                  <button key={key} type="button" aria-pressed={directoryFilter === key} onClick={() => setDirectoryFilter(key)}>
+                    {label} <span>{counts[key]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {crudError && <div role="alert" className="inline-error">{crudError}</div>}
+
+            {loadingBuses ? (
+              <p className="feed-empty">Cargando autobuses…</p>
+            ) : visible.length === 0 ? (
+              <p className="feed-empty">Ningún autobús coincide.</p>
+            ) : (
+              <ul className="bus-board" aria-label="Flota registrada">
+                {visible.map((entry) => {
+                  const state = stateOf(entry);
+                  return (
+                    <li key={entry.bus.idAutobus} className="bus-tile" data-state={state}>
+                      <div className="bus-tile-top">
+                        <span className="plate">{entry.bus.placa}</span>
+                        <span className={`bus-state is-${state}`}>{stateLabel[state]}</span>
+                      </div>
+                      <div className="bus-tile-body">
+                        <span>{entry.bus.marcaModelo || 'Modelo sin registrar'}</span>
+                        <strong>{entry.trip ? entry.trip.nombrePiloto : 'Sin piloto en ruta'}</strong>
+                        {entry.trip?.nombreRuta && entry.trip.nombreRuta !== 'N/D' && <span>{entry.trip.nombreRuta}</span>}
+                      </div>
+                      {canManageOperations && (
+                        <div className="bus-tile-actions">
+                          <button type="button" className="pill-button is-ghost" onClick={() => openEditBusModal(entry.bus)}><Pencil size={14} aria-hidden="true" /> Editar</button>
+                          {entry.trip && (
+                            <button type="button" className="pill-button is-ghost" onClick={() => { setFocusedBusPlaca(entry.bus.placa); setActiveTab('map'); }}>
+                              <Navigation size={14} aria-hidden="true" /> Mapa
+                            </button>
+                          )}
+                          <button type="button" className="icon-pill is-danger" aria-label={`Eliminar unidad ${entry.bus.placa}`} title="Eliminar" onClick={() => handleDeleteBus(entry.bus.idAutobus)}>
+                            <Trash2 size={15} aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
-
-          {crudError && (
-            <div style={errorBannerStyle}>
-               {crudError}
-            </div>
-          )}
-
-          {loadingBuses ? (
-            <div style={loadingTableStyle}>Cargando autobuses de SQL Server...</div>
-          ) : (
-            <div className="management-grid fleet-management-grid" aria-label="Flota registrada">
-              {buses.map((b) => {
-                const activeTripForBus = trips.find(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso');
-                return (
-                  <article className="management-card bus-card" key={b.idAutobus}>
-                    <div className="bus-card-visual">
-                      <span className="management-kicker">Unidad #{String(b.idAutobus).padStart(2, '0')}</span>
-                      <Bus size={42} strokeWidth={1.5} />
-                      <strong>{b.placa}</strong>
-                    </div>
-                    <div className="bus-card-content">
-                      <div className="bus-card-heading">
-                        <div>
-                          <span className="management-kicker">Marca y modelo</span>
-                          <h3>{b.marcaModelo || 'Sin especificar'}</h3>
-                        </div>
-                        <span style={statusBadgeStyle(b.estado)}>{b.estado}</span>
-                      </div>
-                      <div className="management-details compact">
-                        <div><span>Piloto actual</span><strong>{activeTripForBus?.nombrePiloto || 'Sin asignación'}</strong></div>
-                        <div><span>Disponibilidad</span><strong>{activeTripForBus ? 'En recorrido' : 'En base'}</strong></div>
-                      </div>
-                      {canManageOperations ? (
-                        <div className="management-card-actions" style={actionGroupStyle}>
-                          <button className="button-with-icon" onClick={() => openEditBusModal(b)} style={editButtonStyle}>
-                            <Pencil size={14} /> Asignar o editar
-                          </button>
-                          <button className="icon-action danger" aria-label={`Eliminar unidad ${b.placa}`} title="Eliminar" onClick={() => handleDeleteBus(b.idAutobus)} style={deleteButtonStyle}>
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 700 }}>Solo lectura</span>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
 
       {/* MODAL / FORMULARIO FLOTANTE AUTOBUSES */}

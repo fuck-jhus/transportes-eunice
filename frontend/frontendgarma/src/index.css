@@ -4792,3 +4792,375 @@ button.ops-unit[aria-pressed="true"] {
     white-space: normal;
   }
 }
+
+/* ===== Personal, Autobuses y Rutas ===== */
+.directory-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.directory-tools .ops-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.directory-tools .ops-segment.is-inline {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.inline-error {
+  padding: 12px 16px;
+  border-radius: 14px;
+  color: var(--danger-ink);
+  background: var(--danger-soft);
+  font-size: 0.88rem;
+}
+
+.icon-pill {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.icon-pill.is-danger:hover {
+  color: var(--danger-ink);
+  background: var(--danger-soft);
+}
+
+.dir-list,
+.route-list,
+.bus-board {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dir-list,
+.route-list {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.dir-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1.4fr) 150px 110px 330px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+}
+
+.dir-row + .dir-row,
+.route-row + .route-row {
+  border-top: 1px solid var(--line);
+}
+
+.dir-row[data-inactive] .dir-main,
+.dir-row[data-inactive] .dir-avatar {
+  opacity: 0.55;
+}
+
+.dir-avatar {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.dir-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dir-main strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.96rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dir-main span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.role-chip {
+  justify-self: start;
+  padding: 4px 11px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.role-chip.is-pilots { color: var(--success); background: var(--success-soft); border-color: transparent; }
+.role-chip.is-supervisors { color: var(--warning-ink); background: var(--warning-soft); border-color: transparent; }
+
+.state-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.state-text::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.state-text.is-on { color: var(--ink); }
+.state-text.is-on::before { background: var(--success); }
+
+.dir-actions,
+.bus-tile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dir-actions .pill-button,
+.bus-tile-actions .pill-button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+}
+
+/* Autobuses: tablero de placas */
+.bus-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.bus-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.bus-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: var(--line-strong);
+}
+
+.bus-tile[data-state="road"]::before { background: var(--success); }
+.bus-tile[data-state="shop"]::before { background: var(--highlight); }
+.bus-tile[data-state="off"]::before { background: var(--danger); }
+
+.bus-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plate {
+  padding: 5px 12px;
+  border: 2px solid #1e2a24;
+  border-radius: 8px;
+  color: #1e2a24;
+  background: #fffdf8;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  box-shadow: inset 0 0 0 2px #fffdf8, inset 0 0 0 3px #ddd3c0;
+}
+
+.bus-state {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+.bus-state.is-road { color: var(--success); background: var(--success-soft); }
+.bus-state.is-shop { color: var(--warning-ink); background: var(--warning-soft); }
+.bus-state.is-off { color: var(--danger-ink); background: var(--danger-soft); }
+
+.bus-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bus-tile-body span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.bus-tile-body strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.bus-tile-actions {
+  justify-content: flex-start;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.bus-tile-actions .icon-pill {
+  margin-left: auto;
+}
+
+/* Rutas */
+.route-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.6fr);
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+}
+
+.route-row-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.route-row-name strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+}
+
+.route-row-name span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.route-row-name span.is-ready {
+  color: var(--success);
+}
+
+.route-path {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.route-stop {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.route-stop::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2.5px solid var(--accent);
+  background: var(--surface);
+}
+
+.route-stop.is-end::before {
+  border-color: var(--danger);
+  background: var(--danger);
+  border-radius: 3px;
+}
+
+.route-line {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.route-line::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed var(--line-strong);
+}
+
+.route-line svg {
+  position: relative;
+  padding: 0 3px;
+  background: var(--surface);
+}
+
+@media (max-width: 900px) {
+  .dir-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    row-gap: 8px;
+  }
+
+  .dir-row .state-text {
+    display: none;
+  }
+
+  .dir-actions {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+  }
+
+  .route-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .route-path {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .route-line {
+    display: none;
+  }
+
+  .directory-tools .ops-search {
+    max-width: none;
+  }
+}
