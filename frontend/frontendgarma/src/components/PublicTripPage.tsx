@@ -210,7 +210,7 @@ export const PublicTripPage = ({ token }: { token: string }) => {
     const bounds: L.LatLngTuple[] = [];
     const history = (trip.recorrido || []).map((point) => [Number(point.latitud), Number(point.longitud)] as L.LatLngTuple);
     if (history.length > 1) {
-      L.polyline(history, { color: '#d85f28', weight: 5, opacity: 0.8, lineCap: 'round' }).addTo(layers);
+      L.polyline(history, { color: '#1f5c46', weight: 5, opacity: 0.8, lineCap: 'round' }).addTo(layers);
       bounds.push(...history);
     }
     if (route?.coordenadas?.length) {

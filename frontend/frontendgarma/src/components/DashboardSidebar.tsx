@@ -49,19 +49,19 @@ export const DashboardSidebar = ({
           <button type="button" onClick={() => onTabChange('map')} data-active={activeTab === 'map' || activeTab === 'telemetry'}
             aria-current={(activeTab === 'map' || activeTab === 'telemetry') ? 'page' : undefined}
             style={(activeTab === 'map' || activeTab === 'telemetry') ? styles.sidebarNavActiveStyle : styles.sidebarNavInactiveStyle}>
-            <Navigation size={18} /><span>Monitoreo GPS</span>
+            <Navigation size={18} /><span>Mapa en vivo</span>
           </button>
 
           {canDispatch && (
             <button type="button" onClick={() => onTabChange('alerts')} data-active={activeTab === 'alerts'}
               aria-current={activeTab === 'alerts' ? 'page' : undefined} style={navStyle('alerts')}>
-              <BarChart3 size={18} /><span>Alertas y Telemetría</span>
+              <BarChart3 size={18} /><span>Alertas</span>
             </button>
           )}
 
           <button type="button" onClick={() => onTabChange('activity')} data-active={activeTab === 'activity'}
             aria-current={activeTab === 'activity' ? 'page' : undefined} style={navStyle('activity')}>
-            <ClipboardList size={18} /><span>Historial de Viajes</span>
+            <ClipboardList size={18} /><span>Viajes</span>
           </button>
 
           {canDispatch && (
@@ -74,7 +74,7 @@ export const DashboardSidebar = ({
           {canDispatch && (
             <button type="button" onClick={() => onTabChange('routes')} data-active={activeTab === 'routes'}
               aria-current={activeTab === 'routes' ? 'page' : undefined} style={navStyle('routes')}>
-              <MapPinned size={18} /><span>Rutas guardadas</span>
+              <MapPinned size={18} /><span>Rutas</span>
             </button>
           )}
 
@@ -87,7 +87,7 @@ export const DashboardSidebar = ({
 
           <button type="button" onClick={() => onTabChange('chat')} data-active={activeTab === 'chat'}
             aria-current={activeTab === 'chat' ? 'page' : undefined} style={navStyle('chat')}>
-            <MessageSquare size={18} /><span>Chat Operativo</span>
+            <MessageSquare size={18} /><span>Chat</span>
           </button>
         </nav>
       </div>

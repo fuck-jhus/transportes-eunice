@@ -1804,7 +1804,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '9px',
                     border: 'none',
                     backgroundColor: trackingTabFilter === 'active' ? 'var(--accent)' : 'transparent',
-                    color: trackingTabFilter === 'active' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                    color: trackingTabFilter === 'active' ? 'var(--on-accent)' : 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -1828,7 +1828,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '9px',
                     border: 'none',
                     backgroundColor: trackingTabFilter === 'all' ? 'var(--accent)' : 'transparent',
-                    color: trackingTabFilter === 'all' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                    color: trackingTabFilter === 'all' ? 'var(--on-accent)' : 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -2180,7 +2180,7 @@ export const TelemetryDashboard: React.FC = () => {
                             }}
                             style={{
                               backgroundColor: activeLiveRoutePlaca === focusedBus.placaAutobus ? '#ef4444' : (hasNavRoute ? 'var(--accent)' : '#64748b'),
-                              color: '#ffffff',
+                              color: activeLiveRoutePlaca !== focusedBus.placaAutobus && hasNavRoute ? 'var(--on-accent)' : '#ffffff',
                               border: 'none',
                               borderRadius: '10px',
                               padding: '8px 14px',
@@ -3234,7 +3234,7 @@ export const TelemetryDashboard: React.FC = () => {
                       onClick={() => setActivityTimeRange('week')}
                       style={{
                         backgroundColor: activityTimeRange === 'week' ? 'var(--accent)' : 'transparent',
-                        color: activityTimeRange === 'week' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                        color: activityTimeRange === 'week' ? 'var(--on-accent)' : 'var(--muted)',
                         border: 'none',
                         borderRadius: '9px',
                         padding: '6px 14px',
@@ -3255,7 +3255,7 @@ export const TelemetryDashboard: React.FC = () => {
                       onClick={() => setActivityTimeRange('all')}
                       style={{
                         backgroundColor: activityTimeRange === 'all' ? 'var(--accent)' : 'transparent',
-                        color: activityTimeRange === 'all' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                        color: activityTimeRange === 'all' ? 'var(--on-accent)' : 'var(--muted)',
                         border: 'none',
                         borderRadius: '9px',
                         padding: '6px 14px',
@@ -3433,7 +3433,7 @@ export const TelemetryDashboard: React.FC = () => {
                             onClick={() => setActivityTimeRange('all')}
                             style={{
                               backgroundColor: 'var(--accent)',
-                              color: '#ffffff',
+                              color: 'var(--on-accent)',
                               border: 'none',
                               borderRadius: '10px',
                               padding: '8px 16px',
@@ -3749,7 +3749,7 @@ export const TelemetryDashboard: React.FC = () => {
                 style={{
                   backgroundColor: 'var(--accent)',
                   backgroundImage: 'none',
-                  color: '#ffffff',
+                  color: 'var(--on-accent)',
                   border: 'none',
                   borderRadius: '12px',
                   padding: '12px 18px',
@@ -3999,7 +3999,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '8px',
                     border: 'none',
                     backgroundColor: chatMode === 'general' ? 'var(--accent)' : 'transparent',
-                    color: chatMode === 'general' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                    color: chatMode === 'general' ? 'var(--on-accent)' : 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -4035,7 +4035,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '8px',
                     border: 'none',
                     backgroundColor: chatMode === 'private' ? 'var(--accent)' : 'transparent',
-                    color: chatMode === 'private' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                    color: chatMode === 'private' ? 'var(--on-accent)' : 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -4401,7 +4401,7 @@ export const TelemetryDashboard: React.FC = () => {
                           borderBottomRightRadius: isMine ? '3px' : '14px',
                           borderBottomLeftRadius: isMine ? '14px' : '3px',
                           padding: '10px 16px',
-                          color: isMine ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a'),
+                          color: isMine ? 'var(--on-accent)' : (isDark ? '#f8fafc' : '#0f172a'),
                           cursor: 'pointer',
                           userSelect: 'none',
                           position: 'relative',
@@ -4426,7 +4426,7 @@ export const TelemetryDashboard: React.FC = () => {
                             </span>
                           </div>
                         )}
-                        <div style={{ fontSize: '0.9rem', lineHeight: '1.45', wordBreak: 'break-word', color: isMine ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a') }}>
+                        <div style={{ fontSize: '0.9rem', lineHeight: '1.45', wordBreak: 'break-word', color: isMine ? 'var(--on-accent)' : (isDark ? '#f8fafc' : '#0f172a') }}>
                           {msg.contenido}
                         </div>
                         <div style={{
