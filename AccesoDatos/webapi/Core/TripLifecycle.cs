@@ -21,9 +21,9 @@ public static class TripLifecycle
 
     public static async Task<bool> FinishAsync(PrevencionAccidentesBusesContext db, ViajeDiario trip, string reason, int? actorId = null)
     {
-        if (trip.EstadoViaje == "Finalizado") return false;
+        if (trip.EstadoViaje == EstadosViaje.Finalizado) return false;
         Snapshot(trip, trip.IdUsuarioNavigation, trip.IdAutobusNavigation, trip.IdRutaNavigation);
-        trip.EstadoViaje = "Finalizado";
+        trip.EstadoViaje = EstadosViaje.Finalizado;
         trip.FechaFin ??= DateTime.UtcNow;
         trip.MotivoFinalizacion = reason;
         trip.ModoPrivacidad = true;

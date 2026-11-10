@@ -17,7 +17,7 @@ public sealed class ConfirmDestinationDto
     [Range(0, int.MaxValue)] public int Revision { get; set; }
 }
 
-[ApiController, Route("api/viajes/{id:int}/destino"), Authorize(Roles = "Piloto,Administrador,SuperAdministrador")]
+[ApiController, Route("api/viajes/{id:int}/destino"), Authorize(Roles = RolesUsuario.PilotosYAdministradores)]
 public class TripDestinationController(PrevencionAccidentesBusesContext db) : ControllerBase
 {
     [HttpPost]
@@ -25,8 +25,8 @@ public class TripDestinationController(PrevencionAccidentesBusesContext db) : Co
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return (IActionResult)Unauthorized();
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         await TripLifecycle.LockAsync(db, $"trip:{id}");
-        var trip = await db.ViajesDiarios.SingleOrDefaultAsync(x => x.IdViaje == id && x.EstadoViaje == "En Curso"
-            && (!User.IsInRole("Piloto") || x.IdUsuario == userId));
+        var trip = await db.ViajesDiarios.SingleOrDefaultAsync(x => x.IdViaje == id && x.EstadoViaje == EstadosViaje.EnCurso
+            && (!User.IsInRole(RolesUsuario.Piloto) || x.IdUsuario == userId));
         if (trip == null) return NotFound();
         var name = dto.Nombre.Trim();
         var lat = Math.Round(dto.Lat, 8, MidpointRounding.AwayFromZero);

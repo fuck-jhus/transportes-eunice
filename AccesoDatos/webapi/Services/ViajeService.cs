@@ -102,7 +102,7 @@ namespace webapi.Services
                 .Include(v => v.IdAutobusNavigation)
                 .Include(v => v.IdRutaNavigation)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(v => v.IdUsuario == idPiloto && v.EstadoViaje == "En Curso");
+                .FirstOrDefaultAsync(v => v.IdUsuario == idPiloto && v.EstadoViaje == EstadosViaje.EnCurso);
 
             if (v == null) return null;
 
@@ -154,18 +154,18 @@ namespace webapi.Services
             {
                 throw new InvalidOperationException("El piloto especificado no existe.");
             }
-            if (piloto.TipoRol != "Piloto")
+            if (piloto.TipoRol != RolesUsuario.Piloto)
             {
                 throw new InvalidOperationException("El usuario seleccionado no es un Piloto.");
             }
-            if (piloto.Estado != "Activo")
+            if (piloto.Estado != EstadosRegistro.Activo)
             {
                 throw new InvalidOperationException("El piloto seleccionado está Inactivo.");
             }
 
             // 2. Concurrencia de Piloto
             bool pilotoEnViaje = await _context.ViajesDiarios
-                .AnyAsync(v => v.IdUsuario == dto.IdUsuario && v.EstadoViaje == "En Curso");
+                .AnyAsync(v => v.IdUsuario == dto.IdUsuario && v.EstadoViaje == EstadosViaje.EnCurso);
             if (pilotoEnViaje)
             {
                 throw new InvalidOperationException($"El piloto '{piloto.NombreCompleto}' ya tiene un viaje en curso asignado.");
@@ -177,14 +177,14 @@ namespace webapi.Services
             {
                 throw new InvalidOperationException("El autobús especificado no existe.");
             }
-            if (autobus.Estado != "Activo")
+            if (autobus.Estado != EstadosRegistro.Activo)
             {
                 throw new InvalidOperationException($"El autobús con placa '{autobus.Placa}' no está disponible (Estado: {autobus.Estado}).");
             }
 
             // 4. Concurrencia de Autobús
             bool autobusEnViaje = await _context.ViajesDiarios
-                .AnyAsync(v => v.IdAutobus == dto.IdAutobus && v.EstadoViaje == "En Curso");
+                .AnyAsync(v => v.IdAutobus == dto.IdAutobus && v.EstadoViaje == EstadosViaje.EnCurso);
             if (autobusEnViaje)
             {
                 throw new InvalidOperationException($"El autobús con placa '{autobus.Placa}' ya está asignado a otro viaje en curso.");
@@ -210,7 +210,7 @@ namespace webapi.Services
                 IdAutobus = dto.IdAutobus,
                 IdRuta = dto.IdRuta,
                 FechaInicio = DateTime.UtcNow,
-                EstadoViaje = "En Curso"
+                EstadoViaje = EstadosViaje.EnCurso
             };
 
             _context.ViajesDiarios.Add(nuevoViaje);
@@ -267,7 +267,7 @@ namespace webapi.Services
                 .Include(v => v.IdAutobusNavigation)
                 .Include(v => v.IdRutaNavigation)
                 .FirstOrDefaultAsync(v => v.IdViaje == id
-                    && v.EstadoViaje == "En Curso"
+                    && v.EstadoViaje == EstadosViaje.EnCurso
                     && (!idPilotoPropietario.HasValue || v.IdUsuario == idPilotoPropietario.Value));
 
             if (viaje == null) return null;
@@ -394,7 +394,7 @@ namespace webapi.Services
                 DestinoNombre = viaje.DestinoNombre,
                 FechaInicio = viaje.FechaInicio,
                 FechaFin = viaje.FechaFin,
-                EstadoViaje = viaje.EstadoViaje ?? "Finalizado"
+                EstadoViaje = viaje.EstadoViaje ?? EstadosViaje.Finalizado
             };
         }
     }

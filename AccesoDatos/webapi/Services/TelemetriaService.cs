@@ -24,7 +24,7 @@ namespace webapi.Services
             var tripId = tripIds[0];
             var trip = await _context.ViajesDiarios
                 .Include(v => v.IdUsuarioNavigation).Include(v => v.IdAutobusNavigation).Include(v => v.IdRutaNavigation)
-                .FirstOrDefaultAsync(v => v.IdUsuario == pilotId && (tripId.HasValue ? v.IdViaje == tripId : v.EstadoViaje == "En Curso"));
+                .FirstOrDefaultAsync(v => v.IdUsuario == pilotId && (tripId.HasValue ? v.IdViaje == tripId : v.EstadoViaje == EstadosViaje.EnCurso));
             if (trip == null) throw new InvalidOperationException("El viaje no pertenece al piloto o ya no está disponible. Se conservan las posiciones para revisión.");
             if (tripId.HasValue && readings.Any(item => {
                 var time = NormalizeTimestampUtc(item.FechaHoraDispositivo);
@@ -155,7 +155,7 @@ namespace webapi.Services
                 if (latest.HasValue) orderedDtos = orderedDtos.Where(item => item.TimestampUtc > NormalizeTimestampUtc(latest.Value)).ToList();
             }
             if (orderedDtos.Count == 0) { await _context.SaveChangesAsync(); await transaction.CommitAsync(); return 0; }
-            var active = viaje.EstadoViaje == "En Curso";
+            var active = viaje.EstadoViaje == EstadosViaje.EnCurso;
             if (active && orderedDtos.Any(x => x.Dto.IdFuente != null && x.Dto.IdFuente == viaje.IdFuenteRastreo
                 && x.TimestampUtc >= DateTime.UtcNow.AddSeconds(-30))) viaje.FuenteRastreoExpira = DateTime.UtcNow.AddMinutes(2);
 
@@ -237,7 +237,7 @@ namespace webapi.Services
             if (alertasCreadas.Count > 0)
             {
                 await _pushNotifications.SendToRolesAsync(
-                    ["Administrador", "SuperAdministrador", "Supervisor"],
+                    RolesUsuario.ListaOperadores,
                     "Alertas sincronizadas",
                     $"{viaje.IdAutobusNavigation?.Placa ?? "Unidad"}: {alertasCreadas.Count} evento(s) de riesgo.",
                     new Dictionary<string, string?>
@@ -314,7 +314,7 @@ namespace webapi.Services
                 .Include(v => v.IdUsuarioNavigation)
                 .Include(v => v.IdAutobusNavigation)
                 .Include(v => v.IdRutaNavigation)
-                .FirstOrDefaultAsync(v => v.IdUsuario == idPiloto && v.EstadoViaje == "En Curso");
+                .FirstOrDefaultAsync(v => v.IdUsuario == idPiloto && v.EstadoViaje == EstadosViaje.EnCurso);
 
             if (viaje == null)
             {

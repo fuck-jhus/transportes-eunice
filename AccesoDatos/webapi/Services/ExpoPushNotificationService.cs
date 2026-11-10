@@ -2,6 +2,7 @@ using System.Data;
 using AccesoDatos.Context;
 using AccesoDatos.Models;
 using Microsoft.EntityFrameworkCore;
+using webapi.Core;
 
 namespace webapi.Services;
 
@@ -38,7 +39,7 @@ public sealed class ExpoPushNotificationService : IPushNotificationService
 
         var userExists = await _context.Usuarios
             .AsNoTracking()
-            .AnyAsync(item => item.IdUsuario == userId && item.Estado == "Activo", cancellationToken);
+            .AnyAsync(item => item.IdUsuario == userId && item.Estado == EstadosRegistro.Activo, cancellationToken);
         if (!userExists)
         {
             throw new InvalidOperationException("El usuario no existe o está inactivo.");

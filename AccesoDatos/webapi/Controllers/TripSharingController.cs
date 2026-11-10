@@ -12,7 +12,7 @@ namespace webapi.Controllers;
 
 [ApiController]
 [Route(ApiRoutes.Viajes)]
-[Authorize(Roles = "Administrador,SuperAdministrador,Supervisor")]
+[Authorize(Roles = RolesUsuario.Operadores)]
 public sealed class TripSharingController : ControllerBase
 {
     private readonly PrevencionAccidentesBusesContext _context;
@@ -46,7 +46,7 @@ public sealed class TripSharingController : ControllerBase
     }
 
     [HttpPost("{id:int}/acceso-publico")]
-    [Authorize(Roles = "Administrador,SuperAdministrador")]
+    [Authorize(Roles = RolesUsuario.Administradores)]
     public async Task<IActionResult> CreateOrRotate(
         int id,
         [FromBody] CrearAccesoPublicoDto dto,
@@ -62,7 +62,7 @@ public sealed class TripSharingController : ControllerBase
         var trip = await _context.ViajesDiarios
             .SingleOrDefaultAsync(item => item.IdViaje == id, cancellationToken);
         if (trip is null) return NotFound(new { mensaje = "El viaje no existe." });
-        if (!string.Equals(trip.EstadoViaje, "En Curso", StringComparison.Ordinal))
+        if (!string.Equals(trip.EstadoViaje, EstadosViaje.EnCurso, StringComparison.Ordinal))
         {
             return BadRequest(new { mensaje = "Solo se puede compartir un viaje que esté en curso." });
         }
@@ -118,7 +118,7 @@ public sealed class TripSharingController : ControllerBase
     }
 
     [HttpDelete("{id:int}/acceso-publico")]
-    [Authorize(Roles = "Administrador,SuperAdministrador")]
+    [Authorize(Roles = RolesUsuario.Administradores)]
     public async Task<IActionResult> Revoke(int id, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;

@@ -95,7 +95,7 @@ public sealed class PublicTripsController : ControllerBase
             Conductor = driverFirstName,
             FechaInicio = trip.FechaInicio,
             FechaFin = trip.FechaFin,
-            ChatHabilitado = access.ChatHabilitado && trip.EstadoViaje == "En Curso",
+            ChatHabilitado = access.ChatHabilitado && trip.EstadoViaje == EstadosViaje.EnCurso,
             ModoPrivacidad = trip.ModoPrivacidad,
             UbicacionDisponible = latest is not null && !trip.ModoPrivacidad,
             UbicacionDesactualizada = stale,
@@ -211,7 +211,7 @@ public sealed class PublicTripsController : ControllerBase
     {
         var access = await ResolveAccessAsync(token, cancellationToken);
         if (access is null) return NotFound(new { mensaje = "El enlace no existe, venció o fue revocado." });
-        if (!access.ChatHabilitado || access.IdViajeNavigation.EstadoViaje != "En Curso")
+        if (!access.ChatHabilitado || access.IdViajeNavigation.EstadoViaje != EstadosViaje.EnCurso)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { mensaje = "La mensajería de este viaje no está disponible." });
         }
@@ -468,7 +468,7 @@ public sealed class PublicTripsController : ControllerBase
     {
         var access = await ResolveAccessAsync(token, cancellationToken);
         if (access is null || !access.ChatHabilitado) return null;
-        if (requireActiveTrip && access.IdViajeNavigation.EstadoViaje != "En Curso") return null;
+        if (requireActiveTrip && access.IdViajeNavigation.EstadoViaje != EstadosViaje.EnCurso) return null;
         if (!Request.Cookies.TryGetValue(PublicTripToken.GuestCookieName, out var sessionToken)
             || !PublicTripToken.IsValid(sessionToken)) return null;
 

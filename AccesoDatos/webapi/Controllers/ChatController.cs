@@ -55,7 +55,7 @@ public sealed class ReportarContenidoDto
 
 [ApiController]
 [Route(ApiRoutes.Chat)]
-[Authorize(Roles = "Piloto,Administrador,SuperAdministrador,Supervisor")]
+[Authorize(Roles = RolesUsuario.Todos)]
 public class ChatController : ControllerBase
 {
     private const int HistoryLimit = 250;
@@ -95,7 +95,7 @@ public class ChatController : ControllerBase
             return Unauthorized(new { mensaje = "Token de autenticación no válido." });
         }
 
-        if ((role == "Piloto" && idPilotoCanal != currentUserId) || (role != "Piloto" && !IsOperatorRole(role)))
+        if ((role == RolesUsuario.Piloto && idPilotoCanal != currentUserId) || (role != RolesUsuario.Piloto && !IsOperatorRole(role)))
         {
             return Forbid();
         }
@@ -125,7 +125,7 @@ public class ChatController : ControllerBase
             return Unauthorized(new { mensaje = "Token de autenticación no válido." });
         }
 
-        if (role == "Supervisor")
+        if (role == RolesUsuario.Supervisor)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new
             {
@@ -137,7 +137,7 @@ public class ChatController : ControllerBase
         var targetChannel = dto.IdPilotoCanal;
         string targetChannelName;
 
-        if (role == "Piloto" && targetChannel != 0)
+        if (role == RolesUsuario.Piloto && targetChannel != 0)
         {
             targetChannel = currentUserId;
             targetChannelName = senderName;
@@ -155,7 +155,7 @@ public class ChatController : ControllerBase
 
             var pilot = await _context.Usuarios
                 .AsNoTracking()
-                .Where(user => user.IdUsuario == targetChannel && user.TipoRol == "Piloto" && user.Estado == "Activo")
+                .Where(user => user.IdUsuario == targetChannel && user.TipoRol == RolesUsuario.Piloto && user.Estado == EstadosRegistro.Activo)
                 .Select(user => user.NombreCompleto)
                 .SingleOrDefaultAsync(cancellationToken);
 
@@ -205,17 +205,17 @@ public class ChatController : ControllerBase
         if (targetChannel == 0)
         {
             await _pushNotifications.SendToRolesAsync(
-                ["Piloto", "Administrador", "SuperAdministrador", "Supervisor"],
+                RolesUsuario.ListaTodos,
                 "Nuevo mensaje operativo",
                 $"{senderName}: {entity.Contenido}",
                 pushData,
                 currentUserId,
                 cancellationToken);
         }
-        else if (role == "Piloto")
+        else if (role == RolesUsuario.Piloto)
         {
             await _pushNotifications.SendToRolesAsync(
-                ["Administrador", "SuperAdministrador", "Supervisor"],
+                RolesUsuario.ListaOperadores,
                 $"Mensaje de {senderName}",
                 entity.Contenido,
                 pushData,
@@ -293,7 +293,7 @@ public class ChatController : ControllerBase
 
         var target = await _context.Usuarios
             .AsNoTracking()
-            .Where(item => item.IdUsuario == idUsuarioBloqueado && item.Estado == "Activo")
+            .Where(item => item.IdUsuario == idUsuarioBloqueado && item.Estado == EstadosRegistro.Activo)
             .Select(item => new { item.IdUsuario, item.NombreCompleto })
             .SingleOrDefaultAsync(cancellationToken);
         if (target is null)
@@ -377,7 +377,7 @@ public class ChatController : ControllerBase
             FechaReporte = DateTime.UtcNow
         });
         await _pushNotifications.SendToRolesAsync(
-            ["Administrador", "SuperAdministrador"],
+            [RolesUsuario.Administrador, RolesUsuario.SuperAdministrador],
             "Contenido denunciado",
             "Hay un mensaje del chat operativo pendiente de revisión.",
             new Dictionary<string, string?> { ["eventKey"] = $"chat-report:{idMensaje}:{currentUserId}", ["type"] = "content_report", ["tab"] = "chat", ["channelId"] = message.IdPilotoCanal.ToString(), ["messageId"] = idMensaje.ToString() },
@@ -505,11 +505,11 @@ public class ChatController : ControllerBase
     private bool TryGetAdministrator(out int userId)
     {
         var validUser = TryGetCurrentUser(out userId, out var role);
-        return validUser && role is "Administrador" or "SuperAdministrador";
+        return validUser && role is RolesUsuario.Administrador or RolesUsuario.SuperAdministrador;
     }
 
     private static bool IsOperatorRole(string? role) =>
-        role is "Administrador" or "SuperAdministrador" or "Supervisor";
+        role is RolesUsuario.Administrador or RolesUsuario.SuperAdministrador or RolesUsuario.Supervisor;
 
     private static ChatMessageItem ToResponse(MensajeChat item) => new()
     {

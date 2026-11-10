@@ -2,6 +2,7 @@ using System.Text.Json;
 using AccesoDatos.Context;
 using AccesoDatos.Models;
 using Microsoft.EntityFrameworkCore;
+using webapi.Core;
 
 namespace webapi.Services;
 
@@ -9,7 +10,7 @@ namespace webapi.Services;
 // and this intent; only the background dispatcher contacts notification providers.
 public static class PushOutbox
 {
-    public static readonly string[] Operators = ["Administrador", "SuperAdministrador", "Supervisor"];
+    public static readonly string[] Operators = RolesUsuario.ListaOperadores;
 
     public static async Task AddAsync(PrevencionAccidentesBusesContext db, string eventKey,
         string title, string body, IReadOnlyDictionary<string, string?> data,

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using webapi.Core;
 
 namespace webapi.Dtos
 {
@@ -27,7 +28,7 @@ namespace webapi.Dtos
 
         [Required(ErrorMessage = "El estado es requerido.")]
         [RegularExpression("^(Activo|Inactivo|En Taller)$", ErrorMessage = "El estado debe ser 'Activo', 'Inactivo' o 'En Taller'.")]
-        public string Estado { get; set; } = "Activo";
+        public string Estado { get; set; } = EstadosRegistro.Activo;
 
         public int? IdPilotoAsignado { get; set; }
 
@@ -45,7 +46,7 @@ namespace webapi.Dtos
 
         [Required(ErrorMessage = "El estado es requerido.")]
         [RegularExpression("^(Activo|Inactivo|En Taller)$", ErrorMessage = "El estado debe ser 'Activo', 'Inactivo' o 'En Taller'.")]
-        public string Estado { get; set; } = "Activo";
+        public string Estado { get; set; } = EstadosRegistro.Activo;
 
         // Los clientes antiguos pueden seguir editando solamente los datos de la unidad.
         // El panel web establece esta bandera para administrar la asignacion en la misma transaccion.

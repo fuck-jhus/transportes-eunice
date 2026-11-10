@@ -76,10 +76,10 @@ namespace webapi.Core
         {
             switch (role)
             {
-                case "SuperAdministrador":
+                case RolesUsuario.SuperAdministrador:
                     return GetAllPermissions();
 
-                case "Administrador":
+                case RolesUsuario.Administrador:
                     // El Administrador tiene control completo sobre la gestión de usuarios
                     // y accesos de lectura en los demás módulos del sistema
                     return new[]
@@ -103,7 +103,7 @@ namespace webapi.Core
                         Viajes.Finalizar
                     };
 
-                case "Supervisor":
+                case RolesUsuario.Supervisor:
                     // El Supervisor solo tiene permisos de visualización/auditoría
                     return new[]
                     {
@@ -114,7 +114,7 @@ namespace webapi.Core
                         Viajes.Consultar
                     };
 
-                case "Piloto":
+                case RolesUsuario.Piloto:
                     // El piloto puede consultar y cerrar únicamente sus propios viajes.
                     // La comprobación de propiedad se realiza además en ViajesController/Service.
                     return new[]

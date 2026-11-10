@@ -68,7 +68,7 @@ namespace webapi.Controllers
                 // Ejecutar siempre BCrypt evita revelar si el usuario existe por diferencias de tiempo.
                 var passwordHash = usuario?.Contrasena ?? DummyPasswordHash;
                 var passwordValida = BCrypt.Net.BCrypt.Verify(request.Contrasena, passwordHash);
-                if (usuario == null || !passwordValida || !string.Equals(usuario.Estado, "Activo", StringComparison.Ordinal))
+                if (usuario == null || !passwordValida || !string.Equals(usuario.Estado, EstadosRegistro.Activo, StringComparison.Ordinal))
                 {
                     return Unauthorized(new { mensaje = "Credenciales incorrectas o usuario inactivo." });
                 }
@@ -82,7 +82,7 @@ namespace webapi.Controllers
                 Response.Cookies.Append(AuthCookieName, token, cookieOptions);
 
                 // Inyectar virtualmente el rol SuperAdministrador para el frontend
-                var virtualRole = usuario.UsuarioLogin.ToLower() == "superadmin" ? "SuperAdministrador" : usuario.TipoRol;
+                var virtualRole = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol);
 
                 // El token queda exclusivamente en la cookie HttpOnly y nunca se expone a JavaScript.
                 return Ok(new UserResponseDto
@@ -126,14 +126,14 @@ namespace webapi.Controllers
 
                 var passwordHash = usuario?.Contrasena ?? DummyPasswordHash;
                 var passwordValida = BCrypt.Net.BCrypt.Verify(request.Contrasena, passwordHash);
-                if (usuario == null || !passwordValida || !string.Equals(usuario.Estado, "Activo", StringComparison.Ordinal))
+                if (usuario == null || !passwordValida || !string.Equals(usuario.Estado, EstadosRegistro.Activo, StringComparison.Ordinal))
                 {
                     return Unauthorized(new { mensaje = "Credenciales incorrectas o usuario inactivo." });
                 }
 
                 var token = GenerarJwtToken(usuario);
                 Response.Cookies.Append(AuthCookieName, token, CreateAuthCookieOptions(DateTimeOffset.UtcNow.AddHours(8)));
-                var virtualRole = usuario.UsuarioLogin.ToLower() == "superadmin" ? "SuperAdministrador" : usuario.TipoRol;
+                var virtualRole = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol);
                 return Ok(new MobileLoginResponseDto
                 {
                     Token = token,
@@ -170,7 +170,7 @@ namespace webapi.Controllers
                     var viaje = await _context.ViajesDiarios
                         .Include(v => v.IdAutobusNavigation)
                         .Include(v => v.IdUsuarioNavigation)
-                        .FirstOrDefaultAsync(v => v.IdUsuario == idUsuario && v.EstadoViaje == "En Curso");
+                        .FirstOrDefaultAsync(v => v.IdUsuario == idUsuario && v.EstadoViaje == EstadosViaje.EnCurso);
 
                     var placa = viaje?.IdAutobusNavigation?.Placa;
                     var nombre = viaje?.IdUsuarioNavigation?.NombreCompleto;
@@ -210,7 +210,7 @@ namespace webapi.Controllers
             var currentUser = await _context.Usuarios
                 .WithoutDeletedAccounts()
                 .AsNoTracking()
-                .SingleOrDefaultAsync(item => item.IdUsuario == currentUserId && item.Estado == "Activo");
+                .SingleOrDefaultAsync(item => item.IdUsuario == currentUserId && item.Estado == EstadosRegistro.Activo);
             if (currentUser is null)
             {
                 return Unauthorized(new { mensaje = "La cuenta ya no está activa." });
@@ -261,14 +261,14 @@ namespace webapi.Controllers
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.IdUsuario == idUsuario);
 
-                if (usuario == null || usuario.Estado != "Activo")
+                if (usuario == null || usuario.Estado != EstadosRegistro.Activo)
                 {
                     Response.Cookies.Delete(AuthCookieName, CreateAuthCookieOptions(DateTimeOffset.UtcNow.AddDays(-1)));
                     return Unauthorized(new { mensaje = "El usuario ya no está activo o no existe." });
                 }
 
                 // Inyectar virtualmente el rol SuperAdministrador para el frontend
-                var virtualRole = usuario.UsuarioLogin.ToLower() == "superadmin" ? "SuperAdministrador" : usuario.TipoRol;
+                var virtualRole = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol);
 
                 return Ok(new UserResponseDto
                 {
@@ -304,7 +304,7 @@ namespace webapi.Controllers
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var role = usuario.UsuarioLogin.ToLower() == "superadmin" ? "SuperAdministrador" : usuario.TipoRol;
+            var role = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol);
 
             var claimsList = new List<Claim>
             {

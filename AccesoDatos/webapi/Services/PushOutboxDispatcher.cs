@@ -56,7 +56,7 @@ public sealed class PushOutboxDispatcher(PrevencionAccidentesBusesContext db,
                 var data = JsonSerializer.Deserialize<Dictionary<string, string?>>(message.DataJson) ?? [];
                 var sender = int.TryParse(data.GetValueOrDefault("senderId"), out var id) ? id : 0;
                 var devices = await db.DispositivosPush.AsNoTracking().Where(x => x.Activo
-                    && x.IdUsuarioNavigation.Estado == "Activo" && x.BindingChangedAt <= message.CreatedAt
+                    && x.IdUsuarioNavigation.Estado == EstadosRegistro.Activo && x.BindingChangedAt <= message.CreatedAt
                     && (users.Contains(x.IdUsuario) || roles.Contains(x.IdUsuarioNavigation.TipoRol))
                     && (message.ExcludeUserId == null || x.IdUsuario != message.ExcludeUserId)
                     && (sender == 0 || !db.UsuariosChatBloqueados.Any(b => b.IdUsuario == x.IdUsuario && b.IdUsuarioBloqueado == sender)))
@@ -83,7 +83,7 @@ public sealed class PushOutboxDispatcher(PrevencionAccidentesBusesContext db,
         if (int.TryParse(data.GetValueOrDefault("tripId"), out var tripId)
             && type is "trip_assignment" or "trip_destination" or "tracking_lost" or "tracking_restored")
         {
-            var trip = await db.ViajesDiarios.AsNoTracking().SingleOrDefaultAsync(x => x.IdViaje == tripId && x.EstadoViaje == "En Curso", ct);
+            var trip = await db.ViajesDiarios.AsNoTracking().SingleOrDefaultAsync(x => x.IdViaje == tripId && x.EstadoViaje == EstadosViaje.EnCurso, ct);
             if (trip == null) return false;
             if (type is "tracking_lost" or "tracking_restored")
             {
@@ -95,7 +95,7 @@ public sealed class PushOutboxDispatcher(PrevencionAccidentesBusesContext db,
             }
         }
         return await db.DispositivosPush.AnyAsync(x => x.IdDispositivo == job.DeviceId && x.IdUsuario == job.UserId
-            && x.ExpoPushToken == job.Token && x.RegistrationId == job.RegistrationId && x.Activo && x.IdUsuarioNavigation.Estado == "Activo"
+            && x.ExpoPushToken == job.Token && x.RegistrationId == job.RegistrationId && x.Activo && x.IdUsuarioNavigation.Estado == EstadosRegistro.Activo
             && (users.Contains(x.IdUsuario) || roles.Contains(x.IdUsuarioNavigation.TipoRol))
             && (sender == 0 || !db.UsuariosChatBloqueados.Any(b => b.IdUsuario == x.IdUsuario && b.IdUsuarioBloqueado == sender)), ct);
     }

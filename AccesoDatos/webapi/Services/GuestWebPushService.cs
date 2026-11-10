@@ -102,7 +102,7 @@ public sealed class GuestWebPushService(PrevencionAccidentesBusesContext db, IDa
                 .SingleOrDefaultAsync(x => x.IdConversacion == subscription.ConversationId && !x.Bloqueada, ct);
             if (subscription == null || conversation == null || !conversation.IdAccesoNavigation.ChatHabilitado
                 || conversation.IdAccesoNavigation.FechaRevocacion != null || conversation.IdAccesoNavigation.FechaExpiracion <= now
-                || conversation.IdAccesoNavigation.IdViajeNavigation.EstadoViaje != "En Curso")
+                || conversation.IdAccesoNavigation.IdViajeNavigation.EstadoViaje != EstadosViaje.EnCurso)
             { job.Status = "Cancelled"; continue; }
             job.Attempts++;
             try

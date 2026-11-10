@@ -33,7 +33,7 @@ public class EvaluacionService : IEvaluacionService
 
         var pilotIds = await _context.Usuarios
             .AsNoTracking()
-            .Where(user => (user.TipoRol == "Piloto" && user.Estado == "Activo") || user.ViajeDiarios.Any(t => t.FechaInicio < periodEnd && (!t.FechaFin.HasValue || t.FechaFin >= periodStart)))
+            .Where(user => (user.TipoRol == RolesUsuario.Piloto && user.Estado == EstadosRegistro.Activo) || user.ViajeDiarios.Any(t => t.FechaInicio < periodEnd && (!t.FechaFin.HasValue || t.FechaFin >= periodStart)))
             .Select(user => user.IdUsuario)
             .ToListAsync();
 

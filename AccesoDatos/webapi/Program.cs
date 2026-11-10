@@ -213,15 +213,13 @@ builder.Services.AddAuthentication(options =>
                 .Select(user => new { user.Estado, user.TipoRol, user.UsuarioLogin })
                 .SingleOrDefaultAsync(context.HttpContext.RequestAborted);
 
-            if (currentUser is null || !string.Equals(currentUser.Estado, "Activo", StringComparison.Ordinal))
+            if (currentUser is null || !string.Equals(currentUser.Estado, EstadosRegistro.Activo, StringComparison.Ordinal))
             {
                 context.Fail("La cuenta ya no está activa.");
                 return;
             }
 
-            var expectedRole = string.Equals(currentUser.UsuarioLogin, "superadmin", StringComparison.OrdinalIgnoreCase)
-                ? "SuperAdministrador"
-                : currentUser.TipoRol;
+            var expectedRole = UserAccounts.EffectiveRole(currentUser.UsuarioLogin, currentUser.TipoRol);
             var tokenRole = context.Principal?.FindFirst(ClaimTypes.Role)?.Value;
             if (!string.Equals(expectedRole, tokenRole, StringComparison.Ordinal))
             {
@@ -534,7 +532,7 @@ app.Map("/ws", async (HttpContext context) =>
     var authenticatedUser = await db.Usuarios
         .WithoutDeletedAccounts()
         .AsNoTracking()
-        .Where(user => user.IdUsuario == authUserId && user.Estado == "Activo")
+        .Where(user => user.IdUsuario == authUserId && user.Estado == EstadosRegistro.Activo)
         .Select(user => new { user.NombreCompleto, user.TipoRol, user.UsuarioLogin })
         .SingleOrDefaultAsync(context.RequestAborted);
 
@@ -544,10 +542,8 @@ app.Map("/ws", async (HttpContext context) =>
         return;
     }
 
-    var authRole = string.Equals(authenticatedUser.UsuarioLogin, "superadmin", StringComparison.OrdinalIgnoreCase)
-        ? "SuperAdministrador"
-        : authenticatedUser.TipoRol;
-    if (authRole is not ("Piloto" or "Administrador" or "SuperAdministrador" or "Supervisor"))
+    var authRole = UserAccounts.EffectiveRole(authenticatedUser.UsuarioLogin, authenticatedUser.TipoRol);
+    if (authRole is not (RolesUsuario.Piloto or RolesUsuario.Administrador or RolesUsuario.SuperAdministrador or RolesUsuario.Supervisor))
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         return;
@@ -572,7 +568,7 @@ app.Map("/ws", async (HttpContext context) =>
         // A deletion may commit between the first account lookup and AddSocket.
         // Recheck after registration so the removal cannot miss a new socket.
         if (!await db.Usuarios.WithoutDeletedAccounts().AnyAsync(
-            account => account.IdUsuario == authUserId && account.Estado == "Activo", context.RequestAborted))
+            account => account.IdUsuario == authUserId && account.Estado == EstadosRegistro.Activo, context.RequestAborted))
         {
             if (webSocket.State == WebSocketState.Open)
                 await webSocket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "La cuenta ya no está activa.", context.RequestAborted);
@@ -628,7 +624,7 @@ app.Map("/ws", async (HttpContext context) =>
                     continue;
                 }
 
-                if (authRole != "Piloto")
+                if (authRole != RolesUsuario.Piloto)
                 {
                     continue;
                 }
@@ -645,7 +641,7 @@ app.Map("/ws", async (HttpContext context) =>
                     activeTripCheckedAt = now;
                     var currentTrip = await db.ViajesDiarios
                         .AsNoTracking()
-                        .Where(trip => trip.IdUsuario == authUserId && trip.EstadoViaje == "En Curso")
+                        .Where(trip => trip.IdUsuario == authUserId && trip.EstadoViaje == EstadosViaje.EnCurso)
                         .Select(trip => new
                         {
                             Id = trip.IdViaje,

@@ -29,11 +29,11 @@ namespace webapi.Core
             }
 
             // REGLA DE SUPERADMINISTRADOR: FALLBACK AUTOMÁTICO
-            // Si el usuario tiene el rol de "SuperAdministrador" (validando IsInRole o directamente los claims
+            // Si el usuario tiene el rol de RolesUsuario.SuperAdministrador (validando IsInRole o directamente los claims
             // de tipo role/Role para evitar desajustes de mapeo en .NET 8/9/10), se concede acceso total.
-            bool esSuperAdmin = user.IsInRole("SuperAdministrador") || 
-                                user.HasClaim(c => c.Type == ClaimTypes.Role && c.Value == "SuperAdministrador") ||
-                                user.HasClaim(c => c.Type == "role" && c.Value == "SuperAdministrador");
+            bool esSuperAdmin = user.IsInRole(RolesUsuario.SuperAdministrador) || 
+                                user.HasClaim(c => c.Type == ClaimTypes.Role && c.Value == RolesUsuario.SuperAdministrador) ||
+                                user.HasClaim(c => c.Type == "role" && c.Value == RolesUsuario.SuperAdministrador);
 
             if (esSuperAdmin)
             {

@@ -40,7 +40,7 @@ namespace webapi.Controllers
         }
 
         [HttpPost("procesar")]
-        [Authorize(Roles = "Administrador,SuperAdministrador")]
+        [Authorize(Roles = RolesUsuario.Administradores)]
         public async Task<IActionResult> Procesar([FromBody] ProcesarEvaluacionDto dto)
         {
             if (!ModelState.IsValid)
