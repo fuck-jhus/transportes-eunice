@@ -645,7 +645,7 @@ export const ChatScreen: React.FC<{
         {loading ? (
           <ActivityIndicator color={colors.accent} style={styles.loader} />
         ) : mode === 'passengers' && passengerConversations.length === 0 ? (
-          <View style={styles.emptyChat}><View style={styles.emptyIcon}><Feather name="users" size={24} color={colors.subtle} /></View><Text style={styles.emptyTitle}>Sin consultas de pasajeros</Text><Text style={styles.emptyText}>Las conversaciones del enlace público aparecerán aquí.</Text></View>
+          <View style={styles.emptyChat}><View style={styles.emptyIcon}><Feather name="users" size={24} color={colors.subtle} /></View><Text style={styles.emptyTitle}>Sin consultas de pasajeros</Text><Text style={styles.emptyText}>{isPilot ? 'El centro de control atiende a los pasajeros. Aquí verás solo las consultas que te pase o las que nadie respondió en 3 minutos.' : 'Las conversaciones del enlace público y del QR del bus aparecerán aquí.'}</Text></View>
         ) : (mode === 'passengers' ? passengerMessages : visibleMessages).length === 0 ? (
           <View style={styles.emptyChat}><View style={styles.emptyIcon}><Feather name="message-square" size={24} color={colors.subtle} /></View><Text style={styles.emptyTitle}>Sin mensajes todavía</Text><Text style={styles.emptyText}>Inicia la conversación o utiliza una respuesta rápida.</Text></View>
         ) : (mode === 'passengers' ? passengerMessages : visibleMessages).map((rawMessage) => {
@@ -701,7 +701,7 @@ export const ChatScreen: React.FC<{
         <View style={styles.composer}>
           <TextInput value={input} onChangeText={setInput} style={styles.input} placeholder={isReadOnly ? 'Canal disponible en modo lectura' : passengerComposerDisabled ? 'Selecciona una conversación disponible' : mode === 'passengers' && isPilot && vehicleMoving ? 'Usa una respuesta rápida mientras conduces' : mode === 'passengers' ? 'Responder al pasajero' : 'Escribe un mensaje operativo'} placeholderTextColor={colors.subtle} multiline maxLength={mode === 'passengers' ? 500 : 800} editable={!isReadOnly && !passengerComposerDisabled && !(mode === 'passengers' && isPilot && vehicleMoving)} onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)} blurOnSubmit={false} />
           <Pressable accessibilityRole="button" accessibilityLabel="Enviar mensaje" accessibilityState={{ disabled: !input.trim() || sending || passengerComposerDisabled || isReadOnly }} style={[styles.sendButton, (!input.trim() || sending || passengerComposerDisabled || isReadOnly || (mode === 'passengers' && isPilot && vehicleMoving)) && styles.sendButtonDisabled]} onPress={() => void sendMessage()} disabled={!input.trim() || sending || passengerComposerDisabled || isReadOnly || (mode === 'passengers' && isPilot && vehicleMoving)}>
-            {sending ? <ActivityIndicator size="small" color={colors.white} /> : <Feather name="send" size={18} color={colors.white} />}
+            {sending ? <ActivityIndicator size="small" color={colors.onAccent} /> : <Feather name="send" size={18} color={colors.onAccent} />}
           </Pressable>
         </View>
       </View>
@@ -738,7 +738,7 @@ export const ChatScreen: React.FC<{
 };
 
 const ModeButton = ({ label, styles, colors, active, icon, onPress }: { label: string; styles: ReturnType<typeof createStyles>; colors: AppColors; active: boolean; icon: React.ComponentProps<typeof Feather>['name']; onPress: () => void }) => (
-  <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: active }} style={[styles.modeButton, active && styles.modeButtonActive]} onPress={onPress}><Feather name={icon} size={18} color={active ? colors.white : colors.muted} /></Pressable>
+  <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: active }} style={[styles.modeButton, active && styles.modeButtonActive]} onPress={onPress}><Feather name={icon} size={18} color={active ? colors.onAccent : colors.muted} /></Pressable>
 );
 
 const createStyles = (colors: AppColors, compact = false) => StyleSheet.create({
@@ -772,7 +772,7 @@ const createStyles = (colors: AppColors, compact = false) => StyleSheet.create({
   passengerChipTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 7 },
   passengerMeta: { color: colors.subtle, fontSize: 9, marginTop: 4 },
   unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent },
-  unreadText: { color: colors.white, fontSize: 9, fontWeight: '900' },
+  unreadText: { color: colors.onAccent, fontSize: 9, fontWeight: '900' },
   passengerSafetyButton: { minHeight: 38, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger },
   passengerSafetyButtonBlocked: { backgroundColor: colors.successSoft, borderColor: colors.success },
   passengerSafetyText: { fontSize: 10, fontWeight: '900' },
@@ -792,7 +792,7 @@ const createStyles = (colors: AppColors, compact = false) => StyleSheet.create({
   senderRow: { minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 },
   messageMenu: { width: 28, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   messageText: { color: colors.ink, fontSize: 12, lineHeight: 17 },
-  messageTextMine: { color: colors.white },
+  messageTextMine: { color: colors.onAccent },
   messageTime: { color: colors.subtle, fontSize: 8.5, marginTop: 5, textAlign: 'right' },
   messageTimeMine: { color: '#ffffffaa' },
   composerArea: { gap: 8 },

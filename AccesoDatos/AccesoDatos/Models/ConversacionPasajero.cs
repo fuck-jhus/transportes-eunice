@@ -11,6 +11,8 @@ public class ConversacionPasajero
     public bool Bloqueada { get; set; }
     public DateTime? FechaLecturaOperador { get; set; }
     public DateTime? FechaLecturaPasajero { get; set; }
+    // Null mientras solo la atiende el centro de control.
+    public DateTime? FechaDerivadaPiloto { get; set; }
 
     public virtual ViajeAccesoPublico IdAccesoNavigation { get; set; } = null!;
     public virtual ICollection<MensajePasajero> Mensajes { get; set; } = new List<MensajePasajero>();

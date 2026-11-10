@@ -22,4 +22,5 @@ public static class ApiRoutes
     public const string Viajes = Prefix + "/viajes";
     public const string ConversacionesPasajeros = Prefix + "/conversaciones-pasajeros";
     public const string ViajesPublicos = Prefix + "/public/viajes";
+    public const string BusesPublicos = Prefix + "/public/buses";
 }

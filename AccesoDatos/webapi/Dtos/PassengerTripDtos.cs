@@ -69,6 +69,7 @@ public sealed class ViajePublicoDto
     public decimal? DestinoLongitud { get; set; }
     public string? DestinoNombre { get; set; }
     public IReadOnlyList<PosicionPublicaDto> Recorrido { get; set; } = [];
+    public IReadOnlyList<ParadaPublicaDto> Paradas { get; set; } = [];
 }
 
 public sealed class RutaPublicaDto
@@ -76,6 +77,7 @@ public sealed class RutaPublicaDto
     public IReadOnlyList<decimal[]> Coordenadas { get; set; } = [];
     public decimal DistanciaKm { get; set; }
     public decimal DuracionMinutos { get; set; }
+    public IReadOnlyList<ParadaPublicaDto> Paradas { get; set; } = [];
 }
 
 public sealed class SesionPasajeroDto
@@ -107,6 +109,7 @@ public sealed class ConversacionPasajeroDto
     public string Unidad { get; set; } = string.Empty;
     public DateTime FechaUltimaActividad { get; set; }
     public bool Bloqueada { get; set; }
+    public bool DerivadaPiloto { get; set; }
     public int NoLeidos { get; set; }
     public string? UltimoMensaje { get; set; }
 }
@@ -114,4 +117,46 @@ public sealed class ConversacionPasajeroDto
 public sealed class PassengerReadReceiptDto
 {
     [Required, MaxLength(200)] public Guid[] IdsMensaje { get; set; } = [];
+}
+
+public sealed class CodigoQrAutobusDto
+{
+    public int IdAutobus { get; set; }
+    public string Placa { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty;
+}
+
+public sealed class BusPublicoDto
+{
+    public string Placa { get; set; } = string.Empty;
+    public bool ViajeActivo { get; set; }
+    public string? Token { get; set; }
+}
+
+public sealed class GuardarParadaDto
+{
+    [Required, StringLength(100, MinimumLength = 2)]
+    public string Nombre { get; set; } = string.Empty;
+    [Range(-90, 90)] public decimal Latitud { get; set; }
+    [Range(-180, 180)] public decimal Longitud { get; set; }
+}
+
+public sealed class ParadaDto
+{
+    public int IdParada { get; set; }
+    public int Orden { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public decimal Latitud { get; set; }
+    public decimal Longitud { get; set; }
+}
+
+public sealed class ParadaPublicaDto
+{
+    public string Nombre { get; set; } = string.Empty;
+    public decimal Latitud { get; set; }
+    public decimal Longitud { get; set; }
+    public bool Pasada { get; set; }
+    // Solo en /ruta: tiempo y distancia estimados desde la posición actual.
+    public decimal? Minutos { get; set; }
+    public decimal? DistanciaKm { get; set; }
 }

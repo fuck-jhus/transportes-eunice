@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
-import { animateMarkerPosition, stopMarkerMotion } from '../utils/markerMotion';
+import { animateMarkerPosition, getMarkerHeading, stopMarkerMotion } from '../utils/markerMotion';
 import { getAdminMapStyles } from '../styles/mapStyles';
-import { ArrowLeft, BookmarkPlus, BusFront, ChevronDown, LoaderCircle, LocateFixed, ScanSearch, Search, X } from 'lucide-react';
+import { Dialog, Field } from './Dialog';
+import { ArrowLeft, BookmarkPlus, BusFront, ChevronDown, LoaderCircle, LocateFixed, MapPin, Moon, Navigation, ScanSearch, Search, Sun, X } from 'lucide-react';
 import {
   DEFAULT_CENTER,
   GUATEMALA_HIGHWAY_HUBS,
@@ -27,7 +28,6 @@ import type {
 
 const MAP_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MAP_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
-
 
 export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
   buses = [],
@@ -53,6 +53,9 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const busMarkersRef = useRef<Record<string, BusMarker>>({});
+  // Qué versión del ícono tiene cada bus, para no rehacer su HTML con cada lectura GPS.
+  const busIconKeyRef = useRef<Record<string, string>>({});
+  const busPopupHtmlRef = useRef<Record<string, string>>({});
   const routeLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const adminRouteLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const lastFittedRoutePlacaRef = useRef<string | null>(null);
@@ -86,13 +89,6 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     adminRecenterBtnStyle,
     adminUserLocationBtnStyle,
     adminMapElementStyle,
-    adminModalOverlayStyle,
-    adminModalCardStyle,
-    adminCloseModalBtnStyle,
-    adminSearchInputStyle,
-    adminFleetListContainerStyle,
-    adminBusCardItemStyle,
-    adminFocusBusBtnStyle,
   } = getAdminMapStyles(isDark);
 
   const [localUserLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -306,6 +302,9 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
       attributionControl: true,
       center: initialCenter,
       zoom: 15,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 90,
       dragging: true,
       touchZoom: true,
       doubleClickZoom: true,
@@ -410,6 +409,8 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         stopMarkerMotion(busMarkersRef.current[placa]);
         map.removeLayer(busMarkersRef.current[placa]);
         delete busMarkersRef.current[placa];
+        delete busIconKeyRef.current[placa];
+        delete busPopupHtmlRef.current[placa];
       }
     });
 
@@ -433,8 +434,12 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     }
 
     uniqueBuses.forEach((bus) => {
-      const spdColor = bus.velocidadKmh > 80 ? '#ef4444' : bus.velocidadKmh > 50 ? '#f59e0b' : '#10b981';
+      const spdColor = bus.velocidadKmh > 80 ? '#B23A2E' : bus.velocidadKmh > 50 ? '#C98A0C' : '#1F5C46';
       const isSelected = selectedBusPlaca === bus.placaAutobus;
+      const existingMarker = busMarkersRef.current[bus.placaAutobus];
+      const heading = existingMarker ? getMarkerHeading(existingMarker) : null;
+      const labelText = `${bus.placaAutobus} • ${bus.velocidadKmh} km/h`;
+      const iconKey = `${spdColor}|${isSelected}`;
       const safePlate = escapeHtml(bus.placaAutobus);
       const safePilot = escapeHtml(bus.nombrePiloto || 'Piloto');
       const safeRoute = escapeHtml(
@@ -451,25 +456,26 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
           align-items: center;
           cursor: pointer;
         ">
-          <div style="
+          <div class="bus-pin-dot" style="
+            position: relative;
             width: 36px;
             height: 36px;
             background: ${spdColor};
-            border: 2.5px solid ${isSelected ? '#38bdf8' : '#ffffff'};
+            border: ${isSelected ? '3.5px solid #E8A317' : '2.5px solid #FFFDF8'};
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            transition: transform 0.2s ease;
           ">
+            <span class="bus-pin-heading" style="color: ${spdColor}; ${heading == null ? 'opacity: 0;' : ''} transform: rotate(${heading ?? 0}deg);"></span>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff">
               <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
             </svg>
           </div>
-          <div style="
-            background: #18181b;
-            color: #ffffff;
+          <div class="bus-pin-label" style="
+            background: #1E2A24;
+            color: #FFFDF8;
             padding: 2px 7px;
             border-radius: 8px;
             font-size: 10px;
@@ -492,17 +498,17 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
       });
 
       const popupHtml = `
-        <div class="fleet-map-popup" style="font-family: sans-serif; padding: 6px; color: #1e293b; min-width: 240px;">
-          <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 900; color: #0f172a;">Autobús: ${safePlate}</h4>
-          <p style="margin: 3px 0; font-size: 0.85rem; color: #2563eb; font-weight: 800;">Piloto: ${safePilot}</p>
-          <p style="margin: 3px 0; font-size: 0.85rem; color: #475569;">Ruta: <strong>${safeRoute}</strong></p>
+        <div class="fleet-map-popup" style="font-family: sans-serif; padding: 6px; color: #1E2A24; min-width: 240px;">
+          <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 900; color: #1E2A24;">Autobús: ${safePlate}</h4>
+          <p style="margin: 3px 0; font-size: 0.85rem; color: #1F5C46; font-weight: 800;">Piloto: ${safePilot}</p>
+          <p style="margin: 3px 0; font-size: 0.85rem; color: #5B6660;">Ruta: <strong>${safeRoute}</strong></p>
           
           <div style="display: flex; justify-content: space-between; align-items: center; margin: 6px 0;">
             <span style="font-weight: 800; color: ${spdColor}; font-size: 0.85rem;">${bus.velocidadKmh} km/h</span>
             <button
               ${hasLiveRoute ? 'data-route-toggle="true"' : 'disabled'}
               style="
-                background: ${activeLiveRoutePlaca === bus.placaAutobus ? '#ef4444' : (hasLiveRoute ? '#2563eb' : '#64748b')};
+                background: ${activeLiveRoutePlaca === bus.placaAutobus ? '#B23A2E' : (hasLiveRoute ? '#1F5C46' : '#5B6660')};
                 color: #ffffff;
                 border: none;
                 border-radius: 8px;
@@ -519,11 +525,15 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
             </button>
           </div>
 
-          <div style="background: #f1f5f9; padding: 6px; border-radius: 8px; font-size: 0.75rem; margin: 6px 0;">
-            <div>Giroscopio: X: ${(bus.giroscopioX ?? 0).toFixed(2)} | Y: ${(bus.giroscopioY ?? 0).toFixed(2)} | Z: ${(bus.giroscopioZ ?? 0).toFixed(2)}</div>
-            <div>Aceleración: X: ${(bus.aceleracionX ?? 0).toFixed(2)} | Y: ${(bus.aceleracionY ?? 0).toFixed(2)} | Z: ${(bus.aceleracionZ ?? 9.8).toFixed(2)}</div>
+          <div style="background: #F8F3EA; padding: 6px; border-radius: 8px; font-size: 0.75rem; margin: 6px 0;">
+            ${(() => {
+              const sensors = vehicleSensors(bus);
+              return sensors
+                ? `<div>Frenado / aceleración: ${sensors.longitudinal}</div><div>Lateral: ${sensors.lateral} · Giro: ${sensors.yaw}</div>`
+                : '<div>Sensores calibrando o no disponibles</div>';
+            })()}
           </div>
-          <p style="margin: 4px 0 0 0; font-size: 0.75rem; color: #64748b; font-family: monospace;">GPS: ${Number(bus.latitud).toFixed(5)}, ${Number(bus.longitud).toFixed(5)}</p>
+          <p style="margin: 4px 0 0 0; font-size: 0.75rem; color: #5B6660; font-family: monospace;">GPS: ${Number(bus.latitud).toFixed(5)}, ${Number(bus.longitud).toFixed(5)}</p>
         </div>
       `;
 
@@ -539,14 +549,38 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         marker.on('popupopen', routeToggleHandler);
       };
 
-      if (busMarkersRef.current[bus.placaAutobus]) {
-        const marker = busMarkersRef.current[bus.placaAutobus];
-        animateMarkerPosition(marker, [bus.latitud, bus.longitud]);
-        marker.setIcon(busIcon);
-        marker.setPopupContent(popupHtml);
-        bindPopupRouteAction(marker);
+      const rotateHeading = (marker: BusMarker) => (degrees: number) => {
+        const arrow = marker.getElement()?.querySelector<HTMLElement>('.bus-pin-heading');
+        if (!arrow) return;
+        arrow.style.opacity = '1';
+        arrow.style.transform = `rotate(${degrees}deg)`;
+      };
+
+      if (existingMarker) {
+        const marker = existingMarker;
+        if (busIconKeyRef.current[bus.placaAutobus] !== iconKey) {
+          // Solo cambia el ícono cuando cambia su color o la selección; si no, se mueve el mismo elemento.
+          marker.setIcon(busIcon);
+          busIconKeyRef.current[bus.placaAutobus] = iconKey;
+        } else {
+          const label = marker.getElement()?.querySelector<HTMLElement>('.bus-pin-label');
+          if (label && label.textContent?.trim() !== labelText) label.textContent = labelText;
+        }
+        animateMarkerPosition(marker, [bus.latitud, bus.longitud], rotateHeading(marker));
+        if (busPopupHtmlRef.current[bus.placaAutobus] !== popupHtml) {
+          marker.setPopupContent(popupHtml);
+          busPopupHtmlRef.current[bus.placaAutobus] = popupHtml;
+          bindPopupRouteAction(marker);
+        }
+
+        // Si es el bus seleccionado y se acerca al borde, el mapa lo sigue con suavidad.
+        if (isSelected && !map.getBounds().pad(-0.2).contains([bus.latitud, bus.longitud])) {
+          map.panTo([bus.latitud, bus.longitud], { animate: true, duration: 0.8, easeLinearity: 0.4 });
+        }
       } else {
         const marker = L.marker([bus.latitud, bus.longitud], { icon: busIcon, zIndexOffset: 500 }).addTo(map);
+        busIconKeyRef.current[bus.placaAutobus] = iconKey;
+        busPopupHtmlRef.current[bus.placaAutobus] = popupHtml;
         marker.bindPopup(popupHtml);
         bindPopupRouteAction(marker);
         marker.on('click', () => {
@@ -681,7 +715,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
 
           // Fondo oscuro de la polilínea (Borde exterior)
           L.polyline(coords, {
-            color: '#0b297a',
+            color: '#163F31',
             weight: 10,
             opacity: 1,
             lineCap: 'round',
@@ -690,7 +724,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
 
           // Línea azul rey oficial (Núcleo)
           L.polyline(coords, {
-            color: 'var(--focus)',
+            color: '#E8A317',
             weight: 6,
             opacity: 1,
             lineCap: 'round',
@@ -708,7 +742,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
               <div style="
                 width: 38px;
                 height: 38px;
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                background: #1F5C46;
                 border: 2.5px solid #ffffff;
                 border-radius: 50%;
                 display: flex;
@@ -735,7 +769,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
                 align-items: center;
                 gap: 5px;
               ">
-                <span style="background: #10b981; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">UNIDAD</span>
+                <span style="background: #1F5C46; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">UNIDAD</span>
                 <span title="${safeStartName}">${safeStartLabel} • ${currentSpd} km/h</span>
               </div>
             </div>
@@ -754,7 +788,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
               <div style="
                 width: 38px;
                 height: 38px;
-                background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+                background: #B23A2E;
                 border: 2.5px solid #ffffff;
                 border-radius: 50%;
                 display: flex;
@@ -781,7 +815,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
                 align-items: center;
                 gap: 5px;
               ">
-                <span style="background: #ef4444; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">LLEGADA</span>
+                <span style="background: #B23A2E; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">LLEGADA</span>
                 <span>${safeDestinationName} • ${distKm} km (${durMin} min)</span>
               </div>
             </div>
@@ -941,7 +975,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     routes.forEach((r, idx) => {
       if (idx !== selectedIdx) {
         const altBg = L.polyline(r.coords, {
-          color: '#2563eb',
+          color: '#5B6660',
           weight: 8.5,
           opacity: 0.85,
           lineCap: 'round',
@@ -949,7 +983,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         }).addTo(routeLayerGroup);
 
         const altFg = L.polyline(r.coords, {
-          color: '#bfdbfe',
+          color: '#DDD3C0',
           weight: 4.8,
           opacity: 0.65,
           lineCap: 'round',
@@ -993,7 +1027,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     const main = routes[selectedIdx];
     if (main) {
       L.polyline(main.coords, {
-        color: '#0b297a',
+        color: '#163F31',
         weight: 10.5,
         opacity: 1,
         lineCap: 'round',
@@ -1001,7 +1035,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
       }).addTo(routeLayerGroup);
 
       L.polyline(main.coords, {
-        color: 'var(--focus)',
+        color: '#E8A317',
         weight: 7,
         opacity: 1,
         lineCap: 'round',
@@ -1012,13 +1046,13 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         const midPoint = main.coords[Math.floor(main.coords.length * 0.5)];
         const mainBubbleHtml = `
           <div style="
-            background: #1a56db;
+            background: #1F5C46;
             color: #ffffff;
             padding: 6px 12px;
             border-radius: 12px;
             font-size: 12px;
             font-weight: 800;
-            border: 1.5px solid #3b82f6;
+            border: 1.5px solid #E8A317;
             box-shadow: 0 4px 14px rgba(0,0,0,0.45);
             white-space: nowrap;
           ">${formatDuration(main.durationMin)}</div>
@@ -1305,193 +1339,104 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
           <div className="map-canvas" ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
         </div>
 
-        {/* MODAL ORIGINAL DE FLOTA Y SENSORES PARA SUPERADMIN */}
         {showFleetModal && (
-          <div className="modal-overlay" style={adminModalOverlayStyle}>
-            <div className="modal-card" role="dialog" aria-modal="true" style={adminModalCardStyle}>
-              <div className="map-fleet-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.18rem', fontWeight: 720, color: 'var(--ink)' }}>
-                    Flota Activa y Sensores en Vivo
-                  </h3>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: isDark ? '#94a3b8' : '#71717a' }}>
-                    Lecturas satelitales de Giroscopio, Aceleración y Velocidad en tiempo real
-                  </p>
-                </div>
-                <button aria-label="Cerrar" onClick={() => setShowFleetModal(false)} style={adminCloseModalBtnStyle}><X size={16} /></button>
-              </div>
-
-              {/* Buscador Rápido */}
-              <div style={{ position: 'relative' }}>
-                <Search size={16} aria-hidden="true" style={{ position: 'absolute', left: '13px', top: '13px', color: 'var(--muted)', zIndex: 1 }} />
-                <input
-                  type="text"
-                  aria-label="Buscar en la flota"
-                  placeholder="Buscar por placa, piloto o ruta"
-                  value={fleetSearchFilter}
-                  onChange={(e) => setFleetSearchFilter(e.target.value)}
-                  style={{ ...adminSearchInputStyle, paddingLeft: '38px' }}
-                />
-              </div>
-
-              {/* Lista de Tarjetas de Autobuses con Sensores */}
-              <div style={adminFleetListContainerStyle}>
-                {filteredBuses.length === 0 && filteredPrivacyBuses.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: '#71717a', padding: '30px' }}>
-                    No se encontraron autobuses que coincidan con la búsqueda.
-                  </div>
-                ) : (
-                  <>
-                    {filteredBuses.map((bus) => (
-                      <div className="map-fleet-card" key={bus.placaAutobus} style={adminBusCardItemStyle}>
-                        <div className="map-fleet-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              
-                              <strong style={{ fontSize: '1.05rem', color: '#18181b', fontWeight: 900 }}>
-                                {bus.placaAutobus}
-                              </strong>
-                              <span style={{
-                                fontSize: '0.75rem',
-                                padding: '2px 8px',
-                                borderRadius: '10px',
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                color: '#10b981',
-                                fontWeight: 800,
-                              }}>
-                                {bus.velocidadKmh} km/h
-                              </span>
-                              {(() => {
-                                const hasNav = Boolean(bus.isTripActive && hasValidCoordinates(bus.destinoLat, bus.destinoLng));
-                                return (
-                                  <button
-                                    type="button"
-                                    disabled={!hasNav}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (!hasNav) return;
-                                      if (onToggleLiveRoute) onToggleLiveRoute(bus.placaAutobus);
-                                      setShowFleetModal(false);
-                                    }}
-                                    style={{
-                                      backgroundColor: activeLiveRoutePlaca === bus.placaAutobus ? '#ef4444' : (hasNav ? '#2563eb' : '#64748b'),
-                                      color: '#ffffff',
-                                      border: 'none',
-                                      borderRadius: '8px',
-                                      padding: '4px 10px',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 800,
-                                      cursor: hasNav ? 'pointer' : 'default',
-                                      opacity: hasNav ? 1 : 0.65,
-                                      pointerEvents: hasNav ? 'auto' : 'none',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      boxShadow: hasNav ? '0 2px 6px rgba(0,0,0,0.2)' : 'none'
-                                    }}
-                                  >
-                                    {activeLiveRoutePlaca === bus.placaAutobus ? 'Dejar de ver ruta' : (hasNav ? 'Ver ruta' : 'Sin ruta activa')}
-                                  </button>
-                                );
-                              })()}
-                            </div>
-
-                            <div style={{ margin: '6px 0 2px 0', fontSize: '0.9rem', color: '#2563eb', fontWeight: 800 }}>
-                              Piloto: {bus.nombrePiloto}
-                            </div>
-
-                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                              Ruta: <strong>{(bus.nombreRuta && bus.nombreRuta !== 'N/D' && bus.nombreRuta !== 'Sin Ruta Asignada') ? bus.nombreRuta : 'Sin ruta asignada'}</strong>
-                            </div>
-
-                            <div style={{ marginTop: '8px', backgroundColor: '#ffffff', padding: '8px 10px', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <div style={{ fontSize: '0.75rem', color: '#18181b' }}>
-                                <strong>Giroscopio (rad/s):</strong> X: ${(bus.giroscopioX ?? 0).toFixed(2)} | Y: ${(bus.giroscopioY ?? 0).toFixed(2)} | Z: ${(bus.giroscopioZ ?? 0).toFixed(2)}
-                              </div>
-                              <div style={{ fontSize: '0.75rem', color: '#18181b' }}>
-                                <strong>Acelerómetro (G):</strong> X: ${(bus.aceleracionX ?? 0).toFixed(2)} | Y: ${(bus.aceleracionY ?? 0).toFixed(2)} | Z: ${(bus.aceleracionZ ?? 9.8).toFixed(2)}
-                              </div>
-                            </div>
-
-                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '6px', fontFamily: 'monospace' }}>
-                              GPS: {bus.latitud.toFixed(5)}, {bus.longitud.toFixed(5)}
-                            </div>
-                          </div>
-
-                          <button
-                            className="map-focus-button"
-                            type="button"
-                            onClick={() => {
-                              if (leafletMapRef.current) {
-                                leafletMapRef.current.setView([bus.latitud, bus.longitud], 17, { animate: true });
-                              }
-                              if (onSelectBus) onSelectBus(bus.placaAutobus);
-                              setShowFleetModal(false);
-                            }}
-                            style={adminFocusBusBtnStyle}
-                          >
-                            Enfocar en Mapa
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {filteredPrivacyBuses.length > 0 && (
-                      <>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 900, color: '#71717a', marginTop: '16px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Unidades sin ubicación disponible ({filteredPrivacyBuses.length})
-                        </div>
-                        {filteredPrivacyBuses.map((bus) => (
-                          <div key={`priv-${bus.placaAutobus}`} style={{
-                            ...adminBusCardItemStyle,
-                            backgroundColor: '#18181b',
-                            borderColor: '#3f3f46',
-                            borderWidth: '1.5px',
-                            color: '#ffffff'
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  
-                                  <strong style={{ fontSize: '1.05rem', color: '#ffffff', fontWeight: 900 }}>
-                                    {bus.placaAutobus}
-                                  </strong>
-                                  <span style={{
-                                    fontSize: '0.75rem',
-                                    padding: '2px 8px',
-                                    borderRadius: '10px',
-                                    backgroundColor: '#27272a',
-                                    color: '#e4e4e7',
-                                    fontWeight: 800,
-                                    border: '1px solid #52525b'
-                                  }}>
-                                    {bus.locationStatus === 'unavailable' ? 'GPS no disponible' : 'Modo privacidad'}
-                                  </span>
-                                </div>
-                                <div style={{ margin: '6px 0 2px 0', fontSize: '0.9rem', color: '#93c5fd', fontWeight: 800 }}>
-                                  Piloto: {bus.nombrePiloto}
-                                </div>
-                                <div style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>
-                                  Ruta: <strong>{bus.nombreRuta || 'Ruta Principal'}</strong>
-                                </div>
-                                <div style={{ marginTop: '8px', backgroundColor: '#27272a', padding: '8px 10px', borderRadius: '10px', border: '1px solid #3f3f46', fontSize: '0.78rem', color: '#d4d4d8' }}>
-                                  {bus.locationStatus === 'unavailable' ? (
-                                    <><strong>No hay una posición GPS válida.</strong> La unidad seguirá visible en el listado y volverá al mapa cuando reciba coordenadas.</>
-                                  ) : (
-                                    <><strong>El piloto desactivó su ubicación.</strong> No se emiten lecturas GPS ni se muestra el ícono en el mapa mientras la privacidad esté activa.</>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
+          <Dialog
+            size="lg"
+            kicker="Monitoreo"
+            icon={<BusFront size={20} />}
+            title="Flota activa"
+            description="Velocidad y sensores del autobús (frenado, giro lateral) de cada unidad en ruta."
+            onClose={() => setShowFleetModal(false)}
+          >
+            <div className="fleet-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                type="search"
+                className="dlg-input"
+                aria-label="Buscar en la flota"
+                placeholder="Buscar por placa, piloto o ruta"
+                value={fleetSearchFilter}
+                onChange={(e) => setFleetSearchFilter(e.target.value)}
+              />
             </div>
-          </div>
+
+            {filteredBuses.length === 0 && filteredPrivacyBuses.length === 0 ? (
+              <p className="fleet-empty">No hay unidades que coincidan con la búsqueda.</p>
+            ) : (
+              <ul className="fleet-list">
+                {filteredBuses.map((bus) => {
+                  const hasNav = Boolean(bus.isTripActive && hasValidCoordinates(bus.destinoLat, bus.destinoLng));
+                  const sensors = vehicleSensors(bus);
+                  const routeName = (bus.nombreRuta && bus.nombreRuta !== 'N/D' && bus.nombreRuta !== 'Sin Ruta Asignada') ? bus.nombreRuta : 'Sin ruta asignada';
+                  return (
+                    <li key={bus.placaAutobus} className="fleet-item">
+                      <div className="fleet-item-main">
+                        <div className="fleet-item-title">
+                          <strong>{bus.placaAutobus}</strong>
+                          <span className="dlg-chip is-ok">{Math.round(bus.velocidadKmh)} km/h</span>
+                        </div>
+                        <span className="fleet-item-sub">{bus.nombrePiloto} · {routeName}</span>
+                        {sensors ? (
+                          <dl className="fleet-sensors">
+                            <div><dt>Frenado / aceleración</dt><dd>{sensors.longitudinal}</dd></div>
+                            <div><dt>Lateral</dt><dd>{sensors.lateral}</dd></div>
+                            <div><dt>Giro</dt><dd>{sensors.yaw}</dd></div>
+                          </dl>
+                        ) : (
+                          <span className="fleet-item-note">Sensores calibrando o no disponibles en este teléfono. La velocidad sí se mide.</span>
+                        )}
+                      </div>
+                      <div className="fleet-item-actions">
+                        <button
+                          type="button"
+                          className="pill-button is-small"
+                          onClick={() => {
+                            if (leafletMapRef.current) leafletMapRef.current.setView([bus.latitud, bus.longitud], 17, { animate: true });
+                            if (onSelectBus) onSelectBus(bus.placaAutobus);
+                            setShowFleetModal(false);
+                          }}
+                        >
+                          <LocateFixed size={14} aria-hidden="true" /> Enfocar
+                        </button>
+                        <button
+                          type="button"
+                          className="pill-button is-ghost is-small"
+                          disabled={!hasNav}
+                          onClick={() => {
+                            if (!hasNav) return;
+                            if (onToggleLiveRoute) onToggleLiveRoute(bus.placaAutobus);
+                            setShowFleetModal(false);
+                          }}
+                        >
+                          {activeLiveRoutePlaca === bus.placaAutobus ? 'Ocultar ruta' : (hasNav ? 'Ver ruta' : 'Sin ruta')}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+
+                {filteredPrivacyBuses.length > 0 && (
+                  <li className="fleet-group">Sin ubicación ({filteredPrivacyBuses.length})</li>
+                )}
+                {filteredPrivacyBuses.map((bus) => (
+                  <li key={`priv-${bus.placaAutobus}`} className="fleet-item is-muted">
+                    <div className="fleet-item-main">
+                      <div className="fleet-item-title">
+                        <strong>{bus.placaAutobus}</strong>
+                        <span className="dlg-chip">{bus.locationStatus === 'unavailable' ? 'GPS no disponible' : 'Ubicación pausada'}</span>
+                      </div>
+                      <span className="fleet-item-sub">{bus.nombrePiloto} · {bus.nombreRuta || 'Sin ruta asignada'}</span>
+                      <span className="fleet-item-note">
+                        {bus.locationStatus === 'unavailable'
+                          ? 'Aún no hay una posición válida. Volverá al mapa en cuanto llegue una.'
+                          : 'El piloto pausó su ubicación; no se envían posiciones mientras esté pausada.'}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Dialog>
         )}
       </div>
     );
@@ -1499,764 +1444,224 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
 
   // VISTA 2: PILOTO (Mapa de Navegación con Rutas Oficiales, Alternas y Waze)
   return (
-    <div className={`pilot-map-shell map-theme-${mapTheme}`} style={webContainerStyle}>
-      {/* 1. BARRA SUPERIOR "¿A DÓNDE VAS?" CON ESTILO GOOGLE MAPS */}
-      <div className="pilot-map-planner" style={topPlanningBarStyle}>
-        {selectedDestination ? (
-          <div className="pilot-active-route" style={activeRouteCardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-              <div style={flagIconStyle}>•</div>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 900, color: '#ffffff' }}>
-                  {isTripActive ? `En Viaje: ${selectedDestination.name}` : `Ruta: ${selectedDestination.name}`}
-                </h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700 }}>
-                  {isCalculatingRoute ? 'Calculando ruta vial...' : routeInfo ? `${routeInfo.distanceKm} km · ${formatDuration(routeInfo.durationMin)} estimados (Mejor ruta)` : routeError || 'Ruta lista para calcular'}
-                </p>
+    <div className={`pilot-map-shell map-theme-${mapTheme}`}>
+      <div className="map-canvas-shell pilot-map-canvas-shell">
+        <div className="map-canvas" ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+        {/* Buscador o ruta activa, flotando sobre el mapa */}
+        {!isPinSelectMode && (
+          <div className="pilot-planner">
+            {selectedDestination ? (
+              <div className="pilot-route-card">
+                <span className="pilot-route-icon" aria-hidden="true"><Navigation size={18} /></span>
+                <div className="pilot-route-copy">
+                  <span>{isTripActive ? 'Navegando a' : 'Destino'}</span>
+                  <strong>{selectedDestination.name}</strong>
+                  <small>
+                    {isCalculatingRoute
+                      ? 'Calculando ruta…'
+                      : routeInfo
+                        ? `${routeInfo.distanceKm} km · ${formatDuration(routeInfo.durationMin)}`
+                        : routeError || 'Ruta lista para calcular'}
+                  </small>
+                </div>
+                <div className="pilot-route-actions">
+                  {activeTripId && (
+                    <button type="button" className="pill-button is-ghost is-small" onClick={handleOpenSaveRoute} disabled={isSavingRoute} title="Guardar esta ruta y asociarla al viaje">
+                      <BookmarkPlus size={14} aria-hidden="true" /> Guardar ruta
+                    </button>
+                  )}
+                  {!isTripActive ? (
+                    <>
+                      <button type="button" className="pill-button is-ghost is-small" onClick={() => setShowPlanModal(true)}>Cambiar</button>
+                      <button type="button" className="pill-button is-ghost is-small" onClick={handleClearRoute}>Quitar</button>
+                      <button type="button" className="pill-button is-small" onClick={handleStartTrip}>Iniciar navegación</button>
+                    </>
+                  ) : (
+                    <button type="button" className="pill-button is-ghost is-small" onClick={handlePressCancelTrip}>Detener</button>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="pilot-route-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={handleOpenSaveRoute}
-                disabled={isSavingRoute || !activeTripId}
-                style={{ ...saveRouteBtnStyle, opacity: activeTripId ? 1 : 0.55 }}
-                title="Guardar esta ruta y asociarla al viaje"
-              >
-                <BookmarkPlus size={14} /> Guardar ruta
+            ) : (
+              <button type="button" className="pilot-search-pill pilot-destination-search" onClick={() => setShowPlanModal(true)}>
+                <Search size={18} aria-hidden="true" />
+                <span>
+                  <strong>¿A dónde vas?</strong>
+                  <small>{userAddress}</small>
+                </span>
               </button>
-              {!isTripActive ? (
-                <>
-                  <button onClick={() => setShowPlanModal(true)} style={searchIconBtnStyle} title="Cambiar destino">Buscar</button>
-                  <button onClick={handleClearRoute} style={cancelRouteBtnStyle} title="Cancelar ruta">
-                    Cancelar Ruta
-                  </button>
-                  <button onClick={handleStartTrip} style={startTripBtnStyle} title="Iniciar viaje">
-                    Iniciar navegación
-                  </button>
-                </>
-              ) : (
-                <button onClick={handlePressCancelTrip} style={cancelTripBtnActiveStyle} title="Detener navegación">
-                  Detener navegación
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="pilot-destination-search" style={searchTripBarStyle} onClick={() => setShowPlanModal(true)}>
-            <div style={searchSquareIconStyle}>
-              <div style={searchInnerSquareStyle} />
-            </div>
-            <div style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ color: '#ffffff', fontSize: '0.95rem', fontWeight: 800 }}>¿A dónde vas?</div>
-              <div style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>{userAddress}</div>
-            </div>
-            <button style={searchActionBtnStyle}>Buscar</button>
+            )}
+            <span className={`pilot-gps is-${gpsState}`} title={gpsAccuracy ? `Precisión estimada: ${gpsAccuracy} metros` : undefined}>
+              <span aria-hidden="true" /> {gpsStatus}
+            </span>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span className={`map-gps-status is-${gpsState}`} title={gpsAccuracy ? `Precisión estimada: ${gpsAccuracy} metros` : undefined} style={{ fontSize: '0.75rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '6px 12px', borderRadius: '14px', border: '1px solid rgba(56, 189, 248, 0.2)', fontWeight: 700 }}>
-            {gpsStatus}
-          </span>
-        </div>
-      </div>
-
-      {/* 2. CONTENEDOR DEL MAPA LEAFLET INTERACTIVO */}
-      <div className="map-canvas-shell pilot-map-canvas-shell" style={mapViewContainerStyle}>
-        <div className="map-canvas" ref={mapContainerRef} style={{ width: '100%', height: '100%', borderRadius: '20px' }} />
-
-        {/* PIN FLOTANTE EN MODO 'FIJA TU DESTINO' */}
+        {/* Pin al elegir destino en el mapa */}
         {isPinSelectMode && (
-          <div style={centerPinOverlayStyle}>
-            <div style={targetPinHeadStyle}>
-              <div style={targetPinInnerBlackStyle} />
-            </div>
-            <div style={pinStickStyle} />
-            <div style={pinBlueBaseStyle} />
+          <div className="pilot-pin" aria-hidden="true"><MapPin size={40} /></div>
+        )}
+
+        {!isPinSelectMode && (
+          <div className="pilot-floating">
+            <button type="button" className="pilot-fab" onClick={toggleMapTheme} title="Cambiar mapa día / noche">
+              {mapTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            {isTripActive && selectedDestination && (
+              <button type="button" className="pilot-fab is-text" onClick={handleOpenWaze} title="Abrir navegación en Waze">Waze</button>
+            )}
+            <button type="button" className="pilot-fab" onClick={handleCenterUser} title="Centrar en mi ubicación">
+              <LocateFixed size={18} />
+            </button>
           </div>
         )}
 
-        {/* BOTÓN FLOTANTE DÍA / NOCHE (INFERIOR IZQUIERDO) */}
-        {!isPinSelectMode && (
-          <button onClick={toggleMapTheme} style={floatingThemeBtnStyle} title="Cambiar tema Día / Noche">
-            {mapTheme === 'dark' ? 'Día' : 'Noche'}
-          </button>
-        )}
-
-        {/* BOTÓN FLOTANTE DE WAZE (SOLO DURANTE EL VIAJE ACTIVO) */}
-        {!isPinSelectMode && isTripActive && selectedDestination && (
-          <button onClick={handleOpenWaze} style={floatingWazeBtnStyle} title="Abrir navegación en Waze">
-            <svg width="26" height="26" viewBox="0 0 48 48">
-              <path
-                d="M24 6C13.5 6 5 14.5 5 25c0 4.2 1.4 8.1 3.8 11.2L7 41.5c-.3.9.6 1.8 1.5 1.5l5.8-2C17.4 43 20.6 44 24 44c10.5 0 19-8.5 19-19S34.5 6 24 6z"
-                fill="#FFFFFF"
-              />
-              <circle cx="18" cy="22" r="3.2" fill="#0b1120" />
-              <circle cx="30" cy="22" r="3.2" fill="#0b1120" />
-              <circle cx="19" cy="21" r="1.1" fill="#FFFFFF" />
-              <circle cx="31" cy="21" r="1.1" fill="#FFFFFF" />
-              <path d="M18 29c1.8 2.5 4.1 3.5 6 3.5s4.2-1 6-3.5" stroke="#0b1120" strokeWidth="2.8" strokeLinecap="round" fill="none" />
-              <circle cx="12" cy="38" r="3.2" fill="#0b1120" />
-              <circle cx="36" cy="38" r="3.2" fill="#0b1120" />
-            </svg>
-          </button>
-        )}
-
-        {/* BOTÓN CIRCULAR DE CENTRADO GPS (INFERIOR DERECHO) */}
-        {!isPinSelectMode && (
-          <button onClick={handleCenterUser} style={floatingCenterBtnStyle} title="Centrar en mi ubicación">
-            <LocateFixed size={20} />
-          </button>
-        )}
-
-        {/* BARRA INFERIOR EN MODO PIN */}
         {isPinSelectMode && (
-          <div className="map-pin-toolbar" style={pinBottomBarStyle}>
-            <button onClick={() => { setIsPinSelectMode(false); setShowPlanModal(true); }} style={pinBackBtnStyle}>
+          <div className="pilot-pin-bar">
+            <button type="button" className="pilot-fab" onClick={() => { setIsPinSelectMode(false); setShowPlanModal(true); }} aria-label="Volver a buscar">
               <ArrowLeft size={18} />
             </button>
-            <div style={{ flex: 1 }}>
-              <input
-                type="text"
-                placeholder="Nombre del destino (ej: Mi Destino)"
-                value={destinationSearch}
-                onChange={(e) => setDestinationSearch(e.target.value)}
-                style={pinInputStyle}
-              />
-            </div>
-            <button onClick={handleConfirmPin} style={pinConfirmBtnStyle}>
-              Fijar Destino
-            </button>
+            <input
+              type="text"
+              className="dlg-input"
+              aria-label="Nombre del destino"
+              placeholder="Nombre del destino (ej. Terminal)"
+              value={destinationSearch}
+              onChange={(e) => setDestinationSearch(e.target.value)}
+            />
+            <button type="button" className="pill-button" onClick={handleConfirmPin}>Fijar destino</button>
           </div>
         )}
       </div>
 
       {/* 3. MODAL "PLANIFICA TU VIAJE" */}
       {showPlanModal && (
-        <div style={modalBackdropStyle}>
-          <div className="map-plan-modal" style={modalPlanCardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#ffffff' }}>
-                Planifica tu viaje
-              </h3>
-              <button aria-label="Cerrar" onClick={() => setShowPlanModal(false)} style={modalCloseBtnStyle}><X size={17} /></button>
-            </div>
-
-            <div style={inputsContainerCardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffffff' }} />
+        <Dialog
+          kicker="Navegación"
+          icon={<Search size={20} />}
+          title="¿A dónde vas?"
+          description="Busca el destino o márcalo en el mapa."
+          onClose={() => setShowPlanModal(false)}
+        >
+          <ol className="dlg-timeline plan-fields">
+            <li>
+              <span className="dlg-dot" aria-hidden="true" />
+              <input type="text" className="dlg-input" aria-label="Tu ubicación" value={userAddress} disabled />
+            </li>
+            <li>
+              <span className="dlg-dot is-end" aria-hidden="true" />
+              <div className="plan-search">
                 <input
-                  type="text"
-                  value={userAddress}
-                  disabled
-                  style={disabledInputStyle}
-                />
-              </div>
-              <div style={{ width: '2px', height: '18px', background: '#3f3f46', marginLeft: '4px' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ef4444' }} />
-                <input
-                  type="text"
-                  placeholder="¿A dónde vas?"
+                  type="search"
+                  className="dlg-input"
+                  aria-label="Destino"
+                  placeholder="Escribe un lugar o dirección"
                   value={destinationSearch}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   autoFocus
-                  style={activeSearchInputStyle}
                 />
                 {isSearchingPlaces && <LoaderCircle className="map-search-spinner" size={17} aria-label="Buscando destinos" />}
               </div>
-            </div>
+            </li>
+          </ol>
 
-            <button
-              onClick={() => { setShowPlanModal(false); setIsPinSelectMode(true); }}
-              style={pinModeTriggerBtnStyle}
-            >
-              Establecer ubicación en el mapa
-            </button>
+          <button type="button" className="pill-button is-ghost" onClick={() => { setShowPlanModal(false); setIsPinSelectMode(true); }}>
+            <LocateFixed size={16} aria-hidden="true" /> Elegir en el mapa
+          </button>
 
-            {/* Sugerencias de Búsqueda */}
-            <div style={{ overflowY: 'auto', maxHeight: '280px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {searchSuggestions.length > 0 && (
+            <ul className="plan-suggestions">
               {searchSuggestions.map((sug) => (
-                <div
-                  key={sug.id}
-                  onClick={() => handleSelectPlace(sug)}
-                  style={suggestionItemStyle}
-                >
-                  
-                  <div style={{ flex: 1 }}>
-                    <strong style={{ color: '#ffffff', fontSize: '0.9rem' }}>{sug.name}</strong>
-                    <div style={{ color: '#a1a1aa', fontSize: '0.75rem', marginTop: '2px' }}>{sug.address}</div>
-                  </div>
-                  {sug.distanceKm && (
-                    <span style={{ color: '#ffffff', fontSize: '0.75rem', fontWeight: 800 }}>
-                      {sug.distanceKm} km
+                <li key={sug.id}>
+                  <button type="button" onClick={() => handleSelectPlace(sug)}>
+                    <span>
+                      <strong>{sug.name}</strong>
+                      <small>{sug.address}</small>
                     </span>
-                  )}
-                </div>
+                    {sug.distanceKm && <em>{sug.distanceKm} km</em>}
+                  </button>
+                </li>
               ))}
-            </div>
-          </div>
-        </div>
+            </ul>
+          )}
+        </Dialog>
       )}
 
       {showSaveRouteModal && selectedDestination && (
-        <div style={modalBackdropStyle}>
-          <div className="map-save-route-modal" style={{
-            ...modalPlanCardStyle,
-            maxWidth: '440px',
-            background: isDark ? '#0f1929' : '#ffffff',
-            borderColor: isDark ? '#253349' : '#dbe4e7',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <div style={{ color: '#fb7a43', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ruta frecuente</div>
-                <h3 style={{ margin: '4px 0 0', color: isDark ? '#fff' : '#0f172a' }}>Guardar este recorrido</h3>
-              </div>
-              <button aria-label="Cerrar" onClick={() => setShowSaveRouteModal(false)} style={modalCloseBtnStyle}><X size={17} /></button>
-            </div>
-            <div style={{ background: isDark ? '#111c2e' : '#f8fafc', border: `1px solid ${isDark ? '#253349' : '#e2e8f0'}`, borderRadius: '16px', padding: '14px', marginBottom: '14px' }}>
-              <div style={{ color: '#94a3b8', fontSize: '0.76rem' }}>Desde</div>
-              <strong style={{ color: isDark ? '#fff' : '#0f172a', display: 'block', marginBottom: '12px' }}>{userAddress}</strong>
-              <div style={{ color: '#94a3b8', fontSize: '0.76rem' }}>Hasta</div>
-              <strong style={{ color: isDark ? '#fff' : '#0f172a' }}>{selectedDestination.name}</strong>
-            </div>
-            <label htmlFor="pilot-route-name" style={{ display: 'block', color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>Nombre de la ruta</label>
+        <Dialog
+          kicker="Ruta frecuente"
+          icon={<BookmarkPlus size={20} />}
+          title="Guardar este recorrido"
+          description="Quedará asociado a tu viaje y disponible para futuros despachos."
+          busy={isSavingRoute}
+          onClose={() => setShowSaveRouteModal(false)}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => setShowSaveRouteModal(false)} disabled={isSavingRoute}>Cancelar</button>
+              <button type="button" className="pill-button" disabled={isSavingRoute || routeSaveName.trim().length < 2} onClick={() => void handleSavePilotRoute()}>
+                {isSavingRoute ? <LoaderCircle className="map-search-spinner" size={16} /> : <BookmarkPlus size={16} />}
+                {isSavingRoute ? 'Guardando…' : 'Guardar ruta'}
+              </button>
+            </>
+          )}
+        >
+          <ol className="dlg-timeline">
+            <li>
+              <span className="dlg-dot" aria-hidden="true" />
+              <div><span>Desde</span><strong>{userAddress}</strong></div>
+            </li>
+            <li>
+              <span className="dlg-dot is-end" aria-hidden="true" />
+              <div><span>Hasta</span><strong>{selectedDestination.name}</strong></div>
+            </li>
+          </ol>
+          <Field label="Nombre de la ruta" htmlFor="pilot-route-name">
             <input
               id="pilot-route-name"
+              className="dlg-input"
               value={routeSaveName}
               maxLength={100}
               onChange={(event) => setRouteSaveName(event.target.value)}
               placeholder="Ej. Terminal - Centro"
-              style={{ ...activeSearchInputStyle, background: isDark ? activeSearchInputStyle.background : '#f8fafc', color: isDark ? '#fff' : '#0f172a', borderColor: isDark ? '#334155' : '#cbd5e1' }}
               autoFocus
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
-              <button type="button" onClick={() => setShowSaveRouteModal(false)} style={cancelRouteBtnStyle}>Cancelar</button>
-              <button type="button" disabled={isSavingRoute || routeSaveName.trim().length < 2} onClick={() => void handleSavePilotRoute()} style={{ ...startTripBtnStyle, display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
-                {isSavingRoute ? <LoaderCircle className="map-search-spinner" size={15} /> : <BookmarkPlus size={15} />}
-                {isSavingRoute ? 'Guardando...' : 'Guardar y asociar'}
-              </button>
-            </div>
-          </div>
-        </div>
+          </Field>
+        </Dialog>
       )}
 
-      {/* 4. MODAL DE ADVERTENCIA: ¿ESTÁS SEGURO DE CANCELAR EL VIAJE? (WEB) */}
+      {/* 4. CONFIRMAR: DETENER LA NAVEGACIÓN */}
       {showCancelTripModal && (
-        <div style={confirmModalBackdropStyle}>
-          <div style={confirmModalCardStyle}>
-            <div style={warningIconCircleStyle}>
-              
-            </div>
-            <h3 style={confirmModalTitleStyle}>¿Deseas detener la navegación?</h3>
-            <p style={confirmModalSubStyle}>
-              Se ocultará la ruta guiada, pero el recorrido asignado continuará activo hasta que lo finalices.
-            </p>
-            <div style={confirmButtonsRowStyle}>
-              <button onClick={handleDismissCancelTrip} style={keepTripBtnStyle}>
-                Cancelar
-              </button>
-              <button onClick={handleConfirmCancelTrip} style={confirmCancelBtnStyle}>
-                Aceptar
-              </button>
-            </div>
-          </div>
-        </div>
+        <Dialog
+          size="sm"
+          role="alertdialog"
+          icon={<X size={20} />}
+          title="¿Detener la navegación?"
+          description="Se oculta la ruta guiada. El viaje asignado sigue activo hasta que lo finalices."
+          onClose={handleDismissCancelTrip}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={handleDismissCancelTrip}>Seguir navegando</button>
+              <button type="button" className="pill-button" onClick={handleConfirmCancelTrip}>Detener</button>
+            </>
+          )}
+        />
       )}
     </div>
   );
 };
 
-// --- Estilos CSS (Piloto / Modo Oscuro) ---
-
-const webContainerStyle: React.CSSProperties = {
-  backgroundColor: '#0b1120',
-  borderRadius: '24px',
-  padding: '16px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '12px',
-  width: '100%',
-  boxSizing: 'border-box',
-  color: '#ffffff',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+/** Lecturas en ejes del autobús (la app las envía solo cuando están calibradas). */
+const vehicleSensors = (bus: { aceleracionX?: number | null; aceleracionY?: number | null; giroscopioZ?: number | null }) => {
+  if (bus.aceleracionY == null && bus.aceleracionX == null && bus.giroscopioZ == null) return null;
+  const n = (value: number | null | undefined, unit: string) => (value == null ? '—' : `${Number(value).toFixed(1)} ${unit}`);
+  return {
+    longitudinal: n(bus.aceleracionY, 'm/s²'),
+    lateral: n(bus.aceleracionX, 'm/s²'),
+    yaw: n(bus.giroscopioZ, 'rad/s'),
+  };
 };
 
-const topPlanningBarStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  flexWrap: 'wrap',
-  gap: '12px',
-};
-
-const searchTripBarStyle: React.CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  backgroundColor: '#111c2e',
-  borderRadius: '20px',
-  padding: '10px 16px',
-  border: '1px solid #1e293b',
-  cursor: 'pointer',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-};
-
-const searchSquareIconStyle: React.CSSProperties = {
-  width: '26px',
-  height: '26px',
-  backgroundColor: '#0b1120',
-  borderRadius: '6px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginRight: '12px',
-};
-
-const searchInnerSquareStyle: React.CSSProperties = {
-  width: '10px',
-  height: '10px',
-  backgroundColor: '#38bdf8',
-  borderRadius: '2px',
-};
-
-const searchActionBtnStyle: React.CSSProperties = {
-  background: '#1e293b',
-  border: 'none',
-  borderRadius: '50%',
-  width: '32px',
-  height: '32px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-};
-
-const activeRouteCardStyle: React.CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  backgroundColor: '#111c2e',
-  borderRadius: '20px',
-  padding: '10px 16px',
-  border: '1px solid #1e293b',
-};
-
-const flagIconStyle: React.CSSProperties = {
-  width: '30px',
-  height: '30px',
-  borderRadius: '8px',
-  background: '#0b1120',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '14px',
-};
-
-const searchIconBtnStyle: React.CSSProperties = {
-  background: '#1e293b',
-  border: 'none',
-  borderRadius: '50%',
-  width: '32px',
-  height: '32px',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
-const cancelRouteBtnStyle: React.CSSProperties = {
-  background: 'rgba(239, 68, 68, 0.15)',
-  border: '1px solid #ef4444',
-  borderRadius: '16px',
-  color: '#f87171',
-  fontWeight: 800,
-  fontSize: '0.8rem',
-  padding: '6px 12px',
-  cursor: 'pointer',
-};
-
-const startTripBtnStyle: React.CSSProperties = {
-  background: '#10b981',
-  border: 'none',
-  borderRadius: '16px',
-  color: '#ffffff',
-  fontWeight: 900,
-  fontSize: '0.8rem',
-  padding: '6px 14px',
-  cursor: 'pointer',
-  boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)',
-};
-
-const saveRouteBtnStyle: React.CSSProperties = {
-  background: 'rgba(251, 122, 67, 0.12)',
-  border: '1px solid rgba(251, 122, 67, 0.5)',
-  borderRadius: '16px',
-  color: '#fb7a43',
-  fontWeight: 850,
-  fontSize: '0.78rem',
-  padding: '7px 12px',
-  cursor: 'pointer',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
-};
-
-const cancelTripBtnActiveStyle: React.CSSProperties = {
-  background: '#ef4444',
-  border: 'none',
-  borderRadius: '16px',
-  color: '#ffffff',
-  fontWeight: 900,
-  fontSize: '0.85rem',
-  padding: '8px 16px',
-  cursor: 'pointer',
-  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
-};
-
-const mapViewContainerStyle: React.CSSProperties = {
-  position: 'relative',
-  width: '100%',
-  height: '560px',
-  borderRadius: '20px',
-  overflow: 'hidden',
-  border: '1px solid #1e293b',
-};
-
-const floatingThemeBtnStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '20px',
-  left: '20px',
-  width: '48px',
-  height: '48px',
-  borderRadius: '50%',
-  backgroundColor: '#111c2e',
-  border: '1.5px solid #1e293b',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '20px',
-  cursor: 'pointer',
-  zIndex: 999,
-  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-};
-
-const floatingWazeBtnStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '80px',
-  right: '20px',
-  width: '48px',
-  height: '48px',
-  borderRadius: '50%',
-  backgroundColor: '#33ccff',
-  border: '2px solid #ffffff',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  zIndex: 999,
-  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-};
-
-const floatingCenterBtnStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '20px',
-  right: '20px',
-  width: '48px',
-  height: '48px',
-  borderRadius: '50%',
-  backgroundColor: '#111c2e',
-  border: '1.5px solid #1e293b',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '18px',
-  cursor: 'pointer',
-  zIndex: 999,
-  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-};
-
-const centerPinOverlayStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -100%)',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  pointerEvents: 'none',
-  zIndex: 1000,
-};
-
-const targetPinHeadStyle: React.CSSProperties = {
-  width: '32px',
-  height: '32px',
-  borderRadius: '50%',
-  backgroundColor: '#ffffff',
-  border: '3px solid #0f172a',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  boxShadow: '0 4px 8px rgba(0,0,0,0.5)',
-};
-
-const targetPinInnerBlackStyle: React.CSSProperties = {
-  width: '10px',
-  height: '10px',
-  backgroundColor: '#000000',
-  borderRadius: '2px',
-};
-
-const pinStickStyle: React.CSSProperties = {
-  width: '3px',
-  height: '12px',
-  backgroundColor: '#ffffff',
-};
-
-const pinBlueBaseStyle: React.CSSProperties = {
-  width: '12px',
-  height: '12px',
-  borderRadius: '50%',
-  backgroundColor: '#38bdf8',
-  border: '2px solid #ffffff',
-};
-
-const pinBottomBarStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '16px',
-  left: '16px',
-  right: '16px',
-  backgroundColor: '#18181b',
-  borderRadius: '18px',
-  padding: '12px 16px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  zIndex: 1000,
-  boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-  border: '1px solid #27272a',
-};
-
-const pinBackBtnStyle: React.CSSProperties = {
-  background: '#27272a',
-  border: 'none',
-  borderRadius: '50%',
-  width: '36px',
-  height: '36px',
-  color: '#ffffff',
-  fontSize: '1.1rem',
-  fontWeight: 900,
-  cursor: 'pointer',
-};
-
-const pinInputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 14px',
-  borderRadius: '12px',
-  border: '1px solid #3f3f46',
-  backgroundColor: '#27272a',
-  color: '#ffffff',
-  fontSize: '0.9rem',
-  outline: 'none',
-  boxSizing: 'border-box',
-};
-
-const pinConfirmBtnStyle: React.CSSProperties = {
-  background: '#ffffff',
-  color: '#000000',
-  border: 'none',
-  borderRadius: '14px',
-  padding: '10px 18px',
-  fontWeight: 900,
-  fontSize: '0.9rem',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-};
-
-const modalBackdropStyle: React.CSSProperties = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100vw',
-  height: '100vh',
-  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  backdropFilter: 'blur(8px)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 9999,
-  padding: '20px',
-  boxSizing: 'border-box',
-};
-
-const modalPlanCardStyle: React.CSSProperties = {
-  backgroundColor: '#18181b',
-  borderRadius: '24px',
-  padding: '28px',
-  width: '100%',
-  maxWidth: '520px',
-  border: '1px solid #27272a',
-  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.8)',
-  color: '#ffffff',
-};
-
-const modalCloseBtnStyle: React.CSSProperties = {
-  background: '#27272a',
-  border: 'none',
-  borderRadius: '50%',
-  width: '32px',
-  height: '32px',
-  color: '#ffffff',
-  cursor: 'pointer',
-  fontWeight: 900,
-};
-
-const inputsContainerCardStyle: React.CSSProperties = {
-  backgroundColor: '#27272a',
-  borderRadius: '16px',
-  padding: '12px 16px',
-  border: '1px solid #3f3f46',
-  marginBottom: '14px',
-};
-
-const disabledInputStyle: React.CSSProperties = {
-  width: '100%',
-  background: 'transparent',
-  border: 'none',
-  color: '#a1a1aa',
-  fontSize: '0.85rem',
-  fontWeight: 700,
-  outline: 'none',
-};
-
-const activeSearchInputStyle: React.CSSProperties = {
-  width: '100%',
-  background: 'transparent',
-  border: 'none',
-  color: '#ffffff',
-  fontSize: '0.95rem',
-  fontWeight: 800,
-  outline: 'none',
-};
-
-const pinModeTriggerBtnStyle: React.CSSProperties = {
-  width: '100%',
-  backgroundColor: '#ffffff',
-  color: '#000000',
-  border: 'none',
-  borderRadius: '14px',
-  padding: '12px',
-  fontWeight: 900,
-  fontSize: '0.9rem',
-  cursor: 'pointer',
-  marginBottom: '14px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '8px',
-  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-};
-
-const suggestionItemStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  padding: '10px 14px',
-  backgroundColor: '#18181b',
-  borderRadius: '14px',
-  border: '1px solid #27272a',
-  cursor: 'pointer',
-};
 
 /* ESTILOS PARA EL MODAL DE CONFIRMACIÓN DE CANCELAR VIAJE (WEB) */
-const confirmModalBackdropStyle: React.CSSProperties = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100vw',
-  height: '100vh',
-  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  backdropFilter: 'blur(8px)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 9999,
-  padding: '20px',
-  boxSizing: 'border-box',
-};
-
-const confirmModalCardStyle: React.CSSProperties = {
-  backgroundColor: '#18181b',
-  borderRadius: '24px',
-  padding: '28px',
-  width: '100%',
-  maxWidth: '380px',
-  border: '1px solid #27272a',
-  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.8)',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  textAlign: 'center',
-  color: '#ffffff',
-};
-
-const warningIconCircleStyle: React.CSSProperties = {
-  width: '64px',
-  height: '64px',
-  borderRadius: '32px',
-  backgroundColor: 'rgba(239, 68, 68, 0.15)',
-  border: '1.5px solid rgba(239, 68, 68, 0.3)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginBottom: '16px',
-};
-
-const confirmModalTitleStyle: React.CSSProperties = {
-  margin: '0 0 8px 0',
-  fontSize: '1.2rem',
-  fontWeight: 900,
-  color: '#ffffff',
-};
-
-const confirmModalSubStyle: React.CSSProperties = {
-  margin: '0 0 24px 0',
-  fontSize: '0.85rem',
-  color: '#a1a1aa',
-  lineHeight: 1.4,
-};
-
-const confirmButtonsRowStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: '12px',
-  width: '100%',
-};
-
-const keepTripBtnStyle: React.CSSProperties = {
-  flex: 1,
-  backgroundColor: '#27272a',
-  border: '1px solid #3f3f46',
-  borderRadius: '14px',
-  padding: '12px',
-  color: '#ffffff',
-  fontWeight: 800,
-  fontSize: '0.9rem',
-  cursor: 'pointer',
-};
-
-const confirmCancelBtnStyle: React.CSSProperties = {
-  flex: 1,
-  backgroundColor: '#ef4444',
-  border: 'none',
-  borderRadius: '14px',
-  padding: '12px',
-  color: '#ffffff',
-  fontWeight: 900,
-  fontSize: '0.9rem',
-  cursor: 'pointer',
-  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
-};
 
 // --- Generador de Estilos CSS SaaS Dinámicos (Mapa de Monitoreo) ---

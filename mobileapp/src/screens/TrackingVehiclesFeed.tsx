@@ -107,11 +107,11 @@ export const TrackingVehiclesFeed: React.FC<TrackingVehiclesFeedProps> = ({
     <View style={styles.container}>
       <View style={styles.segmentedControl}>
         <Pressable style={[styles.segment, tabFilter === 'live' && styles.segmentActive]} onPress={() => setTabFilter('live')}>
-          <Feather name="radio" size={14} color={tabFilter === 'live' ? colors.white : colors.muted} />
+          <Feather name="radio" size={14} color={tabFilter === 'live' ? colors.onAccent : colors.muted} />
           <Text style={[styles.segmentText, tabFilter === 'live' && styles.segmentTextActive]}>En vivo ({liveUnits.length})</Text>
         </Pressable>
         <Pressable style={[styles.segment, tabFilter === 'all' && styles.segmentActive]} onPress={() => setTabFilter('all')}>
-          <MaterialCommunityIcons name="bus" size={16} color={tabFilter === 'all' ? colors.white : colors.muted} />
+          <MaterialCommunityIcons name="bus" size={16} color={tabFilter === 'all' ? colors.onAccent : colors.muted} />
           <Text style={[styles.segmentText, tabFilter === 'all' && styles.segmentTextActive]}>Flota ({units.length})</Text>
         </Pressable>
       </View>
@@ -210,7 +210,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   segment: { flex: 1, minHeight: 38, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   segmentActive: { backgroundColor: colors.accent },
   segmentText: { color: colors.muted, fontSize: 11, fontWeight: '800' },
-  segmentTextActive: { color: colors.white },
+  segmentTextActive: { color: colors.onAccent },
   searchRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   searchBox: { flex: 1, minHeight: 42, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   searchInput: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 12, paddingVertical: 0 },

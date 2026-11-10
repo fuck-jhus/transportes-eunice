@@ -27,7 +27,7 @@
       "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#0D2026"
+        "backgroundColor": "#1F5C46"
       },
       "permissions": [
         "POST_NOTIFICATIONS",
@@ -58,7 +58,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#D85F28",
+          "color": "#1F5C46",
           "defaultChannel": "operaciones"
         }
       ]

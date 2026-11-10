@@ -92,9 +92,9 @@ export const AlertsScreen: React.FC<{ openTarget?: AlertPushTarget | null; onPus
         action={<PrimaryButton label="Actualizar" icon="refresh-cw" variant="secondary" onPress={() => void fetchData()} />}
       />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <PrimaryButton label="Anterior" variant="secondary" onPress={() => setPeriod(p => new Date(p.getFullYear(), p.getMonth() - 1, 1))} disabled={loading} />
-        <Text style={{ color: colors.ink }}>{period.toLocaleDateString('es-GT', { month: 'long', year: 'numeric' })}</Text>
-        <PrimaryButton label="Siguiente" variant="secondary" onPress={() => setPeriod(p => new Date(p.getFullYear(), p.getMonth() + 1, 1))} disabled={loading} />
+        <PrimaryButton label="Anterior" icon="chevron-left" variant="secondary" onPress={() => setPeriod(p => new Date(p.getFullYear(), p.getMonth() - 1, 1))} disabled={loading} />
+        <Text style={{ flex: 1, color: colors.ink, fontSize: 15, fontWeight: '700', textAlign: 'center' }}>{period.toLocaleDateString('es-GT', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase())}</Text>
+        <PrimaryButton label="Siguiente" icon="chevron-right" variant="secondary" onPress={() => setPeriod(p => new Date(p.getFullYear(), p.getMonth() + 1, 1))} disabled={loading} />
       </View>
       {loadError && <SurfaceCard><Text accessibilityRole="alert" style={{ color: colors.danger }}>No se pudo actualizar este período. {loadedPeriod ? `Los datos conservados corresponden a ${loadedPeriod}.` : 'No hay una consulta confirmada.'}</Text><PrimaryButton label="Volver a consultar" onPress={() => void fetchData()} /></SurfaceCard>}
 
@@ -182,7 +182,7 @@ const SegmentButton = ({ colors, styles, active, icon, label, onPress }: {
   onPress: () => void;
 }) => (
   <Pressable style={[styles.segmentButton, active && styles.segmentButtonActive]} onPress={onPress}>
-    <Feather name={icon} size={14} color={active ? colors.white : colors.muted} />
+    <Feather name={icon} size={15} color={active ? colors.ink : colors.muted} />
     <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
   </Pressable>
 );
@@ -200,11 +200,11 @@ const Detail = ({ icon, value, colors, styles }: { icon: React.ComponentProps<ty
 );
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
-  segmented: { flexDirection: 'row', padding: 4, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, gap: 5 },
-  segmentButton: { flex: 1, minHeight: 40, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  segmentButtonActive: { backgroundColor: colors.accent },
-  segmentText: { color: colors.muted, fontSize: 10.5, fontWeight: '800' },
-  segmentTextActive: { color: colors.white },
+  segmented: { flexDirection: 'row', padding: 4, borderRadius: 24, backgroundColor: colors.surface, gap: 4 },
+  segmentButton: { flex: 1, minHeight: 42, borderRadius: 21, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  segmentButtonActive: { backgroundColor: colors.surfaceSoft },
+  segmentText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  segmentTextActive: { color: colors.ink, fontWeight: '700' },
   statsRow: { flexDirection: 'row', gap: 9 },
   statCard: { flex: 1, padding: 13 },
   statLabel: { color: colors.muted, fontSize: 9.5, fontWeight: '800' },

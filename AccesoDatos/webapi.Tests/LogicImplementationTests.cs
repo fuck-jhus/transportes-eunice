@@ -227,6 +227,25 @@ public class LogicImplementationTests
         Assert.Null(db.ViajesDiarios.Single().DestinoNombre);
     }
 
+    [Fact]
+    public async Task MovingPilot_CannotSendFreeTextByClaimingQuickReply()
+    {
+        await using var db = TestDb.Create(); await Seed(db);
+        var access = new ViajeAccesoPublico { IdAcceso = Guid.NewGuid(), IdViaje = 1, TokenHash = "fixture", FechaExpiracion = DateTime.UtcNow.AddDays(1) };
+        var conversation = new ConversacionPasajero { IdConversacion = Guid.NewGuid(), IdAcceso = access.IdAcceso, SesionHash = "fixture", AliasPasajero = "Pasajero", FechaDerivadaPiloto = DateTime.UtcNow };
+        db.AddRange(access, conversation);
+        db.TelemetriaIots.Add(new TelemetriaIot { IdViaje = 1, Latitud = 15, Longitud = -90, VelocidadKmh = 45, FechaHoraDispositivo = DateTime.UtcNow.AddSeconds(-10) });
+        await db.SaveChangesAsync();
+        var controller = new PassengerConversationsController(db) { ControllerContext = Context("Piloto") };
+
+        var freeText = await controller.Reply(conversation.IdConversacion, new() { Contenido = "Te escribo mientras manejo", RespuestaRapida = true }, default);
+        Assert.Equal(StatusCodes.Status409Conflict, Assert.IsType<ObjectResult>(freeText).StatusCode);
+
+        var quick = await controller.Reply(conversation.IdConversacion, new() { Contenido = PassengerQuickReplies.All[0], RespuestaRapida = false }, default);
+        Assert.IsType<OkObjectResult>(quick);
+        Assert.Single(db.MensajesPasajeros);
+    }
+
     static ControllerContext Context(string role) => new() { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([
         new Claim(ClaimTypes.NameIdentifier, "1"), new Claim(ClaimTypes.Role, role)], "fixture")) } };
 }

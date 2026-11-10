@@ -99,7 +99,7 @@ const startTracking = async (context: BackgroundTrackingContext, request: number
       foregroundService: {
         notificationTitle: 'Eunice · viaje en curso',
         notificationBody: 'La ubicación se comparte con despacho mientras el viaje permanezca activo.',
-        notificationColor: '#d85f28',
+        notificationColor: '#1f5c46',
         killServiceOnDestroy: false,
       },
     });

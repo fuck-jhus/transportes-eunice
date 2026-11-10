@@ -11,6 +11,8 @@ public sealed class PushBackgroundService(IServiceScopeFactory scopes, ILogger<P
             {
                 using var scope = scopes.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<TrackingNotificationMonitor>().CheckAsync(DateTime.UtcNow, stoppingToken);
+                await webapi.Core.PassengerEscalation.ProcessAsync(
+                    scope.ServiceProvider.GetRequiredService<AccesoDatos.Context.PrevencionAccidentesBusesContext>(), DateTime.UtcNow, stoppingToken);
                 await scope.ServiceProvider.GetRequiredService<PushOutboxDispatcher>().ProcessAsync(DateTime.UtcNow, stoppingToken);
                 await scope.ServiceProvider.GetRequiredService<GuestWebPushService>().ProcessAsync(DateTime.UtcNow, stoppingToken);
             }

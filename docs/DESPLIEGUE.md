@@ -31,7 +31,7 @@ Configura `ASPNETCORE_ENVIRONMENT=Production`, `Database__ApplySchemaOnStartup=f
 
    El segundo comando debe indicar `inactive`; su código de salida distinto de cero es normal en ese estado.
 
-4. En SSMS selecciona la base correcta y aplica las migraciones pendientes, completas y en este orden: `20261016_integridad.sql`, después `20261017_push_operations.sql` y por último `20261110_evaluacion_sin_calificar.sql`. No ejecutes el script de creación de base como sustituto de las migraciones de una instalación existente. Si falla una, revierte la transacción pendiente en la misma conexión y resuelve el error antes de continuar.
+4. En SSMS selecciona la base correcta y aplica las migraciones pendientes, completas y en este orden: `20261016_integridad.sql`, después `20261017_push_operations.sql`, luego `20261110_evaluacion_sin_calificar.sql` y por último `20261111_pasajeros.sql`. No ejecutes el script de creación de base como sustituto de las migraciones de una instalación existente. Si falla una, revierte la transacción pendiente en la misma conexión y resuelve el error antes de continuar.
 5. Sube por SFTP el **contenido** de `out/backend/` a la carpeta de la API y el **contenido** de `dist/` a la carpeta pública del panel. Conserva las configuraciones privadas, claves de protección y datos persistentes del VPS. Revisa propietarios/permisos y elimina únicamente archivos obsoletos que hayas identificado como parte de la versión anterior. Sustituye el HTML junto con sus assets para evitar mezclar versiones.
 6. Inicia y comprueba la API:
 

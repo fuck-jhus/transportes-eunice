@@ -60,8 +60,8 @@ export const ScreenHeader = ({ title, subtitle, action }: { title: string; subti
   return (
     <View style={[styles.header, compact && styles.headerCompact]}>
       <View style={styles.headerCopy}>
-        <Text style={styles.headerTitle}>{title}</Text>
-        <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        {/* El título ya está en el encabezado de la app; aquí solo va el resumen. */}
+        <Text style={styles.headerSubtitle} accessibilityLabel={`${title}. ${subtitle}`}>{subtitle}</Text>
       </View>
       {action ? <View style={[styles.headerAction, compact && styles.headerActionCompact]}>{action}</View> : null}
     </View>
@@ -89,7 +89,7 @@ export const PrimaryButton = ({
 }) => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const tint = variant === 'danger' ? colors.danger : variant === 'secondary' ? colors.ink : colors.white;
+  const tint = variant === 'danger' ? colors.danger : variant === 'secondary' ? colors.ink : colors.onAccent;
   return (
     <Pressable
       accessibilityRole="button"
@@ -106,7 +106,7 @@ export const PrimaryButton = ({
       onPress={onPress}
       disabled={disabled}
     >
-      <Feather name={icon} size={15} color={tint} />
+      <Feather name={icon} size={17} color={tint} />
       <Text numberOfLines={1} style={[styles.buttonText, { color: tint }]}>{label}</Text>
     </Pressable>
   );
@@ -133,7 +133,7 @@ export const ChoiceChip = ({ label, active, onPress, icon }: {
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }} style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
-      {icon ? <Feather name={icon} size={13} color={active ? colors.white : colors.muted} /> : null}
+      {icon ? <Feather name={icon} size={14} color={active ? colors.canvas : colors.muted} /> : null}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -156,42 +156,42 @@ export const EmptyState = ({ icon, title, message }: {
 };
 
 export const uiStyles = (colors: AppColors) => StyleSheet.create({
-  sectionEyebrow: { color: colors.muted, fontSize: 9.5, fontWeight: '900', letterSpacing: 0.9 },
-  sectionTitle: { color: colors.ink, fontSize: 16, fontWeight: '900', marginTop: 4 },
-  body: { color: colors.muted, fontSize: 11.5, lineHeight: 17 },
-  title: { color: colors.ink, fontSize: 14, fontWeight: '900' },
-  divider: { height: 1, backgroundColor: colors.line },
-  badge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: colors.surfaceRaised },
-  badgeText: { color: colors.muted, fontSize: 9.5, fontWeight: '900' },
+  sectionEyebrow: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '800', marginTop: 2, letterSpacing: -0.3 },
+  body: { color: colors.muted, fontSize: 13.5, lineHeight: 20 },
+  title: { color: colors.ink, fontSize: 15.5, fontWeight: '700' },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line },
+  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: colors.surfaceSoft },
+  badgeText: { color: colors.muted, fontSize: 11.5, fontWeight: '700' },
 });
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  screenContent: { width: '100%', maxWidth: 1100, alignSelf: 'center', padding: 16, paddingBottom: 34, gap: 12 },
-  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  headerCompact: { alignItems: 'stretch', flexDirection: 'column', paddingVertical: 4 },
+  screenContent: { width: '100%', maxWidth: 1100, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 36, gap: 14 },
+  header: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 4 },
+  headerCompact: { alignItems: 'stretch', flexDirection: 'column', paddingVertical: 2 },
   headerCopy: { flex: 1, minWidth: 0 },
   headerAction: { flexShrink: 0 },
   headerActionCompact: { alignSelf: 'stretch' },
-  headerTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
-  headerSubtitle: { color: colors.muted, fontSize: 11.5, marginTop: 4 },
-  card: { padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
-  button: { minHeight: 48, borderRadius: 13, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  headerTitle: { color: colors.ink, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
+  headerSubtitle: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  card: { padding: 18, borderRadius: 24, backgroundColor: colors.surface },
+  button: { minHeight: 50, borderRadius: 25, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   primaryButton: { backgroundColor: colors.accent },
-  secondaryButton: { backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.lineStrong },
-  dangerButton: { backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger },
-  buttonPressed: { opacity: 0.82, transform: [{ scale: 0.986 }] },
+  secondaryButton: { backgroundColor: colors.surfaceSoft },
+  dangerButton: { backgroundColor: colors.dangerSoft },
+  buttonPressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
   disabled: { opacity: 0.45 },
-  buttonText: { fontSize: 11.5, fontWeight: '900' },
-  field: { gap: 6 },
-  label: { color: colors.ink, fontSize: 11, fontWeight: '800' },
-  input: { minHeight: 46, borderRadius: 13, borderWidth: 1, borderColor: colors.lineStrong, backgroundColor: colors.surfaceSoft, color: colors.ink, paddingHorizontal: 13, fontSize: 12.5, fontWeight: '600' },
-  chip: { minHeight: 48, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
-  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chipText: { color: colors.muted, fontSize: 10.5, fontWeight: '800' },
-  chipTextActive: { color: colors.white },
-  emptyState: { alignItems: 'center', paddingVertical: 30 },
-  emptyIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised },
-  emptyTitle: { color: colors.ink, fontSize: 14, fontWeight: '900', marginTop: 12 },
-  emptyMessage: { color: colors.muted, fontSize: 11.5, lineHeight: 17, textAlign: 'center', marginTop: 5, maxWidth: 320 },
+  buttonText: { fontSize: 14, fontWeight: '700' },
+  field: { gap: 7 },
+  label: { color: colors.ink, fontSize: 13, fontWeight: '600' },
+  input: { minHeight: 50, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surfaceSoft, color: colors.ink, paddingHorizontal: 16, fontSize: 15 },
+  chip: { minHeight: 40, borderRadius: 20, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surface },
+  chipActive: { backgroundColor: colors.ink },
+  chipText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  chipTextActive: { color: colors.canvas },
+  emptyState: { alignItems: 'center', paddingVertical: 34 },
+  emptyIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft },
+  emptyTitle: { color: colors.ink, fontSize: 16, fontWeight: '700', marginTop: 14 },
+  emptyMessage: { color: colors.muted, fontSize: 13.5, lineHeight: 20, textAlign: 'center', marginTop: 5, maxWidth: 320 },
 });

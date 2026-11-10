@@ -31,7 +31,7 @@ export const LiveMapScreen: React.FC<LiveMapScreenProps> = ({ user, tracking }) 
         <View style={styles.gridVertical} />
         <View style={styles.mapGlow} />
         <View style={styles.pin}>
-          <MaterialCommunityIcons name="bus" size={25} color={colors.white} />
+          <MaterialCommunityIcons name="bus" size={25} color={colors.onAccent} />
         </View>
         <View style={styles.previewCopy}>
           <Text style={styles.previewEyebrow}>MAPA NATIVO</Text>

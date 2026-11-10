@@ -4,6 +4,7 @@ import { useAuth } from '../context/useAuth';
 import api, { buildWebSocketUrl } from '../services/api';
 import { GoogleMapWeb } from './GoogleMapWeb';
 import { ConfirmationDialog } from './ConfirmationDialog';
+import { Dialog, Field } from './Dialog';
 import type { ConfirmationState } from './ConfirmationDialog';
 import { AnimatedSelect } from './AnimatedSelect';
 import { ToastViewport } from './ToastViewport';
@@ -12,6 +13,8 @@ import { DashboardHeader } from './DashboardHeader';
 import { DashboardSidebar } from './DashboardSidebar';
 import { PilotTrackingBar } from './PilotTrackingBar';
 import { PassengerInbox } from './PassengerInbox';
+import { BusQrModal } from './BusQrModal';
+import { RouteStopsModal } from './RouteStopsModal';
 import { usePilotTelemetry, type PilotNavigationState } from '../hooks/usePilotTelemetry';
 import { getDashboardStyles } from '../styles/dashboardStyles';
 import { hasValidCoordinates } from '../utils/mapSupport';
@@ -34,13 +37,11 @@ import {
   UserRoundCheck,
   UserRoundX,
   Save,
-  X,
+  RefreshCw,
   FileDown,
   Sheet,
   ChevronDown,
-  Activity,
   Gauge,
-  ShieldAlert,
   Wifi,
   BarChart3,
   Copy,
@@ -127,17 +128,30 @@ const mergeLiveSnapshot = (
   return snapshot;
 };
 
-const isTelemetryFresh = (bus: LiveTelemetryData, now: number) => (
-  !bus.isOffline && Boolean(bus.lastObservedAt && now - bus.lastObservedAt < 30000 && bus.lastObservedAt <= now + 5000)
-);
+// `now` es el reloj de frescura del panel, que avanza cada pocos segundos. Una lectura más nueva que ese
+// reloj es normal (llegó entre dos avances), así que el límite de "fecha futura" usa la hora real.
+const isTelemetryFresh = (bus: LiveTelemetryData, now: number) => {
+  if (bus.isOffline || !bus.lastObservedAt) return false;
+  const wallClock = Math.max(now, Date.now());
+  return now - bus.lastObservedAt < 30000 && bus.lastObservedAt <= wallClock + 5000;
+};
 
+// Mismos umbrales que los marcadores del mapa: más de 80 km/h es alerta y más de 50 es precaución.
+const speedChipColors = (speed: number | undefined) => {
+  const kmh = speed || 0;
+  if (kmh > 80) return { backgroundColor: 'var(--danger-soft)', color: 'var(--danger-ink)', border: '1px solid transparent' };
+  if (kmh > 50) return { backgroundColor: 'var(--warning-soft)', color: 'var(--warning-ink)', border: '1px solid transparent' };
+  return { backgroundColor: 'var(--success-soft)', color: 'var(--success)', border: '1px solid transparent' };
+};
+
+// Tonos de la paleta Ruta cálida que se leen bien en modo claro y oscuro.
 const CHAT_SENDER_PALETTE = [
-  { accent: '#2563eb', light: '#eff6ff', dark: 'rgba(37, 99, 235, 0.18)' },
-  { accent: '#7c3aed', light: '#f5f3ff', dark: 'rgba(124, 58, 237, 0.18)' },
-  { accent: '#059669', light: '#ecfdf5', dark: 'rgba(5, 150, 105, 0.18)' },
-  { accent: '#db2777', light: '#fdf2f8', dark: 'rgba(219, 39, 119, 0.18)' },
-  { accent: '#b45309', light: '#fffbeb', dark: 'rgba(180, 83, 9, 0.2)' },
-  { accent: '#0891b2', light: '#ecfeff', dark: 'rgba(8, 145, 178, 0.18)' },
+  { accent: '#2F8A66', light: '#e3f0e9', dark: 'rgba(47, 138, 102, 0.18)' },
+  { accent: '#A8740F', light: '#f7ecd4', dark: 'rgba(168, 116, 15, 0.2)' },
+  { accent: '#B9493A', light: '#f6e2de', dark: 'rgba(185, 73, 58, 0.18)' },
+  { accent: '#3F7AA3', light: '#e2edf4', dark: 'rgba(63, 122, 163, 0.2)' },
+  { accent: '#7D62A8', light: '#ece6f4', dark: 'rgba(125, 98, 168, 0.2)' },
+  { accent: '#2A8A8A', light: '#ddefee', dark: 'rgba(42, 138, 138, 0.2)' },
 ];
 
 const getChatSenderVisual = (id: number, name: string) => {
@@ -196,7 +210,7 @@ export const TelemetryDashboard: React.FC = () => {
   }, [theme]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setFreshnessTimestamp(Date.now()), 30000);
+    const timer = window.setInterval(() => setFreshnessTimestamp(Date.now()), 5000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -204,7 +218,6 @@ export const TelemetryDashboard: React.FC = () => {
   const {
     containerStyle,
     mainContentWrapperStyle,
-    cardStyle,
     cardTitleStyle,
     usersContainerStyle,
     tableHeaderStyle,
@@ -215,21 +228,10 @@ export const TelemetryDashboard: React.FC = () => {
     thStyle,
     trStyle,
     tdStyle,
-    actionGroupStyle,
-    editButtonStyle,
-    deactivateButtonStyle,
-    deleteButtonStyle,
     activateButtonStyle,
     statusBadgeStyle,
     errorBannerStyle,
-    modalOverlayStyle,
-    modalCardStyle,
-    modalTitleStyle,
-    formGroupStyle,
-    formLabelStyle,
     formInputStyle,
-    modalActionsStyle,
-    cancelButtonStyle,
     saveButtonStyle
   } = getDashboardStyles(isDark);
 
@@ -321,15 +323,26 @@ export const TelemetryDashboard: React.FC = () => {
 
   // Estados para Vista SaaS Tracking Split-Screen
   const [trackingSearchQuery, setTrackingSearchQuery] = useState<string>('');
+  const [directoryQuery, setDirectoryQuery] = useState<string>('');
+  const [directoryFilter, setDirectoryFilter] = useState<string>('all');
   const [trackingTabFilter, setTrackingTabFilter] = useState<'active' | 'all'>('active');
   const [focusedBusPlaca, setFocusedBusPlaca] = useState<string | null>(null);
 
   // Estados para Navegación del Panel
   const [activeTab, setActiveTab] = useState<DashboardTab>('map');
+  // Cada pantalla de directorio tiene sus propios filtros: al cambiar de pantalla se empieza limpio.
+  const [directoryTab, setDirectoryTab] = useState(activeTab);
+  if (directoryTab !== activeTab) {
+    setDirectoryTab(activeTab);
+    setDirectoryQuery('');
+    setDirectoryFilter('all');
+  }
 
   // Estados para el Módulo de Chat en Tiempo Real (General & Privado)
   const [chatMode, setChatMode] = useState<'general' | 'private'>('general');
   const [showPassengerInbox, setShowPassengerInbox] = useState(false);
+  const [qrBus, setQrBus] = useState<Autobus | null>(null);
+  const [stopsRoute, setStopsRoute] = useState<Ruta | null>(null);
   const [selectedChatPilotId, setSelectedChatPilotId] = useState<number>(0);
   const [selectedChatPilotName, setSelectedChatPilotName] = useState<string>('Piloto');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -1737,19 +1750,18 @@ export const TelemetryDashboard: React.FC = () => {
         activeTab={activeTab}
         isDark={isDark}
         role={user?.tipoRol}
+        userName={user?.nombreCompleto}
         onTabChange={setActiveTab}
+        onToggleTheme={toggleTheme}
         onLogout={handleLogout}
       />
 
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
       <main className="main-content" style={mainContentWrapperStyle}>
-        <DashboardHeader
-          activeTab={activeTab}
-          isDark={isDark}
-          user={user}
-          onToggleTheme={toggleTheme}
-        />
+        {!['map', 'telemetry', 'alerts', 'activity', 'users', 'routes', 'buses', 'chat'].includes(activeTab) && (
+          <DashboardHeader activeTab={activeTab} isDark={isDark} />
+        )}
 
         {user?.tipoRol === 'Piloto' && (
           <PilotTrackingBar
@@ -1762,264 +1774,106 @@ export const TelemetryDashboard: React.FC = () => {
 
         {/* VISTA DE TRACKING SPLIT-SCREEN (MAPA + LISTA DE UNIDADES SAAS) */}
         {(activeTab === 'map' || activeTab === 'telemetry') && (
-          <div className="tracking-grid" style={{ display: 'flex', gap: '24px', width: '100%', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <section className="fleet-quickbar" aria-label="Resumen de flota">
-              <div className="quickbar-lead"><span className="section-eyebrow"><Navigation size={13} /> Pulso de la operación</span><strong>Flota en movimiento</strong></div>
-              <div className="quickbar-metric"><span>Transmitiendo</span><strong>{getDeduplicatedLiveBuses(liveBuses).filter(b => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud)).length}</strong></div>
-              <div className="quickbar-metric"><span>Flota registrada</span><strong>{getTrackingFleet().length}</strong></div>
-              <div className="quickbar-metric"><span>Privacidad</span><strong>{getDeduplicatedLiveBuses(liveBuses).filter(b => b.isPrivacyMode).length}</strong></div>
-              <div className="quickbar-metric"><span>Sin señal GPS</span><strong>{getTrackingFleet().filter(b => !b.isPrivacyMode && (!isTelemetryFresh(b, freshnessTimestamp) || !hasValidCoordinates(b.latitud, b.longitud))).length}</strong></div>
-              <div className="quickbar-sync"><Radio size={14} /><span>{lastTelemetrySyncAt ? `Actualizado ${new Date(lastTelemetrySyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Sin sincronizar'}</span></div>
-            </section>
-            {/* Columna Izquierda: Feed de Vehículos / Bookings */}
-            <div className="fleet-panel" style={{
-              width: '360px',
-              maxWidth: '100%',
-              backgroundColor: isDark ? '#111827' : '#ffffff',
-              borderRadius: '20px',
-              border: `1px solid ${isDark ? '#1f2937' : '#e2e8f0'}`,
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              boxShadow: isDark ? '0 4px 20px -2px rgba(0, 0, 0, 0.4)' : '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-              boxSizing: 'border-box',
-              maxHeight: 'calc(100vh - 160px)',
-              overflowY: 'auto'
-            }}>
-              {/* Toggle Pills: [ En Ruta ] [ Flota Completa ] */}
-              <div style={{
-                display: 'flex',
-                backgroundColor: isDark ? '#1f2937' : '#f1f5f9',
-                padding: '4px',
-                borderRadius: '12px',
-                gap: '4px'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setTrackingTabFilter('active')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '9px',
-                    border: 'none',
-                    backgroundColor: trackingTabFilter === 'active' ? 'var(--accent)' : 'transparent',
-                    color: trackingTabFilter === 'active' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
-                    fontWeight: 600,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    boxShadow: trackingTabFilter === 'active' ? '0 7px 18px var(--accent-shadow)' : 'none',
-                    transition: 'all 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Radio size={14} />
-                  <span>En Vivo ({getDeduplicatedLiveBuses(liveBuses).filter(b => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud)).length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTrackingTabFilter('all')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '9px',
-                    border: 'none',
-                    backgroundColor: trackingTabFilter === 'all' ? 'var(--accent)' : 'transparent',
-                    color: trackingTabFilter === 'all' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
-                    fontWeight: 600,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    boxShadow: trackingTabFilter === 'all' ? '0 7px 18px var(--accent-shadow)' : 'none',
-                    transition: 'all 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Bus size={14} />
-                  <span>Flota ({getTrackingFleet().length})</span>
-                </button>
-              </div>
+          <div className={`ops-live${canMonitorOperations ? '' : ' is-pilot'}`}>
+            {canMonitorOperations && (() => {
+              const fleet = getTrackingFleet();
+              const isTracking = (b: LiveTelemetryData) => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud);
+              const trackingCount = fleet.filter(isTracking).length;
+              const privacyCount = getDeduplicatedLiveBuses(liveBuses).filter(b => b.isPrivacyMode).length;
+              const noSignalCount = fleet.filter(b => !b.isPrivacyMode && !isTracking(b)).length;
+              const speedingCount = fleet.filter(b => isTracking(b) && (b.velocidadKmh || 0) > 80).length;
+              const query = trackingSearchQuery.trim().toLowerCase();
+              const visible = (trackingTabFilter === 'active' ? fleet.filter(isTracking) : fleet).filter(b => !query
+                || b.placaAutobus?.toLowerCase().includes(query)
+                || b.nombrePiloto?.toLowerCase().includes(query)
+                || b.nombreRuta?.toLowerCase().includes(query));
+              const routeLabel = (b: LiveTelemetryData) => b.isOffline
+                ? (b.marcaModelo || 'Sin conexión')
+                : (b.destinoNombre ? `Hacia ${b.destinoNombre}` : (b.nombreRuta && b.nombreRuta !== 'N/D' && b.nombreRuta !== 'Sin Ruta Asignada' ? b.nombreRuta : 'Sin ruta asignada'));
 
-              {/* Input de Búsqueda */}
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  placeholder="Buscar unidad, piloto o ruta..."
-                  value={trackingSearchQuery}
-                  onChange={(e) => setTrackingSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px 10px 38px',
-                    borderRadius: '10px',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                    color: isDark ? '#f8fafc' : '#0f172a',
-                    fontSize: '0.85rem',
-                    fontWeight: 500,
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                <span style={{ position: 'absolute', left: '12px', top: '11px', color: isDark ? '#64748b' : '#94a3b8', display: 'flex', alignItems: 'center' }}>
-                  <Search size={16} />
-                </span>
-              </div>
+              return (
+                <aside className="ops-rail" aria-label="Unidades de la flota">
+                  <div className="ops-rail-head">
+                    <h1>Flota en vivo</h1>
+                    <span className="ops-sync"><Radio size={13} aria-hidden="true" />
+                      {lastTelemetrySyncAt ? new Date(lastTelemetrySyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sin sincronizar'}
+                    </span>
+                  </div>
 
-              {/* Lista de Tarjetas */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {(() => {
-                  const busList = getTrackingFleet();
-                  const filtered = (trackingTabFilter === 'active'
-                    ? busList.filter(b => !b.isPrivacyMode && isTelemetryFresh(b, freshnessTimestamp) && hasValidCoordinates(b.latitud, b.longitud))
-                    : busList
-                  ).filter(b => {
-                    if (!trackingSearchQuery) return true;
-                    const q = trackingSearchQuery.toLowerCase();
-                    return (
-                      b.placaAutobus?.toLowerCase().includes(q) ||
-                      b.nombrePiloto?.toLowerCase().includes(q) ||
-                      b.nombreRuta?.toLowerCase().includes(q)
-                    );
-                  });
+                  <div className="ops-chips">
+                    <span className="ops-chip is-ok">{trackingCount} en línea</span>
+                    {noSignalCount > 0 && <span className="ops-chip is-warn">{noSignalCount} sin GPS</span>}
+                    {speedingCount > 0 && <span className="ops-chip is-alert">{speedingCount} con exceso</span>}
+                    {privacyCount > 0 && <span className="ops-chip">{privacyCount} en privacidad</span>}
+                  </div>
 
-                  if (filtered.length === 0) {
-                    return (
-                      <div style={{ textAlign: 'center', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.85rem', padding: '30px 10px' }}>
-                        {trackingTabFilter === 'active' ? 'No hay unidades transmitiendo en este momento.' : 'No se encontraron unidades registradas.'}
-                      </div>
-                    );
-                  }
+                  <label className="ops-search">
+                    <Search size={16} aria-hidden="true" />
+                    <input
+                      type="search"
+                      placeholder="Placa, piloto o ruta"
+                      aria-label="Buscar unidad, piloto o ruta"
+                      value={trackingSearchQuery}
+                      onChange={(e) => setTrackingSearchQuery(e.target.value)}
+                    />
+                  </label>
 
-                  return filtered.map((bus) => {
-                    const isPriv = Boolean(bus.isPrivacyMode);
-                    const isFresh = isTelemetryFresh(bus, freshnessTimestamp);
-                    const hasPosition = isFresh && hasValidCoordinates(bus.latitud, bus.longitud);
-                    const isStale = !bus.isOffline && !isPriv && !isFresh;
-                    return (
-                      <div
-                        className={`fleet-tracking-card${bus.isOffline ? ' is-offline' : ''}`}
-                        key={bus.placaAutobus}
-                        role={hasPosition ? 'button' : undefined}
-                        tabIndex={hasPosition ? 0 : undefined}
-                        aria-label={hasPosition ? `Enfocar unidad ${bus.placaAutobus} en el mapa` : undefined}
-                        aria-pressed={hasPosition ? focusedBusPlaca === bus.placaAutobus : undefined}
-                        onClick={() => {
-                          if (hasPosition) setFocusedBusPlaca(bus.placaAutobus);
-                        }}
-                        onKeyDown={(event) => {
-                          if (hasPosition && (event.key === 'Enter' || event.key === ' ')) {
-                            event.preventDefault();
-                            setFocusedBusPlaca(bus.placaAutobus);
-                          }
-                        }}
-                        style={{
-                          backgroundColor: isDark ? '#1f2937' : '#ffffff',
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                          borderRadius: '16px',
-                          padding: '16px',
-                          cursor: hasPosition ? 'pointer' : 'default',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '12px',
-                          boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
-                          userSelect: 'none'
-                        }}
-                      >
-                        {/* Header: Placa */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b' }}>
-                            Unidad Asignada
+                  <div className="ops-segment" role="group" aria-label="Qué unidades mostrar">
+                    <button type="button" aria-pressed={trackingTabFilter === 'active'} onClick={() => setTrackingTabFilter('active')}>
+                      En ruta <span>{trackingCount}</span>
+                    </button>
+                    <button type="button" aria-pressed={trackingTabFilter === 'all'} onClick={() => setTrackingTabFilter('all')}>
+                      Toda la flota <span>{fleet.length}</span>
+                    </button>
+                  </div>
+
+                  <ul className="ops-list">
+                    {visible.length === 0 && (
+                      <li className="ops-empty">
+                        {query ? 'Ninguna unidad coincide con la búsqueda.' : (trackingTabFilter === 'active' ? 'No hay unidades transmitiendo ahora.' : 'Aún no hay unidades registradas.')}
+                      </li>
+                    )}
+                    {visible.map((bus) => {
+                      const hasPosition = isTracking(bus);
+                      const speed = bus.velocidadKmh || 0;
+                      const state = !hasPosition ? 'off' : speed > 80 ? 'alert' : speed > 50 ? 'warn' : 'ok';
+                      const statusText = bus.isPrivacyMode ? 'Privacidad' : bus.isOffline ? 'Fuera de línea' : !isTelemetryFresh(bus, freshnessTimestamp) ? 'Sin señal' : 'Sin GPS';
+                      const content = (
+                        <>
+                          <span className="ops-unit-top">
+                            <strong>{bus.placaAutobus}</strong>
+                            {hasPosition
+                              ? <span className="ops-speed" style={speedChipColors(speed)}>{speed} km/h</span>
+                              : <span className="ops-speed is-off">{statusText}</span>}
                           </span>
-                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>
-                            {bus.placaAutobus}
-                          </span>
-                        </div>
-
-                        {/* Driver Info */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '12px',
-                            backgroundColor: isDark ? '#111827' : '#f1f5f9',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 700,
-                            fontSize: '0.9rem',
-                            color: 'var(--accent)',
-                            border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`
-                          }}>
-                            {bus.nombrePiloto?.charAt(0) || 'P'}
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>
-                              {bus.nombrePiloto || 'Piloto'}
-                            </span>
-                            <span style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#64748b' }}>
-                              {bus.isOffline
-                                ? (bus.marcaModelo || 'Unidad registrada · sin conexión')
-                                : (bus.destinoNombre ? `Destino: ${bus.destinoNombre}` : (bus.nombreRuta && bus.nombreRuta !== 'N/D' && bus.nombreRuta !== 'Sin Ruta Asignada' ? `Ruta: ${bus.nombreRuta}` : 'Sin ruta asignada'))}
-                            </span>
-                          </div>
-                          {hasPosition && (
-                            <div style={{
-                              backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5',
-                              border: `1px solid ${isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0'}`,
-                              color: isDark ? '#34d399' : '#059669',
-                              borderRadius: '8px',
-                              padding: '3px 8px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700
-                            }}>
-                              {bus.velocidadKmh || 0} km/h
-                            </div>
+                          <span className="ops-unit-sub">{bus.nombrePiloto || 'Sin piloto'} · {routeLabel(bus)}</span>
+                        </>
+                      );
+                      return (
+                        <li key={bus.placaAutobus}>
+                          {hasPosition ? (
+                            <button
+                              type="button"
+                              className="ops-unit"
+                              data-state={state}
+                              aria-pressed={focusedBusPlaca === bus.placaAutobus}
+                              aria-label={`Ver ${bus.placaAutobus} en el mapa`}
+                              onClick={() => setFocusedBusPlaca(bus.placaAutobus)}
+                            >
+                              {content}
+                            </button>
+                          ) : (
+                            <div className="ops-unit" data-state={state}>{content}</div>
                           )}
-                        </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </aside>
+              );
+            })()}
 
-                        {/* Footer con Estado */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: `1px solid ${isDark ? '#374151' : '#f1f5f9'}` }}>
-                          <span style={{ fontSize: '0.74rem', color: isDark ? '#64748b' : '#94a3b8' }}>
-                            {bus.fechaHoraDispositivo
-                              ? new Date(bus.fechaHoraDispositivo).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                              : (bus.isOffline ? 'Sin transmisión reciente' : 'En línea')}
-                          </span>
-                          <span style={{
-                            backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : (isDark ? '#111827' : '#f1f5f9'),
-                            border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : (isDark ? '#374151' : '#e2e8f0')}`,
-                            color: hasPosition ? (isDark ? '#34d399' : '#059669') : (isDark ? '#94a3b8' : '#64748b'),
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            padding: '3px 10px',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            {hasPosition ? (
-                              <>
-                                <Radio size={12} />
-                                <span>En Rastreo</span>
-                              </>
-                            ) : (
-                              <span>{isPriv ? 'Privacidad' : (bus.isOffline ? 'Fuera de línea' : (isStale ? 'Sin señal reciente' : 'GPS no disponible'))}</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-
-            {/* Columna Derecha: Mapa Interactivo con Tarjeta Flotante */}
-            <div className="map-panel" style={{ flex: 1, minWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
+            <section className="ops-map" aria-label="Mapa en vivo">
               <GoogleMapWeb
                 buses={(() => {
                   const activeMap = new Map<string, LiveTelemetryData>();
@@ -2083,561 +1937,468 @@ export const TelemetryDashboard: React.FC = () => {
                 onSavePilotRoute={handleSavePilotRoute}
               />
 
-              {/* Tarjeta Flotante Inferior en el Mapa (Overlay SaaS) */}
-              {(() => {
+              {canMonitorOperations && (() => {
                 const focusedBus = (focusedBusPlaca ? liveBuses[focusedBusPlaca] : undefined)
                   || Object.values(liveBuses).find(b => !b.isPrivacyMode && hasValidCoordinates(b.latitud, b.longitud));
-
                 if (!focusedBus) return null;
 
-                const isPriv = Boolean(focusedBus.isPrivacyMode);
-                const hasPosition = hasValidCoordinates(focusedBus.latitud, focusedBus.longitud);
+                const hasPosition = !focusedBus.isPrivacyMode && hasValidCoordinates(focusedBus.latitud, focusedBus.longitud);
+                const speed = focusedBus.velocidadKmh || 0;
+                const hasNavRoute = Boolean(hasPosition && focusedBus.isTripActive && hasValidCoordinates(focusedBus.destinoLat, focusedBus.destinoLng));
+                const showingRoute = activeLiveRoutePlaca === focusedBus.placaAutobus;
 
                 return (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '24px',
-                    left: '24px',
-                    right: '24px',
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
-                    border: `1px solid ${isDark ? '#1f2937' : '#e2e8f0'}`,
-                    borderRadius: '18px',
-                    padding: '16px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    boxShadow: isDark ? '0 10px 30px -5px rgba(0, 0, 0, 0.6)' : '0 10px 30px -5px rgba(0, 0, 0, 0.15)',
-                    zIndex: 500,
-                    flexWrap: 'wrap',
-                    gap: '14px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <div style={{
-                        width: '46px',
-                        height: '46px',
-                        borderRadius: '14px',
-                        backgroundColor: 'var(--accent-soft)',
-                        border: '1px solid var(--accent-line)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                        fontSize: '1rem',
-                        color: 'var(--accent)'
-                      }}>
-                        {focusedBus.nombrePiloto?.charAt(0) || 'P'}
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <strong style={{ fontSize: '0.98rem', color: isDark ? '#f8fafc' : '#0f172a' }}>{focusedBus.nombrePiloto}</strong>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--accent)', backgroundColor: 'var(--accent-soft)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                            Piloto
-                          </span>
-                        </div>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b' }}>
-                          Ruta: <strong>{focusedBus.nombreRuta || 'Ruta Principal'}</strong> • Autobús: <strong>{focusedBus.placaAutobus}</strong>
-                        </p>
-                      </div>
+                  <div className="ops-focus" data-state={!hasPosition ? 'off' : speed > 80 ? 'alert' : speed > 50 ? 'warn' : 'ok'}>
+                    <div className="ops-focus-id">
+                      <span>{focusedBus.nombrePiloto || 'Sin piloto'}</span>
+                      <strong>{focusedBus.placaAutobus}</strong>
+                      <span>{focusedBus.destinoNombre ? `Hacia ${focusedBus.destinoNombre}` : (focusedBus.nombreRuta || 'Sin ruta asignada')}</span>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {hasPosition && (
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b' }}>Velocidad</div>
-                          <strong style={{ fontSize: '1rem', color: '#10b981' }}>{focusedBus.velocidadKmh || 0} km/h</strong>
-                        </div>
+                    <div className="ops-focus-speed">
+                      {hasPosition ? (
+                        <>
+                          <strong style={{ color: speedChipColors(speed).color }}>{speed}</strong>
+                          <span>km/h{speed > 80 ? ' · exceso' : ''}</span>
+                        </>
+                      ) : (
+                        <span>{focusedBus.isPrivacyMode ? 'En privacidad' : 'Sin GPS'}</span>
                       )}
-                      <span style={{
-                        backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : (isDark ? '#111827' : '#f1f5f9'),
-                        border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : (isDark ? '#374151' : '#e2e8f0')}`,
-                        color: hasPosition ? (isDark ? '#34d399' : '#059669') : (isDark ? '#94a3b8' : '#64748b'),
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        padding: '5px 12px',
-                        borderRadius: '8px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        {hasPosition ? (
-                          <>
-                            <Radio size={12} />
-                            <span>En Rastreo</span>
-                          </>
-                        ) : (
-                          <span>{isPriv ? 'Privacidad' : 'GPS no disponible'}</span>
-                        )}
-                      </span>
-                      {(() => {
-                        const hasNavRoute = Boolean(hasPosition && focusedBus.isTripActive && hasValidCoordinates(focusedBus.destinoLat, focusedBus.destinoLng));
-                        return (
-                          <button
-                            type="button"
-                            disabled={!hasNavRoute}
-                            onClick={() => {
-                              if (!hasNavRoute) return;
-                              handleToggleLiveRoute(focusedBus.placaAutobus);
-                            }}
-                            style={{
-                              backgroundColor: activeLiveRoutePlaca === focusedBus.placaAutobus ? '#ef4444' : (hasNavRoute ? 'var(--accent)' : '#64748b'),
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: '10px',
-                              padding: '8px 14px',
-                              fontSize: '0.8rem',
-                              fontWeight: 600,
-                              cursor: hasNavRoute ? 'pointer' : 'default',
-                              opacity: hasNavRoute ? 1 : 0.65,
-                              pointerEvents: hasNavRoute ? 'auto' : 'none',
-                              boxShadow: hasNavRoute ? '0 7px 18px var(--accent-shadow)' : 'none',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            {activeLiveRoutePlaca === focusedBus.placaAutobus ? 'Ocultar Recorrido' : (hasNavRoute ? 'Trazar Recorrido' : 'Sin Ruta Establecida')}
-                          </button>
-                        );
-                      })()}
                     </div>
+                    <button
+                      type="button"
+                      className={showingRoute ? 'ops-button is-secondary' : 'ops-button'}
+                      disabled={!hasNavRoute && !showingRoute}
+                      onClick={() => handleToggleLiveRoute(focusedBus.placaAutobus)}
+                    >
+                      {showingRoute ? 'Ocultar recorrido' : (hasNavRoute ? 'Ver recorrido' : 'Sin destino fijado')}
+                    </button>
                   </div>
                 );
               })()}
-            </div>
+            </section>
           </div>
         )}
 
       {/* VISTA DE GESTIÓN DE USUARIOS (Solo Administrador y SuperAdministrador) */}
-      {activeTab === 'users' && (user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador') && (
-        <div className="dashboard-view data-view" style={usersContainerStyle}>
-          <div className="data-view-header" style={tableHeaderStyle}>
-            <h2 style={cardTitleStyle}>Administración de Usuarios</h2>
-            <button className="button-with-icon" onClick={openCreateModal} style={addButtonStyle}>
-              <Plus size={16} /> Agregar Usuario
-            </button>
-          </div>
+      {activeTab === 'users' && (user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador') && (() => {
+        const q = directoryQuery.trim().toLowerCase();
+        const roleGroup = (rol: string) => rol === 'Piloto' ? 'pilots' : rol === 'Supervisor' ? 'supervisors' : 'admins';
+        const counts = { all: users.length, pilots: 0, supervisors: 0, admins: 0 } as Record<string, number>;
+        users.forEach((u) => { counts[roleGroup(u.tipoRol)] += 1; });
+        const visible = users.filter((u) => (directoryFilter === 'all' || roleGroup(u.tipoRol) === directoryFilter)
+          && (!q || u.nombreCompleto.toLowerCase().includes(q) || u.usuarioLogin.toLowerCase().includes(q)));
+        const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '?';
+        return (
+          <div className="screen directory-screen">
+            <header className="screen-head">
+              <div>
+                <h1>Personal</h1>
+                <p>{users.length} personas con acceso al sistema.</p>
+              </div>
+              <div className="screen-head-actions">
+                <button type="button" className="pill-button is-highlight" onClick={openCreateModal}><Plus size={16} aria-hidden="true" /> Agregar persona</button>
+              </div>
+            </header>
 
-          {crudError && (
-            <div style={errorBannerStyle}>
-               {crudError}
+            <div className="directory-tools">
+              <label className="ops-search">
+                <Search size={16} aria-hidden="true" />
+                <input type="search" placeholder="Nombre o usuario" aria-label="Buscar personal" value={directoryQuery} onChange={(e) => setDirectoryQuery(e.target.value)} />
+              </label>
+              <div className="ops-segment is-inline" role="group" aria-label="Filtrar por perfil">
+                {[['all', 'Todos'], ['pilots', 'Pilotos'], ['supervisors', 'Supervisores'], ['admins', 'Administración']].map(([key, label]) => (
+                  <button key={key} type="button" aria-pressed={directoryFilter === key} onClick={() => setDirectoryFilter(key)}>
+                    {label} <span>{counts[key]}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {loadingUsers ? (
-            <div style={loadingTableStyle}>Cargando usuarios de SQL Server...</div>
-          ) : (
-            <div className="management-grid" aria-label="Personal registrado">
-              {users.map((u) => (
-                <article className="management-card person-card" key={u.idUsuario}>
-                  <div className="management-card-top">
-                    <div className="management-avatar"><Users size={20} /></div>
-                    <div className="management-identity">
-                      <span className="management-kicker">Personal #{String(u.idUsuario).padStart(2, '0')}</span>
-                      <h3>{u.nombreCompleto}</h3>
-                      <span className="management-handle">@{u.usuarioLogin}</span>
+            {crudError && <div role="alert" className="inline-error">{crudError}</div>}
+
+            {loadingUsers ? (
+              <p className="feed-empty">Cargando personal…</p>
+            ) : visible.length === 0 ? (
+              <p className="feed-empty">Nadie coincide con la búsqueda.</p>
+            ) : (
+              <ul className="dir-list" aria-label="Personal registrado">
+                {visible.map((u) => (
+                  <li key={u.idUsuario} className="dir-row person-row" data-inactive={u.estado !== 'Activo' || undefined}>
+                    <span className="dir-avatar" aria-hidden="true">{initials(u.nombreCompleto)}</span>
+                    <div className="dir-main">
+                      <strong>{u.nombreCompleto}</strong>
+                      <span>@{u.usuarioLogin}</span>
                     </div>
-                    <span style={statusBadgeStyle(u.estado)}>{u.estado}</span>
-                  </div>
-                  <div className="management-details">
-                    <div><span>Perfil operativo</span><strong>{u.tipoRol}</strong></div>
-                    <div><span>Acceso</span><strong>{u.estado === 'Activo' ? 'Habilitado' : 'Suspendido'}</strong></div>
-                  </div>
-                  <div className="management-card-actions" style={actionGroupStyle}>
-                    <button className="button-with-icon" onClick={() => openEditModal(u)} style={editButtonStyle}>
-                      <Pencil size={14} /> Editar
-                    </button>
-                    <button
-                      className="button-with-icon"
-                      onClick={() => handleToggleEstado(u)}
-                      style={u.estado === 'Activo' ? deactivateButtonStyle : activateButtonStyle}
-                    >
-                      {u.estado === 'Activo' ? <><UserRoundX size={14} /> Desactivar</> : <><UserRoundCheck size={14} /> Activar</>}
-                    </button>
-                    {u.usuarioLogin !== 'superadmin' && u.usuarioLogin !== 'admin' && (
-                      <button className="icon-action danger" aria-label={`Eliminar a ${u.nombreCompleto}`} title="Eliminar" onClick={() => handleDeleteUser(u)} style={deleteButtonStyle}>
-                        <Trash2 size={15} />
+                    <span className={`role-chip is-${roleGroup(u.tipoRol)}`}>{u.tipoRol}</span>
+                    <span className={`state-text ${u.estado === 'Activo' ? 'is-on' : 'is-off'}`}>{u.estado === 'Activo' ? 'Activo' : 'Sin acceso'}</span>
+                    <div className="dir-actions">
+                      <button type="button" className="pill-button is-ghost" onClick={() => openEditModal(u)}><Pencil size={14} aria-hidden="true" /> Editar</button>
+                      <button type="button" className="pill-button is-ghost" onClick={() => handleToggleEstado(u)}>
+                        {u.estado === 'Activo' ? <><UserRoundX size={14} aria-hidden="true" /> Quitar acceso</> : <><UserRoundCheck size={14} aria-hidden="true" /> Dar acceso</>}
                       </button>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                      {u.usuarioLogin !== 'superadmin' && u.usuarioLogin !== 'admin' ? (
+                        <button type="button" className="icon-pill is-danger" aria-label={`Eliminar a ${u.nombreCompleto}`} title="Eliminar" onClick={() => handleDeleteUser(u)}>
+                          <Trash2 size={15} aria-hidden="true" />
+                        </button>
+                      ) : <span className="icon-pill is-placeholder" aria-hidden="true" />}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
 
       {/* MODAL / FORMULARIO FLOTANTE (GLASSMORPHISM) */}
       {showModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>
-              {editingUserId === null ? 'Registrar Nuevo Usuario' : 'Editar Usuario'}
-            </h3>
-            
-            <form onSubmit={handleSaveUser}>
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Nombre Completo</label>
-                <input 
-                  type="text" 
-                  value={formNombre} 
-                  onChange={(e) => setFormNombre(e.target.value)} 
-                  style={formInputStyle} 
-                  required 
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Usuario de Login</label>
-                <input 
-                  type="text" 
-                  value={formLogin} 
-                  onChange={(e) => setFormLogin(e.target.value)} 
-                  style={formInputStyle} 
-                  required 
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Rol</label>
-                <AnimatedSelect
-                  aria-label="Rol del usuario"
-                  value={formRol} 
-                  onChange={(e) => setFormRol(e.target.value as ManagedUser['tipoRol'])} 
-                  style={formInputStyle}
-                >
-                  <option value="Piloto">Piloto</option>
-                  <option value="Administrador">Administrador</option>
-                  <option value="Supervisor">Supervisor</option>
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>
-                  Contraseña {editingUserId !== null && '(Dejar vacío para conservar actual)'}
-                </label>
-                <input 
-                  type="password" 
-                  value={formContrasena} 
-                  onChange={(e) => setFormContrasena(e.target.value)} 
-                  style={formInputStyle} 
-                  required={editingUserId === null}
-                  minLength={formContrasena ? 12 : undefined}
-                  maxLength={128}
-                  autoComplete="new-password"
-                  placeholder={editingUserId !== null ? 'Dejar vacío para conservarla' : 'Mínimo 12 caracteres'} 
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Estado</label>
-                <AnimatedSelect
-                  aria-label="Estado del usuario"
-                  value={formEstado} 
-                  onChange={(e) => setFormEstado(e.target.value as ManagedUser['estado'])} 
-                  style={formInputStyle}
-                >
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </AnimatedSelect>
-              </div>
-
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button className="button-with-icon" type="button" onClick={() => setShowModal(false)} style={cancelButtonStyle}>
-                  <X size={15} /> Cancelar
-                </button>
-                <button className="button-with-icon" type="submit" style={saveButtonStyle}>
-                  <Save size={15} /> Guardar Cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Dialog
+          kicker="Personal"
+          icon={<Users size={20} />}
+          title={editingUserId === null ? 'Agregar persona' : 'Editar persona'}
+          description={editingUserId === null
+            ? 'Crea el acceso para un piloto, supervisor o administrador.'
+            : 'Actualiza sus datos. Deja la contraseña vacía para conservar la actual.'}
+          onClose={() => setShowModal(false)}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button type="submit" form="user-form" className="pill-button"><Save size={16} aria-hidden="true" /> Guardar</button>
+            </>
+          )}
+        >
+          {crudError && <div role="alert" className="auth-alert">{crudError}</div>}
+          <form id="user-form" className="dlg-form" onSubmit={handleSaveUser}>
+            <Field label="Nombre completo" htmlFor="user-name" wide>
+              <input id="user-name" className="dlg-input" type="text" value={formNombre} onChange={(e) => setFormNombre(e.target.value)} required autoFocus placeholder="Ej. Juan Pérez" />
+            </Field>
+            <Field label="Usuario para entrar" htmlFor="user-login">
+              <input id="user-login" className="dlg-input" type="text" value={formLogin} onChange={(e) => setFormLogin(e.target.value)} required autoComplete="off" placeholder="Ej. jperez" />
+            </Field>
+            <Field label="Rol">
+              <AnimatedSelect aria-label="Rol del usuario" value={formRol} onChange={(e) => setFormRol(e.target.value as ManagedUser['tipoRol'])}>
+                <option value="Piloto">Piloto</option>
+                <option value="Administrador">Administrador</option>
+                <option value="Supervisor">Supervisor</option>
+              </AnimatedSelect>
+            </Field>
+            <Field
+              label="Contraseña"
+              htmlFor="user-password"
+              hint={editingUserId !== null ? 'Déjala vacía para conservar la actual.' : 'Mínimo 12 caracteres.'}
+            >
+              <input
+                id="user-password"
+                className="dlg-input"
+                type="password"
+                value={formContrasena}
+                onChange={(e) => setFormContrasena(e.target.value)}
+                required={editingUserId === null}
+                minLength={formContrasena ? 12 : undefined}
+                maxLength={128}
+                autoComplete="new-password"
+                placeholder={editingUserId !== null ? '••••••••••••' : 'Nueva contraseña'}
+              />
+            </Field>
+            <Field label="Estado">
+              <AnimatedSelect aria-label="Estado del usuario" value={formEstado} onChange={(e) => setFormEstado(e.target.value as ManagedUser['estado'])}>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </AnimatedSelect>
+            </Field>
+          </form>
+        </Dialog>
       )}
 
-      {activeTab === 'routes' && canMonitorOperations && (
-        <div className="dashboard-view data-view" style={usersContainerStyle}>
-          <div className="data-view-header" style={tableHeaderStyle}>
-            <div>
-              <h2 style={{ ...cardTitleStyle, marginBottom: '4px' }}>Rutas guardadas</h2>
-              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                Trayectos reutilizables para asignar rápidamente a una unidad, como destinos frecuentes.
-              </p>
+      {activeTab === 'routes' && canMonitorOperations && (() => {
+        const q = directoryQuery.trim().toLowerCase();
+        const visible = routes.filter((r) => !q || [r.nombreRuta, r.origen, r.destino].some((v) => v?.toLowerCase().includes(q)));
+        return (
+          <div className="screen directory-screen">
+            <header className="screen-head">
+              <div>
+                <h1>Rutas</h1>
+                <p>Trayectos guardados para despachar más rápido.</p>
+              </div>
+              {canManageOperations && (
+                <div className="screen-head-actions">
+                  <button type="button" className="pill-button is-highlight" onClick={openCreateRouteModal}><Plus size={16} aria-hidden="true" /> Nueva ruta</button>
+                </div>
+              )}
+            </header>
+
+            <div className="directory-tools">
+              <label className="ops-search">
+                <Search size={16} aria-hidden="true" />
+                <input type="search" placeholder="Nombre, origen o destino" aria-label="Buscar rutas" value={directoryQuery} onChange={(e) => setDirectoryQuery(e.target.value)} />
+              </label>
             </div>
-            {canManageOperations && (
-              <button className="button-with-icon" type="button" onClick={openCreateRouteModal} style={addButtonStyle}>
-                <Plus size={16} /> Nueva ruta
-              </button>
+
+            {crudError && <div role="alert" className="inline-error">{crudError}</div>}
+
+            {routes.length === 0 ? (
+              <div className="feed-empty is-column">
+                <MapPinned size={32} strokeWidth={1.5} aria-hidden="true" />
+                <p><strong>Todavía no hay rutas guardadas.</strong></p>
+                <p>Crea una aquí o deja que un piloto guarde su recorrido desde el mapa.</p>
+              </div>
+            ) : visible.length === 0 ? (
+              <p className="feed-empty">Ninguna ruta coincide con la búsqueda.</p>
+            ) : (
+              <ul className="route-list" aria-label="Rutas guardadas">
+                {visible.map((route) => {
+                  const gpsReady = route.destinoLatitud != null && route.destinoLongitud != null;
+                  return (
+                    <li key={route.idRuta} className="route-row">
+                      <div className="route-row-name">
+                        <strong>{route.nombreRuta}</strong>
+                        <span className={gpsReady ? 'is-ready' : ''}>{gpsReady ? 'Lista para navegación GPS' : 'Solo para despacho'}</span>
+                      </div>
+                      <div className="route-path" aria-label={`De ${route.origen} a ${route.destino}`}>
+                        <span className="route-stop is-start">{route.origen}</span>
+                        <span className="route-line" aria-hidden="true"><ArrowRight size={14} /></span>
+                        <span className="route-stop is-end">{route.destino}</span>
+                      </div>
+                      {canManageOperations && (
+                        <button type="button" className="pill-button is-ghost route-stops-button" onClick={() => setStopsRoute(route)}>
+                          <MapPin size={14} aria-hidden="true" /> Paradas
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
-
-          {crudError && <div role="alert" style={errorBannerStyle}>{crudError}</div>}
-
-          {routes.length === 0 ? (
-            <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <MapPinned size={36} strokeWidth={1.5} style={{ marginBottom: '10px', color: 'var(--accent)' }} />
-              <strong style={{ display: 'block', color: 'var(--ink)', marginBottom: '5px' }}>Todavía no hay rutas guardadas</strong>
-              <span>Crea una desde aquí o deja que un piloto guarde el recorrido elegido en el mapa.</span>
-            </div>
-          ) : (
-            <div className="management-grid routes-management-grid" aria-label="Catálogo de rutas guardadas">
-              {routes.map((route) => (
-                <article className="management-card route-card" key={route.idRuta} style={{ padding: '20px', minHeight: '210px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <span className="management-kicker">Ruta #{String(route.idRuta).padStart(2, '0')}</span>
-                      <h3 style={{ margin: '6px 0 0', color: 'var(--ink)', fontSize: '1.05rem' }}>{route.nombreRuta}</h3>
-                    </div>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '13px', display: 'grid', placeItems: 'center', flexShrink: 0, color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent-line)' }}>
-                      <MapPinned size={21} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '22px minmax(0, 1fr)', marginTop: '22px', gap: '0 10px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent)', marginTop: '4px' }} />
-                      <span style={{ width: '2px', minHeight: '37px', flex: 1, background: 'var(--line)', margin: '4px 0' }} />
-                      <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#ef4444', marginBottom: '4px' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '18px', minWidth: 0 }}>
-                      <div><span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Origen</span><strong style={{ display: 'block', color: 'var(--ink)', fontSize: '0.86rem', overflowWrap: 'anywhere' }}>{route.origen}</strong></div>
-                      <div><span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Destino</span><strong style={{ display: 'block', color: 'var(--ink)', fontSize: '0.86rem', overflowWrap: 'anywhere' }}>{route.destino}</strong></div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', color: 'var(--text-muted)', fontSize: '0.76rem' }}>
-                    <span>{route.destinoLatitud != null && route.destinoLongitud != null ? 'Lista para navegación GPS' : 'Disponible para despacho'}</span>
-                    <ArrowRight size={16} color="var(--accent)" />
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
       {showRouteModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="route-modal-title" style={modalCardStyle}>
-            <div style={{ width: '46px', height: '46px', borderRadius: '14px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent-line)', marginBottom: '14px' }}>
-              <MapPin size={22} />
-            </div>
-            <h3 id="route-modal-title" style={modalTitleStyle}>{routeTripContext ? 'Guardar ruta del viaje' : 'Guardar nueva ruta'}</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '-6px 0 18px' }}>
-              {routeTripContext
-                ? 'Nombra este recorrido. Se asociará al viaje actual y quedará disponible para futuros despachos.'
-                : 'Define un trayecto frecuente. Después aparecerá al asignar rutas a viajes y autobuses.'}
-            </p>
-            {crudError && <div role="alert" style={{ ...errorBannerStyle, marginBottom: '16px' }}>{crudError}</div>}
-            <form onSubmit={handleSaveAdminRoute}>
-              <div style={formGroupStyle}>
-                <label htmlFor="route-name" style={formLabelStyle}>Nombre de la ruta</label>
-                <input id="route-name" value={formRouteName} onChange={(event) => setFormRouteName(event.target.value)} minLength={2} maxLength={100} required autoFocus placeholder="Ej. Terminal - Centro" style={formInputStyle} />
-              </div>
-              <div style={formGroupStyle}>
-                <label htmlFor="route-origin" style={formLabelStyle}>Origen</label>
-                <input id="route-origin" value={formRouteOrigin} onChange={(event) => setFormRouteOrigin(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Terminal Minerva" style={formInputStyle} />
-              </div>
-              <div style={formGroupStyle}>
-                <label htmlFor="route-destination" style={formLabelStyle}>Destino</label>
-                <input id="route-destination" value={formRouteDestination} onChange={(event) => setFormRouteDestination(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Parque Central" style={formInputStyle} />
-              </div>
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button className="button-with-icon" type="button" onClick={() => { setShowRouteModal(false); setRouteTripContext(null); }} style={cancelButtonStyle} disabled={routeSaving}><X size={15} /> Cancelar</button>
-                <button className="button-with-icon" type="submit" style={{ ...saveButtonStyle, opacity: routeSaving ? 0.65 : 1 }} disabled={routeSaving}><Save size={15} /> {routeSaving ? 'Guardando…' : 'Guardar ruta'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Dialog
+          kicker="Rutas"
+          icon={<MapPin size={20} />}
+          title={routeTripContext ? 'Guardar ruta del viaje' : 'Nueva ruta'}
+          description={routeTripContext
+            ? 'Nombra este recorrido. Quedará asociado al viaje y disponible para futuros despachos.'
+            : 'Define un trayecto frecuente. Después podrás marcar sus paradas en el mapa.'}
+          busy={routeSaving}
+          onClose={() => { setShowRouteModal(false); setRouteTripContext(null); }}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => { setShowRouteModal(false); setRouteTripContext(null); }} disabled={routeSaving}>Cancelar</button>
+              <button type="submit" form="route-form" className="pill-button" disabled={routeSaving}><Save size={16} aria-hidden="true" /> {routeSaving ? 'Guardando…' : 'Guardar ruta'}</button>
+            </>
+          )}
+        >
+          {crudError && <div role="alert" className="auth-alert">{crudError}</div>}
+          <form id="route-form" className="dlg-form" onSubmit={handleSaveAdminRoute}>
+            <Field label="Nombre de la ruta" htmlFor="route-name" wide>
+              <input id="route-name" className="dlg-input" value={formRouteName} onChange={(event) => setFormRouteName(event.target.value)} minLength={2} maxLength={100} required autoFocus placeholder="Ej. Terminal - Centro" />
+            </Field>
+            <Field label="Origen" htmlFor="route-origin">
+              <input id="route-origin" className="dlg-input" value={formRouteOrigin} onChange={(event) => setFormRouteOrigin(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Terminal Minerva" />
+            </Field>
+            <Field label="Destino" htmlFor="route-destination">
+              <input id="route-destination" className="dlg-input" value={formRouteDestination} onChange={(event) => setFormRouteDestination(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Parque Central" />
+            </Field>
+          </form>
+        </Dialog>
       )}
 
       {/* La supervisión puede consultar la flota; solo administración puede modificarla. */}
-      {activeTab === 'buses' && canMonitorOperations && (
-        <div className="dashboard-view data-view" style={usersContainerStyle}>
-          <div className="data-view-header" style={tableHeaderStyle}>
-            <h2 style={cardTitleStyle}>Administración de Autobuses</h2>
-            {canManageOperations && (
-              <button className="button-with-icon" onClick={openCreateBusModal} style={addButtonStyle}>
-                <Plus size={16} /> Agregar Autobús
-              </button>
-            )}
-          </div>
+      {activeTab === 'buses' && canMonitorOperations && (() => {
+        const q = directoryQuery.trim().toLowerCase();
+        const withTrip = buses.map((b) => ({ bus: b, trip: trips.find(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso') }));
+        const stateOf = (entry: { bus: Autobus; trip?: Viaje }) => entry.bus.estado === 'En Taller' ? 'shop' : entry.bus.estado === 'Inactivo' ? 'off' : entry.trip ? 'road' : 'base';
+        const counts: Record<string, number> = { all: withTrip.length, road: 0, base: 0, shop: 0, off: 0 };
+        withTrip.forEach((e) => { counts[stateOf(e)] += 1; });
+        const visible = withTrip.filter((e) => (directoryFilter === 'all' || stateOf(e) === directoryFilter)
+          && (!q || e.bus.placa.toLowerCase().includes(q) || e.bus.marcaModelo?.toLowerCase().includes(q) || e.trip?.nombrePiloto?.toLowerCase().includes(q)));
+        const stateLabel: Record<string, string> = { road: 'En ruta', base: 'En base', shop: 'En taller', off: 'Inactivo' };
+        return (
+          <div className="screen directory-screen">
+            <header className="screen-head">
+              <div>
+                <h1>Autobuses</h1>
+                <p>{counts.road} en ruta, {counts.base} en base{counts.shop ? `, ${counts.shop} en taller` : ''}.</p>
+              </div>
+              {canManageOperations && (
+                <div className="screen-head-actions">
+                  <button type="button" className="pill-button is-highlight" onClick={openCreateBusModal}><Plus size={16} aria-hidden="true" /> Agregar autobús</button>
+                </div>
+              )}
+            </header>
 
-          {crudError && (
-            <div style={errorBannerStyle}>
-               {crudError}
+            <div className="directory-tools">
+              <label className="ops-search">
+                <Search size={16} aria-hidden="true" />
+                <input type="search" placeholder="Placa, modelo o piloto" aria-label="Buscar autobuses" value={directoryQuery} onChange={(e) => setDirectoryQuery(e.target.value)} />
+              </label>
+              <div className="ops-segment is-inline" role="group" aria-label="Filtrar por estado">
+                {[['all', 'Todos'], ['road', 'En ruta'], ['base', 'En base'], ['shop', 'En taller']].map(([key, label]) => (
+                  <button key={key} type="button" aria-pressed={directoryFilter === key} onClick={() => setDirectoryFilter(key)}>
+                    {label} <span>{counts[key]}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {loadingBuses ? (
-            <div style={loadingTableStyle}>Cargando autobuses de SQL Server...</div>
-          ) : (
-            <div className="management-grid fleet-management-grid" aria-label="Flota registrada">
-              {buses.map((b) => {
-                const activeTripForBus = trips.find(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso');
-                return (
-                  <article className="management-card bus-card" key={b.idAutobus}>
-                    <div className="bus-card-visual">
-                      <span className="management-kicker">Unidad #{String(b.idAutobus).padStart(2, '0')}</span>
-                      <Bus size={42} strokeWidth={1.5} />
-                      <strong>{b.placa}</strong>
-                    </div>
-                    <div className="bus-card-content">
-                      <div className="bus-card-heading">
-                        <div>
-                          <span className="management-kicker">Marca y modelo</span>
-                          <h3>{b.marcaModelo || 'Sin especificar'}</h3>
-                        </div>
-                        <span style={statusBadgeStyle(b.estado)}>{b.estado}</span>
+            {crudError && <div role="alert" className="inline-error">{crudError}</div>}
+
+            {loadingBuses ? (
+              <p className="feed-empty">Cargando autobuses…</p>
+            ) : visible.length === 0 ? (
+              <p className="feed-empty">Ningún autobús coincide.</p>
+            ) : (
+              <ul className="bus-board" aria-label="Flota registrada">
+                {visible.map((entry) => {
+                  const state = stateOf(entry);
+                  return (
+                    <li key={entry.bus.idAutobus} className="bus-tile" data-state={state}>
+                      <div className="bus-tile-top">
+                        <span className="plate">{entry.bus.placa}</span>
+                        <span className={`bus-state is-${state}`}>{stateLabel[state]}</span>
                       </div>
-                      <div className="management-details compact">
-                        <div><span>Piloto actual</span><strong>{activeTripForBus?.nombrePiloto || 'Sin asignación'}</strong></div>
-                        <div><span>Disponibilidad</span><strong>{activeTripForBus ? 'En recorrido' : 'En base'}</strong></div>
+                      <div className="bus-tile-body">
+                        <span>{entry.bus.marcaModelo || 'Modelo sin registrar'}</span>
+                        <strong>{entry.trip ? entry.trip.nombrePiloto : 'Sin piloto en ruta'}</strong>
+                        {entry.trip?.nombreRuta && entry.trip.nombreRuta !== 'N/D' && <span>{entry.trip.nombreRuta}</span>}
                       </div>
-                      {canManageOperations ? (
-                        <div className="management-card-actions" style={actionGroupStyle}>
-                          <button className="button-with-icon" onClick={() => openEditBusModal(b)} style={editButtonStyle}>
-                            <Pencil size={14} /> Asignar o editar
-                          </button>
-                          <button className="icon-action danger" aria-label={`Eliminar unidad ${b.placa}`} title="Eliminar" onClick={() => handleDeleteBus(b.idAutobus)} style={deleteButtonStyle}>
-                            <Trash2 size={15} />
+                      {canManageOperations && (
+                        <div className="bus-tile-actions">
+                          <button type="button" className="pill-button is-ghost" onClick={() => openEditBusModal(entry.bus)}><Pencil size={14} aria-hidden="true" /> Editar</button>
+                          <button type="button" className="pill-button is-ghost" onClick={() => setQrBus(entry.bus)}><QrCode size={14} aria-hidden="true" /> QR</button>
+                          {entry.trip && (
+                            <button type="button" className="pill-button is-ghost" onClick={() => { setFocusedBusPlaca(entry.bus.placa); setActiveTab('map'); }}>
+                              <Navigation size={14} aria-hidden="true" /> Mapa
+                            </button>
+                          )}
+                          <button type="button" className="icon-pill is-danger" aria-label={`Eliminar unidad ${entry.bus.placa}`} title="Eliminar" onClick={() => handleDeleteBus(entry.bus.idAutobus)}>
+                            <Trash2 size={15} aria-hidden="true" />
                           </button>
                         </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 700 }}>Solo lectura</span>
                       )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-
-      {/* MODAL / FORMULARIO FLOTANTE AUTOBUSES */}
-      {showBusModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>
-              {editingBusId === null ? 'Registrar Nuevo Autobús' : 'Editar Autobús'}
-            </h3>
-
-            {crudError && (
-              <div role="alert" style={{ ...errorBannerStyle, marginBottom: '16px' }}>
-                {crudError}
-              </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
-             
-            <form onSubmit={handleSaveBus}>
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Placa</label>
-                <input 
-                  type="text" 
-                  value={formPlaca} 
-                  onChange={(e) => setFormPlaca(e.target.value)} 
-                  style={formInputStyle} 
-                  required 
-                  placeholder="Ej: P-123ABC"
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Marca / Modelo</label>
-                <input 
-                  type="text" 
-                  value={formMarcaModelo} 
-                  onChange={(e) => setFormMarcaModelo(e.target.value)} 
-                  style={formInputStyle} 
-                  placeholder="Ej: Mercedes-Benz 2024"
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Estado</label>
-                <AnimatedSelect
-                  aria-label="Estado del autobús"
-                  value={formEstadoBus} 
-                  onChange={(e) => setFormEstadoBus(e.target.value as Autobus['estado'])} 
-                  style={formInputStyle}
-                >
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                  <option value="En Taller">En Taller</option>
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                {editingBusId !== null && <label style={formLabelStyle}><input type="checkbox" checked={manageBusAssignment} onChange={e => setManageBusAssignment(e.target.checked)} /> Cambiar operación del viaje (opcional)</label>}
-                <label style={formLabelStyle}>Piloto asignado — cambiarlo finaliza el viaje anterior</label>
-                <AnimatedSelect
-                  aria-label="Piloto asignado"
-                  disabled={!manageBusAssignment}
-                  value={formPilotoAsignado} 
-                  onChange={(e) => {
-                    const pilotId = Number(e.target.value);
-                    setFormPilotoAsignado(pilotId);
-                    if (pilotId === 0) setFormRutaAsignadaBus(0);
-                  }} 
-                  style={formInputStyle}
-                >
-                  <option value={0}>-- Sin Asignar / En Base --</option>
-                  {users.filter(u => u.tipoRol === 'Piloto').map(u => {
-                    const activeAssignment = trips.find(
-                      trip => trip.idUsuario === u.idUsuario && trip.estadoViaje === 'En Curso'
-                    );
-                    const assignedElsewhere = Boolean(
-                      activeAssignment && activeAssignment.idAutobus !== editingBusId
-                    );
-                    const unavailable = u.estado !== 'Activo' || assignedElsewhere;
-                    const availabilityLabel = u.estado !== 'Activo'
-                      ? 'Inactivo'
-                      : assignedElsewhere
-                        ? `Asignado a ${activeAssignment?.placaAutobus ?? 'otra unidad'}`
-                        : null;
-
-                    return (
-                      <option key={u.idUsuario} value={u.idUsuario} disabled={unavailable}>
-                        {u.nombreCompleto} ({u.usuarioLogin})
-                        {availabilityLabel ? ` — ${availabilityLabel}` : ''}
-                      </option>
-                    );
-                  })}
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Ruta Asignada (Opcional)</label>
-                <AnimatedSelect
-                  aria-label="Ruta asignada"
-                  value={formRutaAsignadaBus} 
-                  onChange={(e) => setFormRutaAsignadaBus(Number(e.target.value))} 
-                  disabled={!manageBusAssignment || formPilotoAsignado === 0}
-                  style={formInputStyle}
-                >
-                  <option value={0}>-- Sin Ruta Asignada (Predeterminado) --</option>
-                  {routes.map(r => (
-                    <option key={r.idRuta} value={r.idRuta}>
-                      {r.nombreRuta} ({r.origen} a {r.destino})
-                    </option>
-                  ))}
-                </AnimatedSelect>
-              </div>
-
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button className="button-with-icon" type="button" onClick={() => setShowBusModal(false)} style={cancelButtonStyle} disabled={busSaving}>
-                  <X size={15} /> Cancelar
-                </button>
-                <button
-                  className="button-with-icon"
-                  type="submit"
-                  style={{ ...saveButtonStyle, opacity: busSaving ? 0.65 : 1, cursor: busSaving ? 'wait' : 'pointer' }}
-                  disabled={busSaving}
-                >
-                  <Save size={15} /> {busSaving ? 'Guardando…' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
+        );
+      })()}
+
+
+      {showBusModal && (
+        <Dialog
+          kicker="Flota"
+          icon={<Bus size={20} />}
+          title={editingBusId === null ? 'Agregar autobús' : 'Editar autobús'}
+          description={editingBusId === null
+            ? 'Registra la unidad. Si eliges piloto, el viaje empieza al guardar.'
+            : 'Cambia los datos de la unidad o, si lo necesitas, su operación actual.'}
+          busy={busSaving}
+          onClose={() => setShowBusModal(false)}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => setShowBusModal(false)} disabled={busSaving}>Cancelar</button>
+              <button type="submit" form="bus-form" className="pill-button" disabled={busSaving}><Save size={16} aria-hidden="true" /> {busSaving ? 'Guardando…' : 'Guardar'}</button>
+            </>
+          )}
+        >
+          {crudError && <div role="alert" className="auth-alert">{crudError}</div>}
+          <form id="bus-form" className="dlg-form" onSubmit={handleSaveBus}>
+            <Field label="Placa" htmlFor="bus-plate">
+              <input id="bus-plate" className="dlg-input" type="text" value={formPlaca} onChange={(e) => setFormPlaca(e.target.value)} required autoFocus placeholder="Ej. P-123ABC" />
+            </Field>
+            <Field label="Marca y modelo" htmlFor="bus-model">
+              <input id="bus-model" className="dlg-input" type="text" value={formMarcaModelo} onChange={(e) => setFormMarcaModelo(e.target.value)} placeholder="Ej. Mercedes-Benz 2024" />
+            </Field>
+            <Field label="Estado" wide>
+              <div className="dlg-segment" role="radiogroup" aria-label="Estado del autobús">
+                {(['Activo', 'En Taller', 'Inactivo'] as Autobus['estado'][]).map((estado) => (
+                  <button
+                    key={estado}
+                    type="button"
+                    role="radio"
+                    aria-checked={formEstadoBus === estado}
+                    className={formEstadoBus === estado ? 'is-active' : ''}
+                    onClick={() => setFormEstadoBus(estado)}
+                  >
+                    {estado}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <div className="dlg-section is-wide">
+              <div className="dlg-section-head">
+                <div>
+                  <strong>Operación</strong>
+                  <span>Cambiar el piloto finaliza el viaje anterior de esta unidad.</span>
+                </div>
+                {editingBusId !== null && (
+                  <label className="dlg-switch">
+                    <input type="checkbox" checked={manageBusAssignment} onChange={(e) => setManageBusAssignment(e.target.checked)} />
+                    <span aria-hidden="true" />
+                    Modificar
+                  </label>
+                )}
+              </div>
+              <div className="dlg-form">
+                <Field label="Piloto">
+                  <AnimatedSelect
+                    aria-label="Piloto asignado"
+                    disabled={!manageBusAssignment}
+                    value={formPilotoAsignado}
+                    onChange={(e) => {
+                      const pilotId = Number(e.target.value);
+                      setFormPilotoAsignado(pilotId);
+                      if (pilotId === 0) setFormRutaAsignadaBus(0);
+                    }}
+                  >
+                    <option value={0}>Sin piloto (en base)</option>
+                    {users.filter(u => u.tipoRol === 'Piloto').map(u => {
+                      const activeAssignment = trips.find(
+                        trip => trip.idUsuario === u.idUsuario && trip.estadoViaje === 'En Curso'
+                      );
+                      const assignedElsewhere = Boolean(
+                        activeAssignment && activeAssignment.idAutobus !== editingBusId
+                      );
+                      const unavailable = u.estado !== 'Activo' || assignedElsewhere;
+                      const availabilityLabel = u.estado !== 'Activo'
+                        ? 'Inactivo'
+                        : assignedElsewhere
+                          ? `Asignado a ${activeAssignment?.placaAutobus ?? 'otra unidad'}`
+                          : null;
+
+                      return (
+                        <option key={u.idUsuario} value={u.idUsuario} disabled={unavailable}>
+                          {u.nombreCompleto} ({u.usuarioLogin})
+                          {availabilityLabel ? ` — ${availabilityLabel}` : ''}
+                        </option>
+                      );
+                    })}
+                  </AnimatedSelect>
+                </Field>
+                <Field label="Ruta (opcional)">
+                  <AnimatedSelect
+                    aria-label="Ruta asignada"
+                    value={formRutaAsignadaBus}
+                    onChange={(e) => setFormRutaAsignadaBus(Number(e.target.value))}
+                    disabled={!manageBusAssignment || formPilotoAsignado === 0}
+                  >
+                    <option value={0}>Sin ruta fija</option>
+                    {routes.map(r => (
+                      <option key={r.idRuta} value={r.idRuta}>
+                        {r.nombreRuta} ({r.origen} a {r.destino})
+                      </option>
+                    ))}
+                  </AnimatedSelect>
+                </Field>
+              </div>
+            </div>
+          </form>
+        </Dialog>
       )}
 
 
@@ -2710,1262 +2471,562 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* VISTA DE HISTORIAL Y REPORTES DE ALERTAS (Administradores/Supervisores) */}
       {activeTab === 'alerts' && (user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador' || user?.tipoRol === 'Supervisor') && (
-        <div className="dashboard-view" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-          
-          <section className="telemetry-hero">
-            <div className="telemetry-hero-copy">
-              <span className="section-eyebrow"><Activity size={14} /> Panorama de seguridad</span>
-              <h2>Riesgo vial, resumido para decidir</h2>
-              <p>Señales críticas, conductores prioritarios y estado de la conexión en una sola lectura.</p>
-            </div>
-            <span className={`connection-pill ${wsConnected ? 'is-connected' : 'is-offline'}`}>
-              <Wifi size={15} /> {wsConnected ? 'Telemetría conectada' : 'Telemetría desconectada'}
-            </span>
-          </section>
+        (() => {
+          const pageCount = Math.max(1, Math.ceil(historicalAlerts.length / alertsPageSize));
+          const pageItems = historicalAlerts.slice((alertsPage - 1) * alertsPageSize, alertsPage * alertsPageSize);
+          const byType = Object.entries(statAlertsByTipo).sort((a, b) => b[1] - a[1]);
+          const maxType = Math.max(...byType.map(([, n]) => n), 1);
+          const topPilots = statPilotosMasInfracciones.slice(0, 5);
+          const maxPilot = topPilots[0]?.cantidadAlertas || 1;
+          const severity = (tipo: string) => /velocidad/i.test(tipo) ? 'alert' : 'warn';
+          const hasFilters = Boolean(filterFechaInicio || filterFechaFin || filterPiloto || filterTipoAlerta);
 
-          <div className="telemetry-metrics">
-            <article className="telemetry-metric is-critical">
-              <div className="metric-icon"><ShieldAlert size={20} /></div>
-              <div><span>Infracciones registradas</span><strong>{loadingStats ? '—' : Number(statTotalAlerts).toLocaleString()}</strong></div>
-            </article>
-            <article className="telemetry-metric">
-              <div className="metric-icon"><Users size={20} /></div>
-              <div><span>Conductor prioritario</span><strong>{statPilotosMasInfracciones[0]?.nombrePiloto || 'Sin datos'}</strong></div>
-            </article>
-            <article className="telemetry-metric">
-              <div className="metric-icon"><Gauge size={20} /></div>
-              <div><span>Evento más frecuente</span><strong>{Object.entries(statAlertsByTipo).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin eventos'}</strong></div>
-            </article>
-            <article className="telemetry-metric is-positive">
-              <div className="metric-icon"><CheckCircle2 size={20} /></div>
-              <div><span>Estado del sistema</span><strong>{wsConnected ? 'Operativo' : 'Sin conexión'}</strong></div>
-            </article>
-          </div>
-
-          <div className="telemetry-insights">
-            <section className="insight-card live-events-card">
-              <div className="insight-heading">
-                <div><span className="section-eyebrow"><Radio size={13} /> Flujo en vivo</span><h3>Eventos recientes</h3></div>
-                <span>{alerts.length} activos</span>
-              </div>
-              <div className="live-event-list">
-                {loadingAlerts ? (
-                  <div className="insight-empty">Consultando telemetría…</div>
-                ) : alerts.length === 0 ? (
-                  <div className="insight-empty success"><CheckCircle2 size={20} /> Sin incidencias recientes</div>
-                ) : alerts.slice(0, 5).map((a) => (
-                  <div className="live-event-row" key={a.idAlerta}>
-                    <span className="event-severity" />
-                    <div><strong>{a.tipoAlerta}</strong><span>{a.nombrePiloto} · {a.placaAutobus}</span></div>
-                    <time>{new Date(a.fechaHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="insight-card risk-card">
-              <div className="insight-heading"><div><span className="section-eyebrow"><BarChart3 size={13} /> Análisis</span><h3>Concentración de riesgo</h3></div></div>
-              <div className="risk-columns">
-                <div><h4>Por tipo de alerta</h4>{Object.entries(statAlertsByTipo).slice(0, 3).map(([tipo, cantidad]) => {
-                  const maxVal = Math.max(...Object.values(statAlertsByTipo), 1);
-                  const percentage = Math.round((cantidad / maxVal) * 100);
-                  return <div className="risk-row" key={tipo}><div><span>{tipo}</span><strong>{cantidad}</strong></div><div className="risk-track"><i style={{ width: `${percentage}%` }} /></div></div>;
-                })}</div>
-                <div><h4>Conductores con más eventos</h4>{statPilotosMasInfracciones.slice(0, 3).map((p, idx) => {
-                  const maxVal = statPilotosMasInfracciones[0]?.cantidadAlertas || 1;
-                  const percentage = Math.round((p.cantidadAlertas / maxVal) * 100);
-                  return <div className="risk-row" key={`${p.nombrePiloto}-${idx}`}><div><span>{idx + 1}. {p.nombrePiloto}</span><strong>{p.cantidadAlertas}</strong></div><div className="risk-track"><i style={{ width: `${percentage}%` }} /></div></div>;
-                })}</div>
-              </div>
-            </section>
-          </div>
-
-          {/* FILA INFERIOR: Historial y Auditoría de Alertas (Tabla compacta y estilizada) */}
-          <div className="alert-history data-view" style={{
-            ...usersContainerStyle,
-            padding: '18px',
-            borderRadius: '14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px'
-          }}>
-            <div className="alert-history-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <h2 style={{ ...cardTitleStyle, fontSize: '0.92rem', margin: 0 }}>Historial y Auditoría de Alertas</h2>
-              <div className="alert-export-actions" style={{ display: 'flex', gap: '8px' }}>
-                <button type="button" className="button-with-icon secondary-action" disabled={exportingReport !== null} onClick={handleExportPdf} style={{ ...addButtonStyle, padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}>
-                  <FileDown size={14} /> {exportingReport === 'pdf' ? 'Generando…' : 'Exportar PDF'}
-                </button>
-                <button type="button" className="button-with-icon secondary-action" disabled={exportingReport !== null} onClick={handleExportExcel} style={{ ...addButtonStyle, padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}>
-                  <Sheet size={14} /> {exportingReport === 'excel' ? 'Generando…' : 'Exportar Excel'}
-                </button>
-              </div>
-            </div>
-
-            {/* Barra de Filtros Compacta */}
-            <div className="filter-bar" style={{ 
-              display: 'flex', 
-              flexWrap: 'wrap',
-              alignItems: 'flex-end',
-              gap: '8px', 
-              padding: '12px', 
-              borderRadius: '10px', 
-              backgroundColor: 'var(--surface-soft)',
-              border: '1px solid var(--line)',
-              width: '100%',
-              boxSizing: 'border-box'
-            }}>
-              <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Fecha Inicio</label>
-                <input 
-                  type="date" 
-                  value={filterFechaInicio}
-                  onChange={(e) => setFilterFechaInicio(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                />
-              </div>
-              <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Fecha Fin</label>
-                <input 
-                  type="date" 
-                  value={filterFechaFin}
-                  onChange={(e) => setFilterFechaFin(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                />
-              </div>
-              <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Piloto</label>
-                <AnimatedSelect
-                  aria-label="Filtrar alertas por piloto"
-                  value={filterPiloto}
-                  onChange={(e) => setFilterPiloto(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                >
-                  <option value="">Todos los Pilotos</option>
-                  {users
-                    .filter(u => u.tipoRol === 'Piloto')
-                    .map(u => (
-                      <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
-                    ))}
-                </AnimatedSelect>
-              </div>
-              <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Tipo Alerta</label>
-                <AnimatedSelect
-                  aria-label="Filtrar por tipo de alerta"
-                  value={filterTipoAlerta}
-                  onChange={(e) => setFilterTipoAlerta(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                >
-                  <option value="">Todas las Alertas</option>
-                  <option value="Exceso de Velocidad">Exceso de Velocidad</option>
-                  <option value="Frenado Brusco">Frenado Brusco</option>
-                  <option value="Aceleración Peligrosa">Aceleración Peligrosa</option>
-                  <option value="Giro Brusco">Giro Brusco</option>
-                </AnimatedSelect>
-              </div>
-              <div className="filter-actions" style={{ display: 'flex', gap: '6px', alignItems: 'flex-end' }}>
-                <button 
-                  type="button"
-                  onClick={fetchHistoricalAlerts} 
-                  style={{ ...addButtonStyle, padding: '4px 12px', height: '30px', fontSize: '0.76rem', borderRadius: '8px', whiteSpace: 'nowrap' }}
-                >
-                  Filtrar
-                </button>
-                <button 
-                  type="button"
-                  onClick={handleClearFilters} 
-                  style={{
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    color: isDark ? '#cbd5e1' : '#64748b',
-                    borderRadius: '8px',
-                    padding: '4px 10px',
-                    height: '30px',
-                    fontWeight: 600,
-                    fontSize: '0.76rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  Limpiar
-                </button>
-              </div>
-            </div>
-
-            {loadingHistorical ? (
-              <div style={loadingTableStyle}>Cargando histórico de alertas de SQL Server...</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div className="responsive-table" style={{ ...tableWrapperStyle, maxHeight: 'calc(100vh - 380px)', minHeight: '180px', overflowY: 'auto' }}>
-                  <table style={tableStyle}>
-                    <thead>
-                      <tr>
-                        <th style={{ ...thStyle, padding: '8px 10px', fontSize: '0.78rem' }}>ID</th>
-                        <th style={{ ...thStyle, padding: '8px 10px', fontSize: '0.78rem' }}>Fecha / Hora</th>
-                        <th style={thStyle}>Tipo de Alerta</th>
-                        <th style={thStyle}>Conductor</th>
-                        <th style={thStyle}>Autobús</th>
-                        <th style={thStyle}>Ruta</th>
-                        <th style={thStyle}>Valor Registrado</th>
-                        <th style={thStyle}>Límite Permitido</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historicalAlerts.length === 0 ? (
-                        <tr>
-                          <td className="responsive-table-empty" colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: '#475569', padding: '20px' }}>
-                            No se encontraron registros de alertas con los filtros seleccionados.
-                          </td>
-                        </tr>
-                      ) : (
-                        historicalAlerts
-                          .slice((alertsPage - 1) * alertsPageSize, alertsPage * alertsPageSize)
-                          .map((a) => (
-                            <tr key={a.idAlerta} style={trStyle}>
-                              <td data-label="ID" style={tdStyle}>{a.idAlerta}</td>
-                              <td data-label="Fecha / hora" style={tdStyle}>{new Date(a.fechaHora).toLocaleString()}</td>
-                              <td data-label="Tipo" style={{ ...tdStyle, color: '#dc2626', fontWeight: 700 }}>{a.tipoAlerta}</td>
-                              <td data-label="Conductor" style={tdStyle}>{a.nombrePiloto}</td>
-                              <td data-label="Autobús" style={tdStyle}>{a.placaAutobus}</td>
-                              <td data-label="Ruta" style={tdStyle}>{a.nombreRuta}</td>
-                              <td data-label="Valor" style={{ ...tdStyle, fontWeight: 'bold' }}>{a.valorRegistrado}</td>
-                              <td data-label="Límite" style={tdStyle}>{a.limitePermitido}</td>
-                            </tr>
-                          ))
-                      )}
-                    </tbody>
-                  </table>
+          return (
+            <div className="screen alerts-screen">
+              <header className="screen-head">
+                <div>
+                  <h1>Alertas</h1>
+                  <p>Lo que pasó en la carretera y quién necesita atención.</p>
                 </div>
+                <div className="screen-head-actions">
+                  <span className={`status-dot-pill ${wsConnected ? 'is-on' : 'is-off'}`}>
+                    <Wifi size={14} aria-hidden="true" /> {wsConnected ? 'En vivo' : 'Sin conexión'}
+                  </span>
+                  <button type="button" className="pill-button is-ghost" disabled={exportingReport !== null} onClick={handleExportPdf}>
+                    <FileDown size={15} aria-hidden="true" /> {exportingReport === 'pdf' ? 'Generando…' : 'PDF'}
+                  </button>
+                  <button type="button" className="pill-button is-ghost" disabled={exportingReport !== null} onClick={handleExportExcel}>
+                    <Sheet size={15} aria-hidden="true" /> {exportingReport === 'excel' ? 'Generando…' : 'Excel'}
+                  </button>
+                </div>
+              </header>
 
-                {/* Controles de Paginación */}
-                {historicalAlerts.length > 0 && (
-                  <div className="table-pagination" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 14px',
-                    borderTop: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
-                    borderRadius: '0 0 12px 12px',
-                    flexWrap: 'wrap',
-                    gap: '8px'
-                  }}>
-                    <div className="table-pagination-summary" style={{ fontSize: '0.76rem', color: isDark ? '#94a3b8' : '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <section className="big-stats" aria-label="Resumen">
+                <div>
+                  <span>Infracciones registradas</span>
+                  <strong>{loadingStats ? '—' : Number(statTotalAlerts).toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span>Evento más frecuente</span>
+                  <strong className="is-text">{byType[0]?.[0] || 'Sin eventos'}</strong>
+                </div>
+                <div>
+                  <span>Piloto con más eventos</span>
+                  <strong className="is-text">{topPilots[0]?.nombrePiloto || 'Sin datos'}</strong>
+                </div>
+              </section>
+
+              <div className="alerts-layout">
+                <section className="alerts-feed" aria-label="Historial de alertas">
+                  <form
+                    className="filter-row"
+                    onSubmit={(event) => { event.preventDefault(); setAlertsPage(1); void fetchHistoricalAlerts(); }}
+                  >
+                    <label className="filter-field">
+                      <span>Desde</span>
+                      <input type="date" value={filterFechaInicio} onChange={(e) => setFilterFechaInicio(e.target.value)} />
+                    </label>
+                    <label className="filter-field">
+                      <span>Hasta</span>
+                      <input type="date" value={filterFechaFin} onChange={(e) => setFilterFechaFin(e.target.value)} />
+                    </label>
+                    <div className="filter-field">
+                      <span>Piloto</span>
+                      <AnimatedSelect aria-label="Filtrar alertas por piloto" value={filterPiloto} onChange={(e) => setFilterPiloto(e.target.value)}>
+                        <option value="">Todos</option>
+                        {users.filter(u => u.tipoRol === 'Piloto').map(u => (
+                          <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
+                        ))}
+                      </AnimatedSelect>
+                    </div>
+                    <div className="filter-field">
+                      <span>Tipo</span>
+                      <AnimatedSelect aria-label="Filtrar por tipo de alerta" value={filterTipoAlerta} onChange={(e) => setFilterTipoAlerta(e.target.value)}>
+                        <option value="">Todos</option>
+                        <option value="Exceso de Velocidad">Exceso de velocidad</option>
+                        <option value="Frenado Brusco">Frenado brusco</option>
+                        <option value="Aceleración Peligrosa">Aceleración peligrosa</option>
+                        <option value="Giro Brusco">Giro brusco</option>
+                      </AnimatedSelect>
+                    </div>
+                    <div className="filter-buttons">
+                      <button type="submit" className="pill-button">Aplicar</button>
+                      {hasFilters && <button type="button" className="pill-button is-ghost" onClick={handleClearFilters}>Limpiar</button>}
+                    </div>
+                  </form>
+
+                  {loadingHistorical ? (
+                    <p className="feed-empty">Cargando alertas…</p>
+                  ) : pageItems.length === 0 ? (
+                    <p className="feed-empty"><CheckCircle2 size={20} aria-hidden="true" /> No hay alertas con estos filtros.</p>
+                  ) : (
+                    <ol className="alert-feed">
+                      {pageItems.map((a) => {
+                        const level = severity(a.tipoAlerta);
+                        const when = new Date(a.fechaHora);
+                        return (
+                          <li key={a.idAlerta} className="alert-item" data-level={level}>
+                            <span className="alert-item-icon" aria-hidden="true">
+                              {level === 'alert' ? <Gauge size={18} /> : <AlertTriangle size={18} />}
+                            </span>
+                            <div className="alert-item-main">
+                              <strong>{a.tipoAlerta}</strong>
+                              <span>{a.nombrePiloto} · {a.placaAutobus}{a.nombreRuta ? ` · ${a.nombreRuta}` : ''}</span>
+                            </div>
+                            <div className="alert-item-value">
+                              <strong>{a.valorRegistrado}</strong>
+                              {a.limitePermitido != null && <span>límite {a.limitePermitido}</span>}
+                            </div>
+                            <time dateTime={a.fechaHora}>
+                              <span>{when.toLocaleDateString([], { day: '2-digit', month: 'short' })}</span>
+                              {when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </time>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+
+                  {historicalAlerts.length > 0 && (
+                    <nav className="pager" aria-label="Páginas de alertas">
                       <span>
-                        Mostrando <strong>{(alertsPage - 1) * alertsPageSize + 1} - {Math.min(alertsPage * alertsPageSize, historicalAlerts.length)}</strong> de <strong>{historicalAlerts.length.toLocaleString()}</strong> alertas
+                        {(alertsPage - 1) * alertsPageSize + 1}–{Math.min(alertsPage * alertsPageSize, historicalAlerts.length)} de {historicalAlerts.length.toLocaleString()}
                       </span>
-                      <span>•</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>Por página:</span>
+                      <div className="pager-controls">
                         <AnimatedSelect
                           aria-label="Alertas por página"
                           value={alertsPageSize}
-                          onChange={(e) => {
-                            setAlertsPageSize(Number(e.target.value));
-                            setAlertsPage(1);
-                          }}
-                          style={{
-                            width: '68px',
-                            backgroundColor: isDark ? '#1f2937' : '#f1f5f9',
-                            color: isDark ? '#f8fafc' : '#0f172a',
-                            border: `1px solid ${isDark ? '#374151' : '#cbd5e1'}`,
-                            borderRadius: '6px',
-                            padding: '2px 6px',
-                            fontSize: '0.74rem',
-                            cursor: 'pointer'
-                          }}
+                          onChange={(e) => { setAlertsPageSize(Number(e.target.value)); setAlertsPage(1); }}
                         >
-                          <option value={5}>5</option>
-                          <option value={10}>10</option>
-                          <option value={20}>20</option>
-                          <option value={50}>50</option>
+                          <option value={10}>10 por página</option>
+                          <option value={20}>20 por página</option>
+                          <option value={50}>50 por página</option>
                         </AnimatedSelect>
+                        <button type="button" className="pill-button is-ghost" disabled={alertsPage <= 1} onClick={() => setAlertsPage(p => Math.max(1, p - 1))}>Anterior</button>
+                        <span className="pager-count">{alertsPage} / {pageCount}</span>
+                        <button type="button" className="pill-button is-ghost" disabled={alertsPage >= pageCount} onClick={() => setAlertsPage(p => Math.min(pageCount, p + 1))}>Siguiente</button>
                       </div>
-                    </div>
+                    </nav>
+                  )}
+                </section>
 
-                    <div className="table-pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <button
-                        type="button"
-                        disabled={alertsPage <= 1}
-                        onClick={() => setAlertsPage(1)}
-                        title="Primera página"
-                        style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage <= 1 ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                          borderRadius: '6px',
-                          padding: '3px 7px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: alertsPage <= 1 ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage <= 1 ? 0.4 : 1
-                        }}
-                      >
-                        ««
-                      </button>
+                <aside className="alerts-side">
+                  <section className="side-card">
+                    <h2><Radio size={15} aria-hidden="true" /> Ahora mismo</h2>
+                    {loadingAlerts ? (
+                      <p className="side-empty">Consultando…</p>
+                    ) : alerts.length === 0 ? (
+                      <p className="side-empty">Sin incidencias recientes.</p>
+                    ) : (
+                      <ul className="mini-feed">
+                        {alerts.slice(0, 5).map((a) => (
+                          <li key={a.idAlerta} data-level={severity(a.tipoAlerta)}>
+                            <div><strong>{a.tipoAlerta}</strong><span>{a.nombrePiloto} · {a.placaAutobus}</span></div>
+                            <time>{new Date(a.fechaHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
 
-                      <button
-                        type="button"
-                        disabled={alertsPage <= 1}
-                        onClick={() => setAlertsPage(prev => Math.max(1, prev - 1))}
-                        style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage <= 1 ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '0.74rem',
-                          fontWeight: 600,
-                          cursor: alertsPage <= 1 ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage <= 1 ? 0.4 : 1
-                        }}
-                      >
-                        ‹ Anterior
-                      </button>
+                  <section className="side-card">
+                    <h2><BarChart3 size={15} aria-hidden="true" /> Por tipo</h2>
+                    {byType.length === 0 ? <p className="side-empty">Sin datos.</p> : (
+                      <ul className="bar-list">
+                        {byType.map(([tipo, n]) => (
+                          <li key={tipo}>
+                            <div><span>{tipo}</span><strong>{n}</strong></div>
+                            <i style={{ width: `${Math.round((n / maxType) * 100)}%` }} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
 
-                      <span style={{
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        color: 'var(--accent)',
-                        padding: '3px 9px',
-                        backgroundColor: 'var(--accent-soft)',
-                        border: '1px solid var(--accent-line)',
-                        borderRadius: '6px'
-                      }}>
-                        {alertsPage} / {Math.max(1, Math.ceil(historicalAlerts.length / alertsPageSize))}
-                      </span>
-
-                      <button
-                        type="button"
-                        disabled={alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize)}
-                        onClick={() => setAlertsPage(prev => Math.min(Math.ceil(historicalAlerts.length / alertsPageSize), prev + 1))}
-                        style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '0.74rem',
-                          fontWeight: 600,
-                          cursor: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 0.4 : 1
-                        }}
-                      >
-                        Siguiente ›
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize)}
-                        onClick={() => setAlertsPage(Math.max(1, Math.ceil(historicalAlerts.length / alertsPageSize)))}
-                        title="Última página"
-                        style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                          borderRadius: '6px',
-                          padding: '3px 7px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 0.4 : 1
-                        }}
-                      >
-                        »»
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  <section className="side-card">
+                    <h2><Users size={15} aria-hidden="true" /> Pilotos con más eventos</h2>
+                    {topPilots.length === 0 ? <p className="side-empty">Sin datos.</p> : (
+                      <ul className="bar-list is-pilots">
+                        {topPilots.map((p, idx) => (
+                          <li key={`${p.nombrePiloto}-${idx}`}>
+                            <div><span>{idx + 1}. {p.nombrePiloto}</span><strong>{p.cantidadAlertas}</strong></div>
+                            <i style={{ width: `${Math.round((p.cantidadAlertas / maxPilot) * 100)}%` }} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </aside>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          );
+        })()
       )}
 
 
-      {/* MODAL / FORMULARIO FLOTANTE DE DESPACHO DE VIAJES */}
       {showTripModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>Registrar Despacho de Viaje</h3>
-            
-            <form onSubmit={handleSaveTrip}>
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Piloto Disponible</label>
-                <AnimatedSelect
-                  aria-label="Piloto disponible"
-                  value={formTripPiloto} 
-                  onChange={(e) => setFormTripPiloto(Number(e.target.value))} 
-                  style={formInputStyle}
-                  required
-                >
-                  <option value="">-- Seleccionar Piloto --</option>
-                  {users
-                    .filter(u => u.tipoRol === 'Piloto' && u.estado === 'Activo' && !trips.some(t => t.idUsuario === u.idUsuario && t.estadoViaje === 'En Curso'))
-                    .map(u => (
-                      <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
-                    ))
-                  }
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Autobús Disponible</label>
-                <AnimatedSelect
-                  aria-label="Autobús disponible"
-                  value={formTripBus} 
-                  onChange={(e) => setFormTripBus(Number(e.target.value))} 
-                  style={formInputStyle}
-                  required
-                >
-                  <option value="">-- Seleccionar Autobús --</option>
-                  {buses
-                    .filter(b => b.estado === 'Activo' && !trips.some(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso'))
-                    .map(b => (
-                      <option key={b.idAutobus} value={b.idAutobus}>{b.placa} ({b.marcaModelo || 'Sin marca'})</option>
-                    ))
-                  }
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Ruta Asignada (Opcional)</label>
-                <AnimatedSelect
-                  aria-label="Ruta del viaje"
-                  value={formTripRoute} 
-                  onChange={(e) => setFormTripRoute(Number(e.target.value))} 
-                  style={formInputStyle}
-                >
-                  <option value={0}>-- Sin Ruta / Tránsito Libre --</option>
-                  {routes.map(r => (
-                    <option key={r.idRuta} value={r.idRuta}>{r.nombreRuta} ({r.origen} a {r.destino})</option>
+        <Dialog
+          kicker="Despacho"
+          icon={<Navigation size={20} />}
+          title="Iniciar un viaje"
+          description="Solo aparecen pilotos y unidades activos que no están en ruta."
+          onClose={() => setShowTripModal(false)}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => setShowTripModal(false)}>Cancelar</button>
+              <button type="submit" form="trip-form" className="pill-button"><Navigation size={16} aria-hidden="true" /> Despachar</button>
+            </>
+          )}
+        >
+          <form id="trip-form" className="dlg-form" onSubmit={handleSaveTrip}>
+            <Field label="Piloto">
+              <AnimatedSelect aria-label="Piloto disponible" value={formTripPiloto} onChange={(e) => setFormTripPiloto(Number(e.target.value))} required>
+                <option value="">Elige un piloto</option>
+                {users
+                  .filter(u => u.tipoRol === 'Piloto' && u.estado === 'Activo' && !trips.some(t => t.idUsuario === u.idUsuario && t.estadoViaje === 'En Curso'))
+                  .map(u => (
+                    <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
                   ))}
-                </AnimatedSelect>
-              </div>
-
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button type="button" onClick={() => setShowTripModal(false)} style={cancelButtonStyle}>
-                  Cancelar
-                </button>
-                <button type="submit" style={saveButtonStyle}>
-                  Iniciar Viaje (Despachar)
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              </AnimatedSelect>
+            </Field>
+            <Field label="Autobús">
+              <AnimatedSelect aria-label="Autobús disponible" value={formTripBus} onChange={(e) => setFormTripBus(Number(e.target.value))} required>
+                <option value="">Elige una unidad</option>
+                {buses
+                  .filter(b => b.estado === 'Activo' && !trips.some(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso'))
+                  .map(b => (
+                    <option key={b.idAutobus} value={b.idAutobus}>{b.placa} ({b.marcaModelo || 'Sin marca'})</option>
+                  ))}
+              </AnimatedSelect>
+            </Field>
+            <Field label="Ruta (opcional)" wide>
+              <AnimatedSelect aria-label="Ruta del viaje" value={formTripRoute} onChange={(e) => setFormTripRoute(Number(e.target.value))}>
+                <option value={0}>Sin ruta fija</option>
+                {routes.map(r => (
+                  <option key={r.idRuta} value={r.idRuta}>{r.nombreRuta} ({r.origen} a {r.destino})</option>
+                ))}
+              </AnimatedSelect>
+            </Field>
+          </form>
+        </Dialog>
       )}
 
       {/* VISTA DE ACTIVIDAD / HISTORIAL DE VIAJES (Inspirada en Uber Activity & Trip Details) */}
       {activeTab === 'activity' && (
-        <div className="dashboard-view" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-          {/* Tarjeta de Viaje Activo para el Piloto */}
-          {user?.tipoRol === 'Piloto' && (
-            <div style={cardStyle}>
-              <h3 style={{ ...cardTitleStyle, marginBottom: '12px' }}>Tu Viaje Asignado Actual</h3>
-              {loadingActiveTrip ? (
-                <div style={{ color: '#64748b', textAlign: 'center', padding: '16px' }}>
-                  Consultando base de datos de despacho...
-                </div>
-              ) : activeTrip ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Ruta Asignada:</span>
-                    <strong style={{ color: 'var(--accent)' }}>{activeTrip.nombreRuta || 'N/D'}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Autobús (Placa):</span>
-                    <strong style={{ color: '#0f172a' }}>{activeTrip.placaAutobus}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Hora de Inicio:</span>
-                    <span style={{ color: '#0f172a' }}>{new Date(activeTrip.fechaInicio).toLocaleString()}</span>
-                  </div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                     <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Estado:</span>
-                     <span style={{ color: '#059669', fontWeight: 600, backgroundColor: '#ecfdf5', padding: '2px 8px', borderRadius: '6px' }}>{activeTrip.estadoViaje}</span>
-                   </div>
-                   <button
-                     type="button"
-                     className="button-with-icon"
-                     onClick={() => handleFinalizeTrip(activeTrip.idViaje)}
-                     style={{ ...saveButtonStyle, marginTop: '8px', width: '100%', justifyContent: 'center' }}
-                   >
-                     <CheckCircle2 size={16} /> Finalizar recorrido y quedar disponible
-                   </button>
-                 </div>
-              ) : (
-                <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '0.86rem' }}>
-                  <strong>Sin Viaje Asignado:</strong> No tienes ningún viaje activo en este momento. Comunícate con tu supervisor para tu asignación.
-                </div>
-              )}
-            </div>
-          )}
+        (() => {
+          const isPilotUser = user?.tipoRol === 'Piloto';
+          const canDispatchTrips = user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador';
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          oneWeekAgo.setHours(0, 0, 0, 0);
+          const q = activitySearchQuery.trim().toLowerCase();
+          const filtered = trips.filter((t) => {
+            if (isPilotUser) {
+              const matchId = t.idUsuario === user?.idUsuario;
+              const matchName = t.nombrePiloto && user?.nombreCompleto
+                && t.nombrePiloto.trim().toLowerCase() === user.nombreCompleto.trim().toLowerCase();
+              if (!matchId && !matchName) return false;
+            }
+            const matchesSearch = q === ''
+              || (t.nombreRuta && t.nombreRuta.toLowerCase().includes(q))
+              || t.placaAutobus.toLowerCase().includes(q)
+              || t.nombrePiloto.toLowerCase().includes(q);
+            const matchesPilot = activityFilterPilot === '' || t.idUsuario === Number(activityFilterPilot);
+            const matchesStatus = activityFilterStatus === '' || t.estadoViaje === activityFilterStatus;
+            const matchesDate = activityFilterDate === '' || (t.fechaInicio && t.fechaInicio.startsWith(activityFilterDate));
+            let matchesTimeRange = true;
+            if (activityTimeRange === 'week' && !activityFilterDate) {
+              const tripDate = new Date(t.fechaInicio);
+              matchesTimeRange = !isNaN(tripDate.getTime()) && tripDate >= oneWeekAgo;
+            }
+            return matchesSearch && matchesPilot && matchesStatus && matchesDate && matchesTimeRange;
+          });
 
-          {/* Cabecera y Filtros de Actividad */}
-          <div className="data-view activity-panel" style={usersContainerStyle}>
-            <div className="activity-toolbar" style={{ ...tableHeaderStyle, flexDirection: 'column', alignItems: 'stretch', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          const dayLabel = (date: Date) => {
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const day = new Date(date); day.setHours(0, 0, 0, 0);
+            const diff = Math.round((today.getTime() - day.getTime()) / 86400000);
+            if (diff === 0) return 'Hoy';
+            if (diff === 1) return 'Ayer';
+            return date.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' });
+          };
+          const groups: { label: string; items: Viaje[] }[] = [];
+          filtered.forEach((trip) => {
+            const date = new Date(trip.fechaInicio);
+            const label = isNaN(date.getTime()) ? 'Sin fecha' : dayLabel(date);
+            const last = groups[groups.length - 1];
+            if (last && last.label === label) last.items.push(trip);
+            else groups.push({ label, items: [trip] });
+          });
+          const hasFilters = Boolean(activitySearchQuery || activityFilterPilot || activityFilterStatus || activityFilterDate);
+          const openDetail = (trip: Viaje) => { setSelectedTripDetail(trip); setShowTripDetailModal(true); };
+
+          return (
+            <div className="screen trips-screen">
+              <header className="screen-head">
                 <div>
-                  <h2 style={{ ...cardTitleStyle, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {user?.tipoRol === 'Piloto' ? 'Mis Rutas y Viajes Asignados' : 'Actividad e Historial de Recorridos'}
-                  </h2>
-                  <p style={{ color: '#64748b', fontSize: '0.86rem', margin: '4px 0 0 0' }}>
-                    {user?.tipoRol === 'Piloto'
-                      ? 'Historial de tus viajes realizados, rutas cubiertas y autobuses asignados'
-                      : 'Auditoría cronológica de todos los viajes despachados y operados en la flota'}
-                  </p>
+                  <h1>{isPilotUser ? 'Mis viajes' : 'Viajes'}</h1>
+                  <p>{isPilotUser ? 'Tu viaje de hoy y los que ya hiciste.' : 'Cada salida de la flota, del despacho al cierre.'}</p>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  {/* Selector Segmentado de Rango: Última Semana vs Ver Todos */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundColor: isDark ? '#1f2937' : '#f1f5f9',
-                    padding: '3px',
-                    borderRadius: '12px',
-                    border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    gap: '3px'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => setActivityTimeRange('week')}
-                      style={{
-                        backgroundColor: activityTimeRange === 'week' ? 'var(--accent)' : 'transparent',
-                        color: activityTimeRange === 'week' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
-                        border: 'none',
-                        borderRadius: '9px',
-                        padding: '6px 14px',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.15s ease',
-                        boxShadow: activityTimeRange === 'week' ? '0 7px 18px var(--accent-shadow)' : 'none'
-                      }}
-                    >
-                      Última Semana
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActivityTimeRange('all')}
-                      style={{
-                        backgroundColor: activityTimeRange === 'all' ? 'var(--accent)' : 'transparent',
-                        color: activityTimeRange === 'all' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
-                        border: 'none',
-                        borderRadius: '9px',
-                        padding: '6px 14px',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.15s ease',
-                        boxShadow: activityTimeRange === 'all' ? '0 7px 18px var(--accent-shadow)' : 'none'
-                      }}
-                    >
-                      Ver Todos
-                    </button>
+                <div className="screen-head-actions">
+                  <div className="ops-segment is-inline" role="group" aria-label="Rango de fechas">
+                    <button type="button" aria-pressed={activityTimeRange === 'week'} onClick={() => setActivityTimeRange('week')}>Última semana</button>
+                    <button type="button" aria-pressed={activityTimeRange === 'all'} onClick={() => setActivityTimeRange('all')}>Todo</button>
                   </div>
-
-                  {(user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador') && (
-                    <button onClick={openCreateTripModal} style={addButtonStyle}>
-                      Nuevo Despacho
+                  {canDispatchTrips && (
+                    <button type="button" className="pill-button is-highlight" onClick={openCreateTripModal}>
+                      <Plus size={16} aria-hidden="true" /> Nuevo despacho
                     </button>
                   )}
                 </div>
-              </div>
+              </header>
 
-              {/* Barra de Filtros y Búsqueda Compacta */}
-              <div className="activity-filters" style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'flex-end',
-                gap: '12px',
-                padding: '14px 16px',
-                borderRadius: '16px',
-                backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                width: '100%',
-                boxSizing: 'border-box'
-              }}>
-                <div style={{ flex: '2 1 200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Buscar Ruta / Destino / Placa</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: XELABUS, Terminal, C-102BKL..."
-                    value={activitySearchQuery}
-                    onChange={(e) => setActivitySearchQuery(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                  />
-                </div>
+              {isPilotUser && (
+                loadingActiveTrip ? (
+                  <section className="trip-hero is-muted"><p>Buscando tu viaje…</p></section>
+                ) : activeTrip ? (
+                  <section className="trip-hero" aria-label="Viaje en curso">
+                    <div className="trip-hero-main">
+                      <span>Viaje en curso</span>
+                      <strong>{activeTrip.nombreRuta || 'Ruta libre'}</strong>
+                      <p>Bus {activeTrip.placaAutobus} · salió {new Date(activeTrip.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <button type="button" className="pill-button is-highlight" onClick={() => handleFinalizeTrip(activeTrip.idViaje)}>
+                      <CheckCircle2 size={16} aria-hidden="true" /> Finalizar viaje
+                    </button>
+                  </section>
+                ) : (
+                  <section className="trip-hero is-muted">
+                    <div className="trip-hero-main">
+                      <span>Sin viaje asignado</span>
+                      <p>Cuando tu supervisor te despache, aparecerá aquí.</p>
+                    </div>
+                  </section>
+                )
+              )}
 
-                {(user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador' || user?.tipoRol === 'Supervisor') && (
-                  <div style={{ flex: '1 1 160px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Filtrar por Piloto</label>
-                    <AnimatedSelect
-                      aria-label="Filtrar actividad por piloto"
-                      value={activityFilterPilot}
-                      onChange={(e) => setActivityFilterPilot(e.target.value)}
-                      style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                    >
-                      <option value="">Todos los Pilotos</option>
+              <form className="filter-row" onSubmit={(event) => event.preventDefault()}>
+                <label className="filter-field is-wide">
+                  <span>Buscar</span>
+                  <input type="search" placeholder="Ruta, placa o piloto" value={activitySearchQuery} onChange={(e) => setActivitySearchQuery(e.target.value)} />
+                </label>
+                {!isPilotUser && (
+                  <div className="filter-field">
+                    <span>Piloto</span>
+                    <AnimatedSelect aria-label="Filtrar viajes por piloto" value={activityFilterPilot} onChange={(e) => setActivityFilterPilot(e.target.value)}>
+                      <option value="">Todos</option>
                       {users.filter(u => u.tipoRol === 'Piloto').map(u => (
                         <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
                       ))}
                     </AnimatedSelect>
                   </div>
                 )}
-
-                <div style={{ flex: '1 1 150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Estado del Viaje</label>
-                  <AnimatedSelect
-                    aria-label="Filtrar actividad por estado"
-                    value={activityFilterStatus}
-                    onChange={(e) => setActivityFilterStatus(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                  >
-                    <option value="">Todos los Estados</option>
-                    <option value="En Curso">En Curso</option>
+                <div className="filter-field">
+                  <span>Estado</span>
+                  <AnimatedSelect aria-label="Filtrar viajes por estado" value={activityFilterStatus} onChange={(e) => setActivityFilterStatus(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="En Curso">En curso</option>
                     <option value="Completado">Completado</option>
                     <option value="Cancelado">Cancelado</option>
                   </AnimatedSelect>
                 </div>
+                <label className="filter-field">
+                  <span>Día</span>
+                  <input type="date" value={activityFilterDate} onChange={(e) => setActivityFilterDate(e.target.value)} />
+                </label>
+                {hasFilters && (
+                  <div className="filter-buttons">
+                    <button type="button" className="pill-button is-ghost" onClick={() => {
+                      setActivitySearchQuery(''); setActivityFilterPilot(''); setActivityFilterStatus(''); setActivityFilterDate('');
+                    }}>Limpiar</button>
+                  </div>
+                )}
+              </form>
 
-                <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Fecha Específica</label>
-                  <input
-                    type="date"
-                    value={activityFilterDate}
-                    onChange={(e) => setActivityFilterDate(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
-                  />
+              {loadingTrips ? (
+                <p className="feed-empty">Cargando viajes…</p>
+              ) : groups.length === 0 ? (
+                <div className="feed-empty is-column">
+                  <p>{activityTimeRange === 'week' ? 'No hay viajes en los últimos 7 días con estos filtros.' : 'No hay viajes con estos filtros.'}</p>
+                  {activityTimeRange === 'week' && (
+                    <button type="button" className="pill-button is-ghost" onClick={() => setActivityTimeRange('all')}>Ver todo el historial</button>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivitySearchQuery('');
-                    setActivityFilterPilot('');
-                    setActivityFilterStatus('');
-                    setActivityFilterDate('');
-                    setActivityTimeRange('week');
-                  }}
-                  style={{
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    color: isDark ? '#cbd5e1' : '#64748b',
-                    borderRadius: '10px',
-                    padding: '8px 16px',
-                    height: '38px',
-                    fontWeight: 600,
-                    fontSize: '0.84rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease',
-                    flexShrink: 0
-                  }}
-                >
-                  Limpiar Filtros
-                </button>
-              </div>
-            </div>
-
-            {/* Feed de Tarjetas de Actividad (Estilo SaaS Moderno) */}
-            {loadingTrips ? (
-              <div style={loadingTableStyle}>Cargando historial de actividad...</div>
-            ) : (
-              <div className="activity-feed" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-                {(() => {
-                  const oneWeekAgo = new Date();
-                  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                  oneWeekAgo.setHours(0, 0, 0, 0);
-
-                  const filtered = trips.filter((t) => {
-                    if (user?.tipoRol === 'Piloto') {
-                      const matchId = t.idUsuario === user.idUsuario;
-                      const matchName = t.nombrePiloto && user.nombreCompleto &&
-                        t.nombrePiloto.trim().toLowerCase() === user.nombreCompleto.trim().toLowerCase();
-                      if (!matchId && !matchName) return false;
-                    }
-                    const q = activitySearchQuery.trim().toLowerCase();
-                    const matchesSearch =
-                      q === '' ||
-                      (t.nombreRuta && t.nombreRuta.toLowerCase().includes(q)) ||
-                      t.placaAutobus.toLowerCase().includes(q) ||
-                      t.nombrePiloto.toLowerCase().includes(q);
-
-                    const matchesPilot =
-                      activityFilterPilot === '' || t.idUsuario === Number(activityFilterPilot);
-
-                    const matchesStatus =
-                      activityFilterStatus === '' || t.estadoViaje === activityFilterStatus;
-
-                    const matchesDate =
-                      activityFilterDate === '' || (t.fechaInicio && t.fechaInicio.startsWith(activityFilterDate));
-
-                    // Filtro de rango: 1 semana por defecto
-                    let matchesTimeRange = true;
-                    if (activityTimeRange === 'week' && !activityFilterDate) {
-                      const tripDate = new Date(t.fechaInicio);
-                      matchesTimeRange = !isNaN(tripDate.getTime()) && tripDate >= oneWeekAgo;
-                    }
-
-                    return matchesSearch && matchesPilot && matchesStatus && matchesDate && matchesTimeRange;
-                  });
-
-                  if (filtered.length === 0) {
-                    return (
-                      <div className="empty-state" style={{ textAlign: 'center', color: 'var(--muted)', padding: '48px 24px', backgroundColor: 'var(--surface-soft)', borderRadius: '12px', border: '1px solid var(--line)' }}>
-                        <p style={{ fontSize: '1rem', fontWeight: 600, color: isDark ? '#f8fafc' : '#0f172a', margin: '8px 0' }}>
-                          {activityTimeRange === 'week'
-                            ? 'No se encontraron viajes en los últimos 7 días con los filtros actuales'
-                            : 'No se encontraron registros de viajes en el historial'}
-                        </p>
-                        {activityTimeRange === 'week' && (
-                          <button
-                            type="button"
-                            onClick={() => setActivityTimeRange('all')}
-                            style={{
-                              backgroundColor: 'var(--accent)',
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: '10px',
-                              padding: '8px 16px',
-                              fontSize: '0.84rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              marginTop: '8px',
-                              boxShadow: '0 7px 18px var(--accent-shadow)'
-                            }}
-                          >
-                            Ver Todo el Historial Anterior
-                          </button>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <>
-                      {filtered.map((trip) => {
-                        const isEnCurso = trip.estadoViaje === 'En Curso';
-                        const isCancelado = trip.estadoViaje === 'Cancelado';
-                        const dateObj = new Date(trip.fechaInicio);
-                        const formattedDate = dateObj.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' });
-                        const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                        return (
-                          <div
-                            className="trip-history-card"
-                            key={trip.idViaje}
-                            onClick={() => {
-                              setSelectedTripDetail(trip);
-                              setShowTripDetailModal(true);
-                            }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              backgroundColor: 'var(--surface)',
-                              border: '1px solid var(--line)',
-                              borderRadius: '12px',
-                              padding: '16px 20px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                              gap: '16px',
-                              flexWrap: 'wrap',
-                              boxShadow: 'none'
-                            }}
-                          >
-                            {/* Lado Izquierdo: Ícono de Autobús */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '240px' }}>
-                              <div style={{
-                                width: '46px',
-                                height: '46px',
-                                borderRadius: '12px',
-                                backgroundColor: 'var(--accent-soft)',
-                                border: '1px solid var(--accent-line)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'var(--accent)',
-                                flexShrink: 0
-                              }}>
-                                <Bus size={22} color="var(--accent)" strokeWidth={2} />
-                              </div>
-
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <strong style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.98rem', fontWeight: 700 }}>
-                                  {trip.nombreRuta && trip.nombreRuta !== 'N/D'
-                                    ? trip.nombreRuta
-                                    : trip.destinoNombre || 'Ruta sin guardar'}
-                                </strong>
-                                <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.8rem', fontWeight: 500 }}>
-                                  {formattedDate} • {formattedTime}
-                                </div>
-                                <div style={{ color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span><strong>{trip.placaAutobus}</strong></span>
-                                  <span>•</span>
-                                  <span>{trip.nombrePiloto}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Lado Derecho: Estado y Botón Reagendar / Ver Detalle */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                              <span style={{
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                padding: '4px 10px',
-                                borderRadius: '8px',
-                                backgroundColor: isEnCurso ? 'var(--accent-soft)' : isCancelado ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2') : (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5'),
-                                color: isEnCurso ? 'var(--accent)' : isCancelado ? '#ef4444' : (isDark ? '#34d399' : '#059669'),
-                                border: `1px solid ${isEnCurso ? 'var(--accent-line)' : isCancelado ? (isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca') : (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0')}`,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                {isEnCurso ? (
-                                  <>
-                                    <Radio size={12} />
-                                    <span>En Curso</span>
-                                  </>
-                                ) : isCancelado ? (
-                                  <>
-                                    <AlertTriangle size={12} />
-                                    <span>Cancelado</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 size={12} />
-                                    <span>Completado</span>
-                                  </>
-                                )}
+              ) : (
+                <div className="trip-timeline">
+                  {groups.map((group) => (
+                    <section key={group.label} className="trip-day">
+                      <h2>{group.label}</h2>
+                      <ol>
+                        {group.items.map((trip) => {
+                          const status = trip.estadoViaje === 'En Curso' ? 'live' : trip.estadoViaje === 'Cancelado' ? 'cancelled' : 'done';
+                          const date = new Date(trip.fechaInicio);
+                          const routeName = trip.nombreRuta && trip.nombreRuta !== 'N/D' ? trip.nombreRuta : (trip.destinoNombre || 'Ruta sin guardar');
+                          return (
+                            <li key={trip.idViaje} className="trip-row" data-status={status}>
+                              <time dateTime={trip.fechaInicio}>
+                                {isNaN(date.getTime()) ? '—' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </time>
+                              <span className="trip-row-dot" aria-hidden="true" />
+                              <button type="button" className="trip-row-main" onClick={() => openDetail(trip)} aria-label={`Ver detalle del viaje ${routeName}`}>
+                                <strong>{routeName}</strong>
+                                <span>{trip.placaAutobus}{isPilotUser ? '' : ` · ${trip.nombrePiloto}`}</span>
+                              </button>
+                              <span className={`trip-status is-${status}`}>
+                                {status === 'live' ? <Radio size={13} aria-hidden="true" /> : status === 'cancelled' ? <AlertTriangle size={13} aria-hidden="true" /> : <CheckCircle2 size={13} aria-hidden="true" />}
+                                {status === 'live' ? 'En curso' : status === 'cancelled' ? 'Cancelado' : 'Completado'}
                               </span>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveLiveRoutePlaca(trip.placaAutobus);
-                                  setFocusedBusPlaca(trip.placaAutobus);
-                                  setActiveTab('map');
-                                }}
-                                style={{
-                                  backgroundColor: 'var(--accent-soft)',
-                                  color: 'var(--accent)',
-                                  border: '1px solid var(--accent-line)',
-                                  borderRadius: '10px',
-                                  padding: '7px 14px',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--accent-soft)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--accent-soft)';
-                                }}
-                              >
-                                <Navigation size={14} />
-                                <span>Ver Ruta</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedTripDetail(trip);
-                                  setShowTripDetailModal(true);
-                                }}
-                                style={{
-                                  backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                                  color: isDark ? '#f8fafc' : '#0f172a',
-                                  border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                                  borderRadius: '10px',
-                                  padding: '7px 14px',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDark ? '#374151' : '#f1f5f9';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDark ? '#1f2937' : '#f8fafc';
-                                }}
-                              >
-                                Ver Detalle
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Botón inferior para ver todo si está en modo semana */}
-                      {activityTimeRange === 'week' && (
-                        <div className="history-more" style={{ textAlign: 'center', marginTop: '12px', padding: '12px' }}>
-                          <button
-                            type="button"
-                            onClick={() => setActivityTimeRange('all')}
-                            style={{
-                              backgroundColor: isDark ? '#111827' : '#ffffff',
-                              color: 'var(--accent)',
-                              border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                              borderRadius: '12px',
-                              padding: '10px 22px',
-                              fontSize: '0.84rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              transition: 'all 0.15s ease',
-                              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.02)'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = 'var(--accent-soft)';
-                              e.currentTarget.style.borderColor = 'var(--accent-line)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = isDark ? '#111827' : '#ffffff';
-                              e.currentTarget.style.borderColor = isDark ? '#374151' : '#e2e8f0';
-                            }}
-                          >
-                            Ver todo el historial completo <ChevronDown size={15} />
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* MODAL "DETALLES DEL VIAJE" */}
-      {showTripDetailModal && selectedTripDetail && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={{
-            ...modalCardStyle,
-            maxWidth: '560px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--line)',
-            borderRadius: '16px',
-            padding: '0',
-            overflow: 'hidden',
-            maxHeight: '90vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: 'var(--shadow-modal)'
-          }}>
-            {/* Header con botón de cerrar */}
-            <div className="trip-detail-header" style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '18px 24px',
-              borderBottom: `1px solid ${isDark ? '#1f2937' : '#f1f5f9'}`
-            }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>
-                Detalles del Viaje
-              </h3>
-              <button
-                onClick={() => setShowTripDetailModal(false)}
-                style={{
-                  background: isDark ? '#1f2937' : '#f1f5f9',
-                  border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#64748b',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700
-                }}
-              >
-                <X size={17} />
-              </button>
-            </div>
-
-            {/* Contenido Scrollable */}
-            <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Encabezado del Viaje con Avatar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1.2 }}>
-                    Viaje con {selectedTripDetail.nombrePiloto}
-                  </h2>
-                  <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.85rem', marginTop: '4px', fontWeight: 500 }}>
-                    {new Date(selectedTripDetail.fechaInicio).toLocaleDateString('es-GT', { day: 'numeric', month: 'short' })} {new Date(selectedTripDetail.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Placa: {selectedTripDetail.placaAutobus}
-                  </div>
-                </div>
-
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '14px',
-                  backgroundColor: 'var(--accent-soft)',
-                  border: '1px solid var(--accent-line)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--accent)',
-                  flexShrink: 0
-                }}>
-                  <Bus size={24} color="var(--accent)" strokeWidth={2} />
-                </div>
-              </div>
-
-              {/* Botón Principal de Ver Ruta HASTA ARRIBA */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowTripDetailModal(false);
-                  setActiveLiveRoutePlaca(selectedTripDetail.placaAutobus);
-                  setFocusedBusPlaca(selectedTripDetail.placaAutobus);
-                  setActiveTab('map');
-                }}
-                style={{
-                  backgroundColor: 'var(--accent)',
-                  backgroundImage: 'none',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '12px 18px',
-                  fontSize: '0.92rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 9px 22px var(--accent-shadow)',
-                  transition: 'all 0.15s ease',
-                  width: '100%'
-                }}
-              >
-                <Navigation size={18} />
-                <span>Ver Ruta en el Mapa</span>
-              </button>
-
-              {canManageOperations
-                && !selectedTripDetail.idRuta
-                && selectedTripDetail.destinoLatitud != null
-                && selectedTripDetail.destinoLongitud != null && (
-                <button
-                  type="button"
-                  onClick={() => openSaveTripAsRouteModal(selectedTripDetail)}
-                  style={{
-                    ...cancelButtonStyle,
-                    width: '100%',
-                    justifyContent: 'center',
-                    color: 'var(--accent)',
-                    borderColor: 'var(--accent-line)',
-                    background: 'var(--accent-soft)',
-                    padding: '11px 16px',
-                  }}
-                >
-                  <BookmarkPlus size={17} /> Guardar como ruta frecuente
-                </button>
-              )}
-
-              {canManageOperations && selectedTripDetail.estadoViaje === 'En Curso' && (
-                <div style={{
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  border: '1px solid var(--accent-line)',
-                  borderRadius: '14px',
-                  background: 'var(--accent-soft)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div>
-                      <strong style={{ color: isDark ? '#f8fafc' : '#172429', fontSize: '0.88rem' }}>Seguimiento para pasajeros</strong>
-                      <p style={{ margin: '4px 0 0', color: isDark ? '#94a3b8' : '#66777d', fontSize: '0.76rem', lineHeight: 1.45 }}>
-                        Compartir reutiliza el enlace vigente. Rotar invalida el anterior y conserva el historial interno.
-                      </p>
-                    </div>
-                    <QrCode size={21} color="var(--accent)" />
-                  </div>
-                  <button type="button" onClick={() => void createPublicTripLink(selectedTripDetail, true)} disabled={creatingPublicLink}>Rotar enlace</button>
-                  {!publicTripLink ? (
-                    <button
-                      type="button"
-                      onClick={() => void createPublicTripLink(selectedTripDetail)}
-                      disabled={creatingPublicLink}
-                      style={{ ...saveButtonStyle, justifyContent: 'center', width: '100%', opacity: creatingPublicLink ? 0.65 : 1 }}
-                    >
-                      <QrCode size={16} /> {creatingPublicLink ? 'Generando acceso...' : 'Generar enlace y QR'}
+                              {status === 'live' && !isPilotUser && (
+                                <button
+                                  type="button"
+                                  className="pill-button is-ghost trip-row-map"
+                                  onClick={() => {
+                                    setActiveLiveRoutePlaca(trip.placaAutobus);
+                                    setFocusedBusPlaca(trip.placaAutobus);
+                                    setActiveTab('map');
+                                  }}
+                                >
+                                  <Navigation size={14} aria-hidden="true" /> Ver en mapa
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </section>
+                  ))}
+                  {activityTimeRange === 'week' && (
+                    <button type="button" className="pill-button is-ghost trip-more" onClick={() => setActivityTimeRange('all')}>
+                      Ver todo el historial <ChevronDown size={15} aria-hidden="true" />
                     </button>
-                  ) : (
-                    <div className="public-link-grid" style={{ display: 'grid', gridTemplateColumns: '112px minmax(0, 1fr)', gap: '12px', alignItems: 'center' }}>
-                      {publicTripQr && <img src={publicTripQr} alt="Código QR del viaje" style={{ width: '112px', height: '112px', padding: '6px', borderRadius: '12px', background: '#fff' }} />}
-                      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <input
-                          aria-label="Enlace público del viaje"
-                          readOnly
-                          value={publicTripLink}
-                          onFocus={(event) => event.currentTarget.select()}
-                          style={{ ...formInputStyle, width: '100%', fontSize: '0.72rem', padding: '9px 10px' }}
-                        />
-                        <div className="public-link-actions" style={{ display: 'flex', gap: '7px' }}>
-                          <button type="button" onClick={() => void copyPublicTripLink()} style={{ ...cancelButtonStyle, flex: 1, justifyContent: 'center' }}><Copy size={14} /> Copiar</button>
-                          <button type="button" onClick={() => window.open(publicTripLink, '_blank', 'noopener,noreferrer')} style={{ ...saveButtonStyle, flex: 1, justifyContent: 'center' }}><ExternalLink size={14} /> Abrir</button>
-                        </div>
-                      </div>
-                    </div>
                   )}
                 </div>
               )}
+            </div>
+          );
+        })()
+      )}
 
-              {/* Puntos de Origen y Destino */}
-              <div style={{
-                backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                borderRadius: '14px',
-                padding: '16px',
-                border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px'
-              }}>
-                {/* Origen */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--accent)',
-                    marginTop: '5px',
-                    flexShrink: 0
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.9rem', fontWeight: 700 }}>
-                      Origen: {selectedTripDetail.origenRuta || 'Punto de salida'}
-                    </div>
-                    <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.78rem', marginTop: '2px' }}>
-                      Salida programada • {new Date(selectedTripDetail.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Línea divisoria */}
-                <div style={{ width: '2px', height: '12px', backgroundColor: isDark ? '#374151' : '#cbd5e1', marginLeft: '4px' }} />
-
-                {/* Destino */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '2px',
-                    backgroundColor: '#ef4444',
-                    marginTop: '5px',
-                    flexShrink: 0
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.9rem', fontWeight: 700 }}>
-                      Destino: {selectedTripDetail.destinoRuta || selectedTripDetail.destinoNombre || 'Destino por confirmar'}
-                    </div>
-                    <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.78rem', marginTop: '2px' }}>
-                      {selectedTripDetail.fechaFin
-                        ? `Llegada registrada • ${new Date(selectedTripDetail.fechaFin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                        : 'Recorrido en progreso (En Ruta)'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Registro de Seguridad y Alertas */}
-              <div style={{
-                backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                borderRadius: '14px',
-                padding: '16px',
-                border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.88rem' }}>Seguridad y Telemetría</strong>
-                  <span style={{ fontSize: '0.76rem', color: isDark ? '#34d399' : '#059669', fontWeight: 700, backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5', padding: '2px 8px', borderRadius: '6px' }}>
-                    Estado: {selectedTripDetail.estadoViaje}
-                  </span>
-                </div>
-                {historicalAlerts.filter(a => a.idViaje === selectedTripDetail.idViaje).length === 0 ? (
-                  <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.82rem', marginTop: '4px' }}>
-                    <strong>Conducción Segura:</strong> No se detectaron infracciones de velocidad ni maniobras bruscas durante este recorrido.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
-                    {historicalAlerts.filter(a => a.idViaje === selectedTripDetail.idViaje).map((alt) => (
-                      <div key={alt.idAlerta} style={{ backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2', border: `1px solid ${isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca'}`, borderRadius: '8px', padding: '8px 10px', fontSize: '0.8rem', color: '#ef4444' }}>
-                        <strong>{alt.tipoAlerta}:</strong> {alt.valorRegistrado} registrado a las {new Date(alt.fechaHora).toLocaleTimeString()}
-                      </div>
-                    ))}
-                  </div>
+      {showTripDetailModal && selectedTripDetail && (() => {
+        const detail = selectedTripDetail;
+        const tripAlerts = historicalAlerts.filter(a => a.idViaje === detail.idViaje);
+        const started = new Date(detail.fechaInicio);
+        const inProgress = detail.estadoViaje === 'En Curso';
+        const closeDetail = () => setShowTripDetailModal(false);
+        return (
+          <Dialog
+            kicker={`Viaje #${detail.idViaje}`}
+            icon={<Bus size={20} />}
+            title={`Viaje con ${detail.nombrePiloto}`}
+            description={`${started.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' })} · ${started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Unidad ${detail.placaAutobus}`}
+            onClose={closeDetail}
+            footer={(
+              <>
+                {canManageOperations && !detail.idRuta && detail.destinoLatitud != null && detail.destinoLongitud != null && (
+                  <button type="button" className="pill-button is-ghost dlg-foot-start" onClick={() => openSaveTripAsRouteModal(detail)}>
+                    <BookmarkPlus size={16} aria-hidden="true" /> Guardar como ruta
+                  </button>
                 )}
-              </div>
-
-              {/* Botones de Acción */}
-              <div className="trip-detail-actions" style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button type="button" className="pill-button is-ghost" onClick={closeDetail}>Cerrar</button>
                 <button
                   type="button"
+                  className="pill-button"
                   onClick={() => {
-                    setShowTripDetailModal(false);
+                    closeDetail();
+                    setActiveLiveRoutePlaca(detail.placaAutobus);
+                    setFocusedBusPlaca(detail.placaAutobus);
                     setActiveTab('map');
                   }}
-                  style={{
-                    ...saveButtonStyle,
-                    flex: 1,
-                    backgroundColor: 'var(--accent)',
-                    padding: '11px',
-                    fontSize: '0.88rem',
-                    fontWeight: 600
-                  }}
                 >
-                  Ver en Mapa en Vivo
+                  <Navigation size={16} aria-hidden="true" /> Ver en el mapa
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowTripDetailModal(false)}
-                  style={{
-                    ...cancelButtonStyle,
-                    padding: '11px 20px',
-                    fontSize: '0.88rem'
-                  }}
-                >
-                  Cerrar
-                </button>
-              </div>
+              </>
+            )}
+          >
+            <div className="dlg-chips">
+              <span className={`dlg-chip${inProgress ? ' is-live' : ''}`}>{inProgress ? 'En ruta' : detail.estadoViaje}</span>
+              <span className={`dlg-chip${tripAlerts.length ? ' is-danger' : ' is-ok'}`}>
+                {tripAlerts.length ? `${tripAlerts.length} ${tripAlerts.length === 1 ? 'alerta' : 'alertas'}` : 'Conducción segura'}
+              </span>
             </div>
-          </div>
-        </div>
-      )}
+
+            <ol className="dlg-timeline">
+              <li>
+                <span className="dlg-dot" aria-hidden="true" />
+                <div>
+                  <strong>{detail.origenRuta || 'Punto de salida'}</strong>
+                  <span>Salida · {started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              </li>
+              <li>
+                <span className="dlg-dot is-end" aria-hidden="true" />
+                <div>
+                  <strong>{detail.destinoRuta || detail.destinoNombre || 'Destino por confirmar'}</strong>
+                  <span>{detail.fechaFin
+                    ? `Llegada · ${new Date(detail.fechaFin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : 'En camino'}</span>
+                </div>
+              </li>
+            </ol>
+
+            {canManageOperations && inProgress && (
+              <section className="dlg-section">
+                <div className="dlg-section-head">
+                  <div>
+                    <strong>Enlace para pasajeros</strong>
+                    <span>Compartir reutiliza el enlace vigente. Rotarlo invalida el anterior.</span>
+                  </div>
+                  <button type="button" className="pill-button is-ghost is-small" onClick={() => void createPublicTripLink(detail, true)} disabled={creatingPublicLink}>
+                    <RefreshCw size={14} aria-hidden="true" /> Rotar
+                  </button>
+                </div>
+                {!publicTripLink ? (
+                  <button type="button" className="pill-button is-ghost" onClick={() => void createPublicTripLink(detail)} disabled={creatingPublicLink}>
+                    <QrCode size={16} aria-hidden="true" /> {creatingPublicLink ? 'Generando…' : 'Generar enlace y QR'}
+                  </button>
+                ) : (
+                  <div className="dlg-share">
+                    {publicTripQr && <img src={publicTripQr} alt="Código QR del viaje" />}
+                    <div>
+                      <input aria-label="Enlace público del viaje" className="dlg-input" readOnly value={publicTripLink} onFocus={(event) => event.currentTarget.select()} />
+                      <div className="dlg-share-actions">
+                        <button type="button" className="pill-button is-ghost is-small" onClick={() => void copyPublicTripLink()}><Copy size={14} aria-hidden="true" /> Copiar</button>
+                        <button type="button" className="pill-button is-ghost is-small" onClick={() => window.open(publicTripLink, '_blank', 'noopener,noreferrer')}><ExternalLink size={14} aria-hidden="true" /> Abrir</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="dlg-section">
+              <div className="dlg-section-head">
+                <div>
+                  <strong>Seguridad</strong>
+                  <span>{tripAlerts.length
+                    ? 'Eventos registrados durante este recorrido.'
+                    : 'Sin excesos de velocidad ni maniobras bruscas en este recorrido.'}</span>
+                </div>
+              </div>
+              {tripAlerts.length > 0 && (
+                <ul className="dlg-alerts">
+                  {tripAlerts.map((alt) => (
+                    <li key={alt.idAlerta}>
+                      <strong>{alt.tipoAlerta}</strong>
+                      <span>{alt.valorRegistrado}</span>
+                      <time>{new Date(alt.fechaHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </Dialog>
+        );
+      })()}
 
       {/* VISTA DE CHAT OPERATIVO EN TIEMPO REAL - CANAL GENERAL Y PRIVADO */}
       {activeTab === 'chat' && (
-        <div className="dashboard-view chat-view" style={{ display: 'flex', gap: '20px', width: '100%', height: 'calc(100vh - 220px)', minHeight: '600px' }}>
+        <div className="dashboard-view chat-view">
           {/* Panel Izquierdo: Selector de Canales (General vs Privados) */}
           <div className="chat-channel-panel" style={{
             width: '320px',
@@ -3999,7 +3060,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '8px',
                     border: 'none',
                     backgroundColor: chatMode === 'general' ? 'var(--accent)' : 'transparent',
-                    color: chatMode === 'general' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                    color: chatMode === 'general' ? 'var(--on-accent)' : 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -4035,7 +3096,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '8px',
                     border: 'none',
                     backgroundColor: chatMode === 'private' ? 'var(--accent)' : 'transparent',
-                    color: chatMode === 'private' ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                    color: chatMode === 'private' ? 'var(--on-accent)' : 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -4048,7 +3109,7 @@ export const TelemetryDashboard: React.FC = () => {
                   }}
                 >
                   <Users size={14} />
-                  <span>Piloto y despacho</span>
+                  <span>Privado</span>
                 </button>
                 <button
                   type="button"
@@ -4059,7 +3120,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '8px',
                     border: 'none',
                     backgroundColor: 'transparent',
-                    color: isDark ? '#94a3b8' : '#64748b',
+                    color: 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -4089,14 +3150,14 @@ export const TelemetryDashboard: React.FC = () => {
                     <div style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Radio size={14} /> Canal de Radio General
                     </div>
-                    <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.74rem', marginTop: '2px' }}>Toda la Flota Sincronizada</div>
+                    <div style={{ color: 'var(--muted)', fontSize: '0.74rem', marginTop: '2px' }}>Toda la Flota Sincronizada</div>
                   </div>
 
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: isDark ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '8px' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '8px' }}>
                     Pilotos en Turno ({users.filter(u => u.tipoRol === 'Piloto').length})
                   </div>
                   {users.filter(u => u.tipoRol === 'Piloto').length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '14px', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.78rem' }}>
+                    <div style={{ textAlign: 'center', padding: '14px', color: 'var(--subtle)', fontSize: '0.78rem' }}>
                       Cargando conductores...
                     </div>
                   ) : (
@@ -4106,8 +3167,8 @@ export const TelemetryDashboard: React.FC = () => {
                         style={{
                           padding: '10px 12px',
                           borderRadius: '12px',
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          border: `1px solid ${'var(--line)'}`,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '10px'
@@ -4117,8 +3178,8 @@ export const TelemetryDashboard: React.FC = () => {
                           width: '32px',
                           height: '32px',
                           borderRadius: '10px',
-                          backgroundColor: isDark ? '#111827' : '#f1f5f9',
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          border: `1px solid ${'var(--line)'}`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -4130,10 +3191,10 @@ export const TelemetryDashboard: React.FC = () => {
                           {pilot.nombreCompleto?.charAt(0) || 'P'}
                         </div>
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <div style={{ color: isDark ? '#f8fafc' : '#0f172a', fontWeight: 600, fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ color: 'var(--ink)', fontWeight: 600, fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {pilot.nombreCompleto} {pilot.idUsuario === user?.idUsuario && ' (Tú)'}
                           </div>
-                          <div style={{ color: pilot.estado === 'Activo' ? (isDark ? '#34d399' : '#059669') : (isDark ? '#64748b' : '#94a3b8'), fontSize: '0.72rem', marginTop: '1px', fontWeight: 500 }}>
+                          <div style={{ color: pilot.estado === 'Activo' ? ('var(--success)') : ('var(--subtle)'), fontSize: '0.72rem', marginTop: '1px', fontWeight: 500 }}>
                             <span className={`presence-label ${pilot.estado === 'Activo' ? 'is-online' : ''}`}><span className="presence-dot" />{pilot.estado === 'Activo' ? 'En línea' : 'Desconectado'}</span>
                           </div>
                         </div>
@@ -4144,7 +3205,7 @@ export const TelemetryDashboard: React.FC = () => {
               ) : (
                 /* Modo Privado */
                 <>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: isDark ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {user?.tipoRol === 'Piloto' ? 'Canal con Despacho' : 'Seleccionar Piloto'}
                   </div>
 
@@ -4158,24 +3219,24 @@ export const TelemetryDashboard: React.FC = () => {
                       <div style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <MessageSquare size={14} /> Centro de Despacho
                       </div>
-                      <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.74rem', marginTop: '2px' }}>Línea Confidencial Directa</div>
+                      <div style={{ color: 'var(--muted)', fontSize: '0.74rem', marginTop: '2px' }}>Línea Confidencial Directa</div>
                     </div>
                   ) : (
                     loadingUsers ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.8rem' }}>
+                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--subtle)', fontSize: '0.8rem' }}>
                         Cargando pilotos...
                       </div>
                     ) : users.filter(u => u.tipoRol === 'Piloto').length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.8rem' }}>
+                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--subtle)', fontSize: '0.8rem' }}>
                         <div>No se encontraron pilotos registrados.</div>
                         <button
                           type="button"
                           onClick={() => fetchUsers()}
                           style={{
                             marginTop: '10px',
-                            backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                            backgroundColor: 'var(--surface)',
                             color: 'var(--accent)',
-                            border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                            border: `1.5px solid ${'var(--line)'}`,
                             padding: '6px 12px',
                             borderRadius: '8px',
                             cursor: 'pointer',
@@ -4203,9 +3264,9 @@ export const TelemetryDashboard: React.FC = () => {
                               gap: '10px',
                               padding: '10px 12px',
                               borderRadius: '12px',
-                              backgroundColor: isActive ? 'var(--accent-soft)' : (isDark ? '#1f2937' : '#ffffff'),
-                              border: `1px solid ${isActive ? 'var(--accent-line)' : (isDark ? '#374151' : '#e2e8f0')}`,
-                              color: isDark ? '#f8fafc' : '#0f172a',
+                              backgroundColor: isActive ? 'var(--accent-soft)' : ('var(--surface)'),
+                              border: `1px solid ${isActive ? 'var(--accent-line)' : ('var(--line)')}`,
+                              color: 'var(--ink)',
                               cursor: 'pointer',
                               textAlign: 'left',
                               width: '100%',
@@ -4217,7 +3278,7 @@ export const TelemetryDashboard: React.FC = () => {
                               width: '32px',
                               height: '32px',
                               borderRadius: '10px',
-                              backgroundColor: isActive ? 'var(--accent-soft)' : (isDark ? '#111827' : '#f1f5f9'),
+                              backgroundColor: isActive ? 'var(--accent-soft)' : ('var(--surface-soft)'),
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -4229,10 +3290,10 @@ export const TelemetryDashboard: React.FC = () => {
                               {pilot.nombreCompleto?.charAt(0) || 'P'}
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
-                              <div style={{ fontWeight: 600, fontSize: '0.84rem', color: isDark ? '#f8fafc' : '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {pilot.nombreCompleto}
                               </div>
-                              <div style={{ fontSize: '0.72rem', color: pilot.estado === 'Activo' ? (isDark ? '#34d399' : '#059669') : (isDark ? '#64748b' : '#94a3b8'), marginTop: '1px', fontWeight: 500 }}>
+                              <div style={{ fontSize: '0.72rem', color: pilot.estado === 'Activo' ? ('var(--success)') : ('var(--subtle)'), marginTop: '1px', fontWeight: 500 }}>
                                 <span className={`presence-label ${pilot.estado === 'Activo' ? 'is-online' : ''}`}><span className="presence-dot" />{pilot.estado === 'Activo' ? 'Operativo' : 'Desconectado'}</span>
                               </div>
                             </div>
@@ -4267,18 +3328,17 @@ export const TelemetryDashboard: React.FC = () => {
               backgroundColor: 'var(--surface)'
             }}>
               <div>
-                <h3 style={{ margin: 0, color: isDark ? '#f8fafc' : '#0f172a', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
-                  <MessageSquare size={18} color="var(--accent)" />
+                <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
                   <span>
                     {chatMode === 'general'
-                      ? 'Canal General de la Flota'
-                      : (user?.tipoRol === 'Piloto' ? 'Piloto y despacho' : `${selectedChatPilotName} y despacho`)}
+                      ? 'Toda la flota'
+                      : (user?.tipoRol === 'Piloto' ? 'Despacho' : selectedChatPilotName)}
                   </span>
                 </h3>
-                <p style={{ margin: '2px 0 0 0', color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.82rem' }}>
+                <p style={{ margin: '2px 0 0 0', color: 'var(--muted)', fontSize: '0.82rem' }}>
                   {chatMode === 'general'
-                    ? 'Comunicación abierta y sincronizada entre Administración y todos los Pilotos'
-                    : (user?.tipoRol === 'Piloto' ? 'Línea directa y confidencial con el Centro de Control' : 'Conversación privada 1-a-1 con el conductor')}
+                    ? 'Lo ven todos los pilotos y la administración.'
+                    : (user?.tipoRol === 'Piloto' ? 'Solo tú, despacho y supervisión.' : 'Solo este piloto, despacho y supervisión.')}
                 </p>
               </div>
 
@@ -4334,13 +3394,13 @@ export const TelemetryDashboard: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
-                backgroundColor: isDark ? '#0b0f19' : '#f8fafc'
+                backgroundColor: 'var(--canvas)'
               }}
             >
               {chatLoading ? (
-                <div style={{ margin: 'auto', color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.88rem' }}>Cargando mensajes...</div>
+                <div style={{ margin: 'auto', color: 'var(--muted)', fontSize: '0.88rem' }}>Cargando mensajes...</div>
               ) : chatMessages.length === 0 ? (
-                <div style={{ margin: 'auto', textAlign: 'center', color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.88rem' }}>
+                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--muted)', fontSize: '0.88rem' }}>
                   No hay mensajes en esta conversación.
                 </div>
               ) : (
@@ -4371,7 +3431,7 @@ export const TelemetryDashboard: React.FC = () => {
                           style={{
                             width: '34px',
                             height: '34px',
-                            borderRadius: '11px',
+                            borderRadius: '999px',
                             flexShrink: 0,
                             display: 'flex',
                             alignItems: 'center',
@@ -4381,7 +3441,7 @@ export const TelemetryDashboard: React.FC = () => {
                             fontSize: '0.72rem',
                             fontWeight: 900,
                             letterSpacing: '0.02em',
-                            boxShadow: `0 0 0 3px ${isDark ? '#0b0f19' : '#f8fafc'}`
+                            boxShadow: `0 0 0 3px ${'var(--canvas)'}`
                           }}
                         >
                           {getChatInitials(msg.nombreEmisor)}
@@ -4394,14 +3454,13 @@ export const TelemetryDashboard: React.FC = () => {
                         title={isCurrentViewerAdmin ? "Click para ver fecha/hora • Click derecho para eliminar" : "Click para ver fecha/hora"}
                         style={{
                           maxWidth: '72%',
-                          backgroundColor: isMine ? 'var(--accent)' : (isDark ? senderVisual.dark : senderVisual.light),
-                          border: `1px solid ${isMine ? 'var(--accent)' : senderVisual.accent}`,
-                          borderLeftWidth: isMine ? '1px' : '4px',
-                          borderRadius: '14px',
-                          borderBottomRightRadius: isMine ? '3px' : '14px',
-                          borderBottomLeftRadius: isMine ? '14px' : '3px',
+                          backgroundColor: isMine ? 'var(--accent)' : 'var(--surface)',
+                          border: `1px solid ${isMine ? 'var(--accent)' : 'var(--line)'}`,
+                          borderRadius: '18px',
+                          borderBottomRightRadius: isMine ? '6px' : '18px',
+                          borderBottomLeftRadius: isMine ? '18px' : '6px',
                           padding: '10px 16px',
-                          color: isMine ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a'),
+                          color: isMine ? 'var(--on-accent)' : ('var(--ink)'),
                           cursor: 'pointer',
                           userSelect: 'none',
                           position: 'relative',
@@ -4426,7 +3485,7 @@ export const TelemetryDashboard: React.FC = () => {
                             </span>
                           </div>
                         )}
-                        <div style={{ fontSize: '0.9rem', lineHeight: '1.45', wordBreak: 'break-word', color: isMine ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a') }}>
+                        <div style={{ fontSize: '0.9rem', lineHeight: '1.45', wordBreak: 'break-word', color: isMine ? 'var(--on-accent)' : ('var(--ink)') }}>
                           {msg.contenido}
                         </div>
                         <div style={{
@@ -4435,7 +3494,7 @@ export const TelemetryDashboard: React.FC = () => {
                           alignItems: 'center',
                           gap: '5px',
                           marginTop: '5px',
-                          color: isMine ? 'rgba(255,255,255,0.76)' : (isDark ? '#cbd5e1' : '#64748b'),
+                          color: isMine ? 'rgba(255,255,255,0.76)' : ('var(--muted)'),
                           fontSize: '0.68rem',
                           fontWeight: 600
                         }}>
@@ -4446,7 +3505,7 @@ export const TelemetryDashboard: React.FC = () => {
                         {isExpanded && (
                           <div style={{
                             fontSize: '0.72rem',
-                            color: isMine ? 'rgba(255,255,255,0.86)' : (isDark ? '#cbd5e1' : '#64748b'),
+                            color: isMine ? 'rgba(255,255,255,0.86)' : ('var(--muted)'),
                             marginTop: '6px',
                             paddingTop: '6px',
                             borderTop: `1px solid ${isMine ? 'rgba(255,255,255,0.3)' : `${senderVisual.accent}44`}`,
@@ -4469,8 +3528,8 @@ export const TelemetryDashboard: React.FC = () => {
             {/* Chips de Respuestas Rápidas */}
             <div className="chat-quick-replies" style={{
               padding: '10px 24px',
-              backgroundColor: isDark ? '#111827' : '#ffffff',
-              borderTop: `1px solid ${isDark ? '#1f2937' : '#f1f5f9'}`,
+              backgroundColor: 'var(--surface)',
+              borderTop: `1px solid ${'var(--surface-soft)'}`,
               display: 'flex',
               gap: '8px',
               overflowX: 'auto',
@@ -4510,9 +3569,9 @@ export const TelemetryDashboard: React.FC = () => {
                   onClick={() => handleSendChatMessage(chip.text, 'alerta')}
                   disabled={user?.tipoRol === 'Supervisor'}
                   style={{
-                    backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                    color: isDark ? '#cbd5e1' : '#475569',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                    backgroundColor: 'var(--surface-soft)',
+                    color: 'var(--muted)',
+                    border: `1.5px solid ${'var(--line)'}`,
                     borderRadius: '10px',
                     padding: '6px 14px',
                     fontSize: '0.8rem',
@@ -4524,11 +3583,11 @@ export const TelemetryDashboard: React.FC = () => {
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = isDark ? '#374151' : '#f1f5f9';
-                    e.currentTarget.style.color = isDark ? '#f8fafc' : '#0f172a';
+                    e.currentTarget.style.color = 'var(--ink)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = isDark ? '#1f2937' : '#f8fafc';
-                    e.currentTarget.style.color = isDark ? '#cbd5e1' : '#475569';
+                    e.currentTarget.style.backgroundColor = 'var(--surface-soft)';
+                    e.currentTarget.style.color = 'var(--muted)';
                   }}
                 >
                   {chip.label}
@@ -4545,11 +3604,11 @@ export const TelemetryDashboard: React.FC = () => {
               }}
               style={{
                 padding: '16px 24px',
-                borderTop: `1px solid ${isDark ? '#1f2937' : '#f1f5f9'}`,
+                borderTop: `1px solid ${'var(--surface-soft)'}`,
                 display: 'flex',
                 gap: '12px',
                 alignItems: 'center',
-                backgroundColor: isDark ? '#111827' : '#ffffff',
+                backgroundColor: 'var(--surface)',
                 flexShrink: 0
               }}
             >
@@ -4561,9 +3620,9 @@ export const TelemetryDashboard: React.FC = () => {
                 disabled={user?.tipoRol === 'Supervisor'}
                 style={{
                   ...formInputStyle,
-                  backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                  borderColor: isDark ? '#374151' : '#e2e8f0',
-                  color: isDark ? '#f8fafc' : '#0f172a',
+                  backgroundColor: 'var(--surface-soft)',
+                  borderColor: 'var(--line)',
+                  color: 'var(--ink)',
                   padding: '12px 18px',
                   borderRadius: '14px',
                   fontSize: '0.9rem',
@@ -4575,7 +3634,7 @@ export const TelemetryDashboard: React.FC = () => {
                 disabled={user?.tipoRol === 'Supervisor' || !chatInput.trim() || chatSending}
                 style={{
                   ...saveButtonStyle,
-                  backgroundColor: user?.tipoRol !== 'Supervisor' && chatInput.trim() && !chatSending ? 'var(--accent)' : (isDark ? '#374151' : '#cbd5e1'),
+                  backgroundColor: user?.tipoRol !== 'Supervisor' && chatInput.trim() && !chatSending ? 'var(--accent)' : ('var(--line-strong)'),
                   padding: '12px 22px',
                   borderRadius: '14px',
                   opacity: user?.tipoRol !== 'Supervisor' && chatInput.trim() && !chatSending ? 1 : 0.6,
@@ -4595,6 +3654,14 @@ export const TelemetryDashboard: React.FC = () => {
         </div>
       )}
 
+      {qrBus && <BusQrModal idAutobus={qrBus.idAutobus} placa={qrBus.placa} onClose={() => setQrBus(null)} />}
+      {stopsRoute && (
+        <RouteStopsModal
+          route={stopsRoute}
+          onClose={() => setStopsRoute(null)}
+          onSaved={(count) => { setStopsRoute(null); notify(count ? `Ruta con ${count} paradas guardada.` : 'La ruta quedó sin paradas.', 'success'); }}
+        />
+      )}
       {showPassengerInbox && <PassengerInbox readOnly={user?.tipoRol === 'Supervisor'} onClose={() => setShowPassengerInbox(false)} />}
 
       {/* Menú Contextual Flotante de Click Derecho en Mensajes */}
@@ -4605,8 +3672,8 @@ export const TelemetryDashboard: React.FC = () => {
             position: 'fixed',
             top: Math.min(chatContextMenu.y, window.innerHeight - 90),
             left: Math.min(chatContextMenu.x, window.innerWidth - 180),
-            backgroundColor: isDark ? '#1f2937' : '#ffffff',
-            border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+            backgroundColor: 'var(--surface)',
+            border: `1px solid ${'var(--line)'}`,
             borderRadius: '12px',
             padding: '4px',
             boxShadow: isDark ? '0 12px 30px rgba(0, 0, 0, 0.6)' : '0 12px 30px rgba(0, 0, 0, 0.12)',
@@ -4628,7 +3695,7 @@ export const TelemetryDashboard: React.FC = () => {
               alignItems: 'center',
               backgroundColor: 'transparent',
               border: 'none',
-              color: '#0f172a',
+              color: 'var(--ink)',
               padding: '8px 12px',
               borderRadius: '8px',
               cursor: 'pointer',
@@ -4638,7 +3705,7 @@ export const TelemetryDashboard: React.FC = () => {
               width: '100%',
               transition: 'background 0.15s ease'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-soft)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             Ver Fecha y Hora

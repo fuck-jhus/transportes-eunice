@@ -38,6 +38,9 @@ public static class DatabaseSchemaInitializer
               OR COL_LENGTH('dbo.guest_push_subscription','ProtectedUrl') IS NULL
               OR COL_LENGTH('dbo.guest_push_job','LeaseUntil') IS NULL
               OR COL_LENGTH('dbo.guest_push_keys','ProtectedPrivateKey') IS NULL
+              OR COL_LENGTH('dbo.autobus','codigo_publico') IS NULL
+              OR COL_LENGTH('dbo.conversacion_pasajero','fecha_derivada_piloto') IS NULL
+              OR OBJECT_ID('dbo.parada_ruta','U') IS NULL
               OR COL_LENGTH('dbo.push_notification_marker','EventKey') IS NULL
               OR EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('dbo.evaluacion_piloto_mensual') AND name='calificacion_desempeno' AND is_nullable=0)
               OR NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.push_outbox_message') AND name='UX_push_outbox_event' AND is_unique=1 AND is_disabled=0)
@@ -53,7 +56,7 @@ public static class DatabaseSchemaInitializer
               OR NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.ruta') AND name='UX_ruta_nombre_normalizado' AND is_unique=1 AND is_disabled=0)
               THEN 1 ELSE 0 END AS [Value]
             """).SingleAsync();
-        if (missing != 0) throw new InvalidOperationException("Faltan migraciones SQL 20261016_integridad.sql / 20261017_push_operations.sql / 20261110_evaluacion_sin_calificar.sql. Aplícalas con el servicio detenido y una cuenta de migración; la cuenta de ejecución no necesita DDL.");
+        if (missing != 0) throw new InvalidOperationException("Faltan migraciones SQL 20261016_integridad.sql / 20261017_push_operations.sql / 20261110_evaluacion_sin_calificar.sql / 20261111_pasajeros.sql. Aplícalas con el servicio detenido y una cuenta de migración; la cuenta de ejecución no necesita DDL.");
     }
 
     public static async Task ApplyAsync(
@@ -373,6 +376,10 @@ public static class DatabaseSchemaInitializer
             ?? throw new InvalidOperationException("Falta la migración de evaluaciones.");
         using var evaluationReader = new StreamReader(evaluationMigration);
         await context.Database.ExecuteSqlRawAsync(await evaluationReader.ReadToEndAsync(cancellationToken), cancellationToken);
+        using var passengerMigration = typeof(DatabaseSchemaInitializer).Assembly.GetManifestResourceStream("webapi.Sql.20261111_pasajeros.sql")
+            ?? throw new InvalidOperationException("Falta la migración de pasajeros.");
+        using var passengerReader = new StreamReader(passengerMigration);
+        await context.Database.ExecuteSqlRawAsync(await passengerReader.ReadToEndAsync(cancellationToken), cancellationToken);
         logger.LogInformation("Esquema de base de datos verificado y actualizado.");
     }
 }

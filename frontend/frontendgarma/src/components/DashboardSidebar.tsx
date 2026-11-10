@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BarChart3, Bus, ClipboardList, LogOut, MapPinned, MessageSquare, Navigation, Users } from 'lucide-react';
+import { BarChart3, Bus, ClipboardList, LogOut, MapPinned, MessageSquare, Moon, Navigation, Sun, Users } from 'lucide-react';
 import { getDashboardStyles } from '../styles/dashboardStyles';
 import type { DashboardTab, ManagedUser } from '../types/dashboard';
 
@@ -7,7 +7,9 @@ interface DashboardSidebarProps {
   activeTab: DashboardTab;
   isDark: boolean;
   role?: ManagedUser['tipoRol'];
+  userName?: string;
   onTabChange: (tab: DashboardTab) => void;
+  onToggleTheme: () => void;
   onLogout: () => void;
 }
 
@@ -15,7 +17,9 @@ export const DashboardSidebar = ({
   activeTab,
   isDark,
   role,
+  userName,
   onTabChange,
+  onToggleTheme,
   onLogout,
 }: DashboardSidebarProps) => {
   const styles = getDashboardStyles(isDark);
@@ -46,58 +50,67 @@ export const DashboardSidebar = ({
         </div>
 
         <nav ref={navRef} className="sidebar-nav" style={styles.sidebarNavListStyle} aria-label="Navegación principal">
-          <button type="button" onClick={() => onTabChange('map')} data-active={activeTab === 'map' || activeTab === 'telemetry'}
+          <button type="button" aria-label="Mapa en vivo" onClick={() => onTabChange('map')} data-active={activeTab === 'map' || activeTab === 'telemetry'}
             aria-current={(activeTab === 'map' || activeTab === 'telemetry') ? 'page' : undefined}
             style={(activeTab === 'map' || activeTab === 'telemetry') ? styles.sidebarNavActiveStyle : styles.sidebarNavInactiveStyle}>
-            <Navigation size={18} /><span>Monitoreo GPS</span>
+            <Navigation size={18} /><span>Mapa en vivo</span>
           </button>
 
           {canDispatch && (
-            <button type="button" onClick={() => onTabChange('alerts')} data-active={activeTab === 'alerts'}
+            <button type="button" aria-label="Alertas" onClick={() => onTabChange('alerts')} data-active={activeTab === 'alerts'}
               aria-current={activeTab === 'alerts' ? 'page' : undefined} style={navStyle('alerts')}>
-              <BarChart3 size={18} /><span>Alertas y Telemetría</span>
+              <BarChart3 size={18} /><span>Alertas</span>
             </button>
           )}
 
-          <button type="button" onClick={() => onTabChange('activity')} data-active={activeTab === 'activity'}
+          <button type="button" aria-label="Viajes" onClick={() => onTabChange('activity')} data-active={activeTab === 'activity'}
             aria-current={activeTab === 'activity' ? 'page' : undefined} style={navStyle('activity')}>
-            <ClipboardList size={18} /><span>Historial de Viajes</span>
+            <ClipboardList size={18} /><span>Viajes</span>
           </button>
 
           {canDispatch && (
-            <button type="button" onClick={() => onTabChange('buses')} data-active={activeTab === 'buses'}
+            <button type="button" aria-label="Autobuses" onClick={() => onTabChange('buses')} data-active={activeTab === 'buses'}
               aria-current={activeTab === 'buses' ? 'page' : undefined} style={navStyle('buses')}>
               <Bus size={18} /><span>Autobuses</span>
             </button>
           )}
 
           {canDispatch && (
-            <button type="button" onClick={() => onTabChange('routes')} data-active={activeTab === 'routes'}
+            <button type="button" aria-label="Rutas" onClick={() => onTabChange('routes')} data-active={activeTab === 'routes'}
               aria-current={activeTab === 'routes' ? 'page' : undefined} style={navStyle('routes')}>
-              <MapPinned size={18} /><span>Rutas guardadas</span>
+              <MapPinned size={18} /><span>Rutas</span>
             </button>
           )}
 
           {canManageUsers && (
-            <button type="button" onClick={() => onTabChange('users')} data-active={activeTab === 'users'}
+            <button type="button" aria-label="Personal" onClick={() => onTabChange('users')} data-active={activeTab === 'users'}
               aria-current={activeTab === 'users' ? 'page' : undefined} style={navStyle('users')}>
               <Users size={18} /><span>Personal</span>
             </button>
           )}
 
-          <button type="button" onClick={() => onTabChange('chat')} data-active={activeTab === 'chat'}
+          <button type="button" aria-label="Chat" onClick={() => onTabChange('chat')} data-active={activeTab === 'chat'}
             aria-current={activeTab === 'chat' ? 'page' : undefined} style={navStyle('chat')}>
-            <MessageSquare size={18} /><span>Chat Operativo</span>
+            <MessageSquare size={18} /><span>Chat</span>
           </button>
         </nav>
       </div>
 
-      <div className="sidebar-actions" style={{
-        paddingTop: '16px', borderTop: '1px solid var(--nav-line)',
-        display: 'flex', flexDirection: 'column', gap: '8px'
-      }}>
-        <button type="button" onClick={onLogout} style={styles.sidebarLogoutButtonStyle}>
-          <LogOut size={18} /><span>Cerrar Sesión</span>
+      <div className="sidebar-actions">
+        <button type="button" className="topbar-icon-button" onClick={onToggleTheme}
+          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          title={isDark ? 'Modo claro' : 'Modo oscuro'}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+        <div className="topbar-user" title={userName}>
+          <span className="topbar-user-avatar" aria-hidden="true">{userName?.trim().charAt(0).toUpperCase() || 'U'}</span>
+          <span className="topbar-user-copy">
+            <strong>{userName || 'Usuario'}</strong>
+            <span>{role}</span>
+          </span>
+        </div>
+        <button type="button" className="topbar-icon-button" onClick={onLogout} aria-label="Cerrar sesión" title="Cerrar sesión">
+          <LogOut size={18} />
         </button>
       </div>
     </aside>

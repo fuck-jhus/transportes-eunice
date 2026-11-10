@@ -21,7 +21,7 @@ public sealed class TripSharingController : ControllerBase
     public TripSharingController(PrevencionAccidentesBusesContext context, IDataProtectionProvider? protection = null)
     {
         _context = context;
-        _protector = (protection ?? new EphemeralDataProtectionProvider()).CreateProtector("Eunice.PublicTripToken.v1");
+        _protector = (protection ?? new EphemeralDataProtectionProvider()).CreateProtector(PublicTripAccess.ProtectorPurpose);
     }
 
     [HttpGet("{id:int}/acceso-publico")]
@@ -57,64 +57,23 @@ public sealed class TripSharingController : ControllerBase
 
     private async Task<IActionResult> CreateAccessAsync(int id, CrearAccesoPublicoDto dto, CancellationToken cancellationToken)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
-        await TripLifecycle.LockAsync(_context, $"trip-access:{id}");
-        var trip = await _context.ViajesDiarios
-            .SingleOrDefaultAsync(item => item.IdViaje == id, cancellationToken);
-        if (trip is null) return NotFound(new { mensaje = "El viaje no existe." });
-        if (!string.Equals(trip.EstadoViaje, EstadosViaje.EnCurso, StringComparison.Ordinal))
-        {
-            return BadRequest(new { mensaje = "Solo se puede compartir un viaje que esté en curso." });
-        }
-
-        var now = DateTime.UtcNow;
-        var previous = await _context.ViajesAccesosPublicos
-            .Where(item => item.IdViaje == id && item.FechaRevocacion == null)
-            .ToListAsync(cancellationToken);
-        var current = previous.FirstOrDefault(x => x.FechaExpiracion > now);
-        if (current != null && !dto.Rotar)
-        {
-            if (current.TokenProtegido == null) return Conflict(new { mensaje = "El enlace anterior no puede recuperarse. Rótalo expresamente para crear uno nuevo sin borrar el historial." });
-            try {
-                var savedToken = _protector.Unprotect(current.TokenProtegido);
-                return Ok(new AccesoPublicoViajeDto { Activo = true, Token = savedToken, FechaExpiracion = current.FechaExpiracion, ChatHabilitado = current.ChatHabilitado });
-            } catch (System.Security.Cryptography.CryptographicException) {
-                return Conflict(new { mensaje = "No se pudo recuperar el enlace. Revisa las claves de protección o rótalo expresamente." });
-            }
-        }
-        foreach (var access in previous)
-        {
-            access.FechaRevocacion = now;
-            access.FechaExpiracion = now;
-        }
-
-        var token = PublicTripToken.Create();
         var userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId)
             ? parsedUserId
             : (int?)null;
-        var entity = new ViajeAccesoPublico
+        var result = await PublicTripAccess.GetOrCreateAsync(_context, _protector, id, userId, dto.ChatHabilitado, dto.Rotar, cancellationToken);
+        return result.Status switch
         {
-            IdAcceso = Guid.NewGuid(),
-            IdViaje = id,
-            TokenHash = PublicTripToken.Hash(token),
-            TokenProtegido = _protector.Protect(token),
-            FechaCreacion = now,
-            FechaExpiracion = now.AddHours(72),
-            ChatHabilitado = dto.ChatHabilitado,
-            IdCreadoPor = userId
+            PublicTripAccessStatus.TripNotFound => NotFound(new { mensaje = "El viaje no existe." }),
+            PublicTripAccessStatus.TripNotActive => BadRequest(new { mensaje = "Solo se puede compartir un viaje que esté en curso." }),
+            PublicTripAccessStatus.Unrecoverable => Conflict(new { mensaje = "El enlace anterior no puede recuperarse. Rótalo expresamente para crear uno nuevo sin borrar el historial." }),
+            _ => Ok(new AccesoPublicoViajeDto
+            {
+                Activo = true,
+                Token = result.Token,
+                FechaExpiracion = result.Access!.FechaExpiracion,
+                ChatHabilitado = result.Access.ChatHabilitado
+            })
         };
-
-        _context.ViajesAccesosPublicos.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
-        return Ok(new AccesoPublicoViajeDto
-        {
-            Activo = true,
-            Token = token,
-            FechaExpiracion = entity.FechaExpiracion,
-            ChatHabilitado = entity.ChatHabilitado
-        });
     }
 
     [HttpDelete("{id:int}/acceso-publico")]

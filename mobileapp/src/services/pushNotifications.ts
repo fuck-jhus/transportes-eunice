@@ -66,7 +66,7 @@ export const registerPushNotificationsAsync = (options: RegistrationOptions = {}
           name: 'Operaciones en tiempo real',
           description: 'Mensajes, asignaciones y avisos de la operación.',
           importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 180, 250], lightColor: '#D85F28', sound: 'default',
+          vibrationPattern: [0, 250, 180, 250], lightColor: '#1f5c46', sound: 'default',
         });
       }
       let permissions = await Notifications.getPermissionsAsync();

@@ -12,7 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import type { MobileTrackingSnapshot, UserSession } from '../types/telemetry';
 import { type AppColors, useAppTheme } from '../theme/AppTheme';
 import { exportPendingTelemetry } from '../services/offlineStorage';
@@ -69,166 +69,121 @@ export const PilotDashboardScreen: React.FC<PilotDashboardProps> = ({
     if (finished) setFinishConfirmationOpen(false);
   };
 
+  const speed = tracking.locationFresh === false ? null : Math.round(tracking.speedKmh);
+  const speedTone = speed == null ? 'idle' : speed > 80 ? 'danger' : speed > 50 ? 'warning' : 'ok';
+  const speedColor = speedTone === 'danger' ? colors.danger : speedTone === 'warning' ? colors.warning : speedTone === 'ok' ? colors.success : colors.subtle;
+  const speedLabel = speedTone === 'danger' ? 'Exceso de velocidad' : speedTone === 'warning' ? 'Modera la velocidad' : speedTone === 'ok' ? 'Velocidad segura' : 'Sin lectura reciente';
+  const speedShare = speed == null ? 0 : Math.min(1, speed / 100);
+
+  const sensorLabel = tracking.sensorState === 'ready' ? 'Listos'
+    : tracking.sensorState === 'calibrating' ? 'Calibrando…' : 'No disponibles';
+  const sensorHint = tracking.sensorState === 'ready' ? 'Frenado y giros medidos'
+    : tracking.sensorState === 'calibrating' ? 'Deja el teléfono fijo unos segundos' : 'Solo se mide la velocidad';
+  const statusColor = !trip ? colors.subtle : isPrivacyMode ? colors.warning : meta.color;
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <View style={styles.heroTopRow}>
-          <View style={[styles.statusIcon, { backgroundColor: `${meta.color}20` }]}>
+      <View style={styles.tripHead}>
+        <View style={styles.tripStatus}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={styles.tripStatusText}>
+            {trip ? `${isPrivacyMode ? 'Ubicación pausada' : 'En curso'} · Viaje #${trip.idViaje}` : 'Sin viaje asignado'}
+          </Text>
+        </View>
+        <Text style={styles.tripPlate} numberOfLines={1}>{trip ? trip.placaAutobus : `Hola, ${user.nombreCompleto.split(' ')[0]}`}</Text>
+        <Text style={styles.tripRoute} numberOfLines={2}>
+          {trip ? (trip.nombreRuta || 'Sin ruta predefinida') : 'Administración te asignará un viaje. Mientras tanto tu ubicación no se comparte.'}
+        </Text>
+      </View>
+
+      <View style={styles.speedCard}>
+        <View style={styles.speedValueRow}>
+          {speed == null
+            ? <Text style={[styles.speedEmpty, { color: colors.subtle }]}>Sin lectura</Text>
+            : <Text style={[styles.speedValue, { color: speedTone === 'ok' ? colors.ink : speedColor }]}>{speed}</Text>}
+        </View>
+        <Text style={styles.speedUnit}>{speed == null ? 'Esperando el GPS' : 'km/h'}</Text>
+        <View style={styles.speedTrack}>
+          <View style={[styles.speedFill, { width: `${Math.round(speedShare * 100)}%`, backgroundColor: speedColor }]} />
+          <View style={[styles.speedMark, { left: '50%' }]} />
+          <View style={[styles.speedMark, { left: '80%' }]} />
+        </View>
+        <View style={styles.speedFoot}>
+          <Text style={[styles.speedLabel, { color: speedColor }]}>{speedLabel}</Text>
+          <View style={styles.gpsChip}>
             {tracking.phase === 'locating'
               ? <ActivityIndicator size="small" color={meta.color} />
-              : <Feather name={meta.icon} size={21} color={meta.color} />}
+              : <Feather name={meta.icon} size={13} color={meta.color} />}
+            <Text style={[styles.gpsChipText, { color: meta.color }]} numberOfLines={1}>{meta.label}</Text>
           </View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.eyebrow}>ESTADO DEL DISPOSITIVO</Text>
-            <Text style={styles.heroTitle}>{meta.label}</Text>
-            <Text style={styles.heroSubtitle}>{tracking.statusText}</Text>
-          </View>
-          <View style={[styles.phasePill, { borderColor: `${meta.color}70`, backgroundColor: `${meta.color}15` }]}>
-            <View style={[styles.phaseDot, { backgroundColor: meta.color }]} />
-            <Text style={[styles.phasePillText, { color: meta.color }]}>{meta.state}</Text>
-          </View>
-        </View>
-
-        <View style={styles.heroDivider} />
-
-        <View style={styles.speedRow}>
-          <View>
-            <Text style={styles.metricLabel}>VELOCIDAD ACTUAL</Text>
-            <View style={styles.speedValueRow}>
-              <Text style={styles.speedValue}>{tracking.locationFresh === false ? '—' : Math.round(tracking.speedKmh)}</Text>
-              <Text style={styles.speedUnit}>km/h</Text>
-            </View>
-          </View>
-          <Pressable style={styles.mapButton} onPress={() => onNavigateTab?.('map')}>
-            <Feather name="map" size={18} color={colors.white} />
-            <Text style={styles.mapButtonText}>Abrir mapa</Text>
-          </Pressable>
         </View>
       </View>
+
+      <Pressable accessibilityRole="button" style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]} onPress={() => onNavigateTab?.('map')}>
+        <Feather name="navigation" size={20} color={colors.onAccent} />
+        <Text style={styles.primaryActionText}>Abrir mapa</Text>
+      </Pressable>
+      <Pressable
+        style={({ pressed }) => [styles.secondaryAction, isPrivacyMode && styles.secondaryActionActive, pressed && styles.pressed]}
+        onPress={onTogglePrivacyMode}
+        accessibilityRole="button"
+        accessibilityLabel={isPrivacyMode ? 'Reanudar GPS local y compartición del viaje asignado' : 'Pausar GPS local y compartición'}
+        disabled={!onTogglePrivacyMode}
+      >
+        <Feather name={isPrivacyMode ? 'play' : 'pause'} size={18} color={isPrivacyMode ? colors.onHighlight : colors.ink} />
+        <Text style={[styles.secondaryActionText, isPrivacyMode && { color: colors.onHighlight }]}>
+          {isPrivacyMode ? 'Reanudar ubicación' : 'Pausar ubicación'}
+        </Text>
+      </Pressable>
+      <Text style={styles.privacyNote}>
+        {isPrivacyMode
+          ? 'Las posiciones pendientes se guardan y se envían al reanudar.'
+          : trip ? 'Despacho y los pasajeros ven tu ubicación mientras dure el viaje.' : 'El GPS funciona en este teléfono, pero sin viaje no se comparte.'}
+      </Text>
 
       {trip && !isPrivacyMode && tracking.backgroundStatus !== 'active' && (
-        <View style={styles.controlCard}>
-          <View style={styles.controlCopy}>
-            <Text style={styles.sectionTitle}>{tracking.backgroundStatus === 'starting' ? 'Activando seguimiento en segundo plano' : 'Seguimiento solo con la app abierta'}</Text>
-            <Text style={styles.controlDescription}>Para compartir el recorrido al bloquear el teléfono, permite el acceso a ubicación en segundo plano en Ajustes.</Text>
+        <View style={styles.notice}>
+          <Feather name="smartphone" size={18} color={colors.warning} />
+          <View style={styles.noticeCopy}>
+            <Text style={styles.noticeTitle}>{tracking.backgroundStatus === 'starting' ? 'Activando seguimiento en segundo plano' : 'Solo con la app abierta'}</Text>
+            <Text style={styles.noticeText}>Permite la ubicación «siempre» para seguir compartiendo con el teléfono bloqueado.</Text>
+            <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => void Linking.openSettings()}><Text style={styles.noticeButtonText}>Abrir Ajustes</Text></Pressable>
           </View>
-          <Pressable accessibilityRole="button" style={styles.retryButton} onPress={() => void Linking.openSettings()}><Text style={styles.retryText}>Abrir Ajustes</Text></Pressable>
         </View>
       )}
-      {tracking.queueError && <View accessibilityRole="alert" style={styles.controlCard}>
-        <Text style={[styles.controlDescription, { color: colors.danger }]}>{tracking.queueError}</Text>
-        <Pressable accessibilityRole="button" style={styles.retryButton} onPress={tracking.retry}><Text style={styles.retryText}>Reintentar envío</Text></Pressable>
-        <Pressable accessibilityRole="button" style={styles.retryButton} onPress={() => void exportPendingTelemetry(user.idUsuario).then(message => Share.share({ title: 'Posiciones pendientes · contiene ubicaciones', message })).catch(() => {})}><Text style={styles.retryText}>Exportar posiciones para revisión</Text></Pressable>
-        {tracking.sourceConflict && <Pressable accessibilityRole="button" style={styles.retryButton} onPress={() => Alert.alert('Transferir rastreo', 'Este dispositivo reemplazará al GPS que comparte el viaje. Las otras sesiones seguirán disponibles para consulta.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Usar este GPS', onPress: () => void tracking.takeTrackingControl?.() }])}><Text style={styles.retryText}>Tomar control del rastreo</Text></Pressable>}
+      {tracking.queueError && <View accessibilityRole="alert" style={[styles.notice, styles.noticeDanger]}>
+        <Feather name="alert-triangle" size={18} color={colors.danger} />
+        <View style={styles.noticeCopy}>
+          <Text style={[styles.noticeTitle, { color: colors.danger }]}>{tracking.queueError}</Text>
+          <View style={styles.noticeButtons}>
+            <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={tracking.retry}><Text style={styles.noticeButtonText}>Reintentar</Text></Pressable>
+            <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => void exportPendingTelemetry(user.idUsuario).then(message => Share.share({ title: 'Posiciones pendientes · contiene ubicaciones', message })).catch(() => {})}><Text style={styles.noticeButtonText}>Exportar posiciones</Text></Pressable>
+            {tracking.sourceConflict && <Pressable accessibilityRole="button" style={styles.noticeButton} onPress={() => Alert.alert('Transferir rastreo', 'Este dispositivo reemplazará al GPS que comparte el viaje. Las otras sesiones seguirán disponibles para consulta.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Usar este GPS', onPress: () => void tracking.takeTrackingControl?.() }])}><Text style={styles.noticeButtonText}>Usar este GPS</Text></Pressable>}
+          </View>
+        </View>
       </View>}
-      <View style={styles.metricsGrid}>
-        <MetricCard
-          styles={styles}
-          colors={colors}
-          icon="crosshair"
-          label="Precisión GPS"
-          value={tracking.accuracy != null ? `${tracking.accuracy} m` : 'Sin lectura'}
-          hint={tracking.locationFresh === false ? `Última lectura: ${formatTime(tracking.locationTimestamp ?? null)}` : tracking.accuracy != null && tracking.accuracy <= 30 ? 'Señal óptima' : 'Esperando mayor precisión'}
-        />
-        <MetricCard
-          styles={styles}
-          colors={colors}
-          icon="database"
-          label="Cola sin conexión"
-          value={`${tracking.queuedReadings}`}
-          hint={tracking.queuedReadings === 0 ? 'Todo sincronizado' : 'Se enviará automáticamente'}
-        />
-        <MetricCard
-          styles={styles}
-          colors={colors}
-          icon="clock"
-          label="Último envío"
-          value={formatTime(tracking.lastSentAt)}
-          hint="Hora del dispositivo"
-        />
-        <MetricCard
-          styles={styles}
-          colors={colors}
-          icon="user"
-          label="Piloto"
-          value={user.nombreCompleto}
-          hint={user.usuarioLogin}
-        />
-      </View>
-
-      <View style={styles.tripCard}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionEyebrow}>ASIGNACIÓN ACTUAL</Text>
-            <Text style={styles.sectionTitle}>{trip ? 'Viaje en curso' : 'Sin viaje asignado'}</Text>
-          </View>
-          <View style={[styles.tripState, trip ? styles.tripStateActive : styles.tripStateIdle]}>
-            <Text style={[styles.tripStateText, { color: trip ? colors.success : colors.subtle }]}>
-              {trip ? 'ACTIVO' : 'EN ESPERA'}
-            </Text>
-          </View>
-        </View>
-
-        {trip ? (
-          <>
-            <View style={styles.tripDetails}>
-              <View style={styles.busBadge}>
-                <MaterialCommunityIcons name="bus" size={24} color={colors.accent} />
-              </View>
-              <View style={styles.tripMainCopy}>
-                <Text style={styles.busPlate}>{trip.placaAutobus}</Text>
-                <Text style={styles.routeName}>{trip.nombreRuta || 'Sin ruta predefinida'}</Text>
-              </View>
-              <View style={styles.tripIdBox}>
-                <Text style={styles.tripIdLabel}>VIAJE</Text>
-                <Text style={styles.tripIdValue}>#{trip.idViaje}</Text>
-              </View>
-            </View>
-            {onFinishTrip && (
-              <Pressable style={styles.finishTripButton} onPress={() => setFinishConfirmationOpen(true)} disabled={finishingTrip}>
-                {finishingTrip
-                  ? <ActivityIndicator size="small" color={colors.white} />
-                  : <Feather name="check-circle" size={17} color={colors.white} />}
-                <Text style={styles.finishTripButtonText}>{finishingTrip ? 'Finalizando...' : 'Finalizar recorrido y quedar disponible'}</Text>
-              </Pressable>
-            )}
-          </>
-        ) : (
-          <View style={styles.emptyTrip}>
-            <Feather name="calendar" size={24} color={colors.subtle} />
-            <Text style={styles.emptyTripText}>Administración debe asignar un viaje antes de iniciar la transmisión.</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.controlCard}>
-        <View style={styles.controlCopy}>
-          <Text style={styles.sectionEyebrow}>CONTROL DE PRIVACIDAD</Text>
-          <Text style={styles.sectionTitle}>{isPrivacyMode ? 'Ubicación pausada' : 'Ubicación habilitada'}</Text>
-          <Text style={styles.controlDescription}>
-            {isPrivacyMode
-              ? 'GPS local y compartición pausados. Las posiciones anteriores pendientes se conservan.'
-              : trip ? 'GPS local habilitado. La ubicación se comparte con despacho durante el viaje asignado.' : 'El GPS funciona en este teléfono. Sin viaje asignado, tu ubicación no se comparte con despacho.'}
-          </Text>
-        </View>
-        <Pressable
-          style={[styles.privacyButton, isPrivacyMode ? styles.resumeButton : styles.pauseButton]}
-          onPress={onTogglePrivacyMode}
-          accessibilityRole="button"
-          accessibilityLabel={isPrivacyMode ? 'Reanudar GPS local y compartición del viaje asignado' : 'Pausar GPS local y compartición'}
-          disabled={!onTogglePrivacyMode}
-        >
-          <Feather name={isPrivacyMode ? 'play' : 'pause'} size={17} color={isPrivacyMode ? colors.white : colors.warning} />
-          <Text style={[styles.privacyButtonText, { color: isPrivacyMode ? colors.white : colors.warning }]}>
-            {isPrivacyMode ? 'Reanudar' : 'Pausar'}
-          </Text>
-        </Pressable>
-      </View>
-
       {(tracking.phase === 'error' || tracking.phase === 'blocked' || tracking.phase === 'weak' || tracking.phase === 'stale') && (
         <Pressable style={styles.retryButton} onPress={tracking.retry}>
-          <Feather name="refresh-cw" size={17} color={colors.accent} />
-          <Text style={styles.retryText}>Volver a intentar conexión y GPS</Text>
+          <Feather name="refresh-cw" size={16} color={colors.accent} />
+          <Text style={styles.retryText}>Reintentar GPS y conexión</Text>
+        </Pressable>
+      )}
+
+      <View style={styles.infoCard}>
+        <InfoRow styles={styles} label="Precisión GPS"
+          value={tracking.accuracy != null ? `±${tracking.accuracy} m` : '—'}
+          hint={tracking.locationFresh === false ? `Última: ${formatTime(tracking.locationTimestamp ?? null)}` : tracking.accuracy != null && tracking.accuracy <= 30 ? 'Buena' : 'Esperando'} />
+        <InfoRow styles={styles} label="Último envío" value={formatTime(tracking.lastSentAt)}
+          hint={tracking.queuedReadings === 0 ? 'Todo enviado' : `${tracking.queuedReadings} pendientes, se envían solas`} />
+        <InfoRow styles={styles} label="Sensores" value={sensorLabel} hint={sensorHint} last />
+      </View>
+
+      {trip && onFinishTrip && (
+        <Pressable style={({ pressed }) => [styles.finishTripButton, pressed && styles.pressed]} onPress={() => setFinishConfirmationOpen(true)} disabled={finishingTrip}>
+          {finishingTrip
+            ? <ActivityIndicator size="small" color={colors.ink} />
+            : <Feather name="flag" size={17} color={colors.ink} />}
+          <Text style={styles.finishTripButtonText}>{finishingTrip ? 'Finalizando…' : 'Llegué: finalizar recorrido'}</Text>
         </Pressable>
       )}
 
@@ -236,15 +191,15 @@ export const PilotDashboardScreen: React.FC<PilotDashboardProps> = ({
         <View style={styles.modalLayer}>
           <Pressable style={styles.modalBackdrop} onPress={() => !finishingTrip && setFinishConfirmationOpen(false)} />
           <View style={styles.confirmCard}>
-            <View style={styles.confirmIcon}><Feather name="check-circle" size={22} color={colors.success} /></View>
+            <View style={styles.confirmIcon}><Feather name="flag" size={22} color={colors.success} /></View>
             <Text style={styles.confirmTitle}>¿Finalizar este recorrido?</Text>
-            <Text style={styles.confirmMessage}>La transmisión GPS se detendrá y quedarás disponible para una nueva asignación.</Text>
+            <Text style={styles.confirmMessage}>Se deja de compartir tu ubicación, el enlace de los pasajeros se cierra y quedas disponible para otro viaje.</Text>
             <View style={styles.confirmActions}>
               <Pressable style={styles.confirmCancel} onPress={() => setFinishConfirmationOpen(false)} disabled={finishingTrip}>
                 <Text style={styles.confirmCancelText}>Seguir en recorrido</Text>
               </Pressable>
               <Pressable style={styles.confirmFinish} onPress={() => void confirmFinishTrip()} disabled={finishingTrip}>
-                <Text style={styles.confirmFinishText}>{finishingTrip ? 'Finalizando...' : 'Finalizar'}</Text>
+                <Text style={styles.confirmFinishText}>{finishingTrip ? 'Finalizando…' : 'Finalizar'}</Text>
               </Pressable>
             </View>
           </View>
@@ -254,87 +209,78 @@ export const PilotDashboardScreen: React.FC<PilotDashboardProps> = ({
   );
 };
 
-const MetricCard = ({ styles, colors, icon, label, value, hint }: {
+const InfoRow = ({ styles, label, value, hint, last }: {
   styles: ReturnType<typeof createStyles>;
-  colors: AppColors;
-  icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
   value: string;
   hint: string;
+  last?: boolean;
 }) => (
-  <View style={styles.metricCard}>
-    <View style={styles.metricIcon}><Feather name={icon} size={17} color={colors.accent} /></View>
-    <Text style={styles.metricCardLabel}>{label}</Text>
-    <Text style={styles.metricCardValue} numberOfLines={1}>{value}</Text>
-    <Text style={styles.metricHint} numberOfLines={1}>{hint}</Text>
+  <View style={[styles.infoRow, !last && styles.infoRowDivider]}>
+    <View style={styles.infoCopy}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoHint} numberOfLines={1}>{hint}</Text>
+    </View>
+    <Text style={styles.infoValue} numberOfLines={1}>{value}</Text>
   </View>
 );
 
 const createStyles = (colors: AppColors, compact: boolean) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  content: { padding: compact ? 14 : 22, paddingBottom: 34, gap: 14, maxWidth: 1100, width: '100%', alignSelf: 'center' },
-  heroCard: { padding: compact ? 18 : 24, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center' },
-  statusIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  heroCopy: { flex: 1, marginLeft: 13 },
-  eyebrow: { color: colors.accent, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  heroTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 3 },
-  heroSubtitle: { color: colors.muted, fontSize: 11.5, lineHeight: 17, marginTop: 3 },
-  phasePill: { display: compact ? 'none' : 'flex', flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
-  phaseDot: { width: 7, height: 7, borderRadius: 4 },
-  phasePillText: { fontSize: 9.5, fontWeight: '900', letterSpacing: 0.6 },
-  heroDivider: { height: 1, backgroundColor: colors.line, marginVertical: 20 },
-  speedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  metricLabel: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 0.7 },
-  speedValueRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
-  speedValue: { color: colors.ink, fontSize: compact ? 42 : 52, lineHeight: compact ? 50 : 60, fontWeight: '900', letterSpacing: -2 },
-  speedUnit: { color: colors.muted, fontSize: 13, fontWeight: '800', marginLeft: 6 },
-  mapButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, paddingHorizontal: 15, backgroundColor: colors.accent },
-  mapButtonText: { color: colors.white, fontSize: 12, fontWeight: '900' },
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metricCard: { width: compact ? '48%' : '23.7%', minHeight: 138, padding: 15, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
-  metricIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
-  metricCardLabel: { color: colors.muted, fontSize: 10.5, fontWeight: '700', marginTop: 13 },
-  metricCardValue: { color: colors.ink, fontSize: 16, fontWeight: '900', marginTop: 3 },
-  metricHint: { color: colors.subtle, fontSize: 9.5, marginTop: 3 },
-  tripCard: { padding: 19, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionEyebrow: { color: colors.muted, fontSize: 9.5, fontWeight: '900', letterSpacing: 0.9 },
-  sectionTitle: { color: colors.ink, fontSize: 17, fontWeight: '900', marginTop: 4 },
-  tripState: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  tripStateActive: { backgroundColor: colors.successSoft },
-  tripStateIdle: { backgroundColor: colors.surfaceRaised },
-  tripStateText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.6 },
-  tripDetails: { flexDirection: 'row', alignItems: 'center', marginTop: 17, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.line },
-  busBadge: { width: 48, height: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
-  tripMainCopy: { flex: 1, marginLeft: 13 },
-  busPlate: { color: colors.ink, fontSize: 16, fontWeight: '900' },
-  routeName: { color: colors.muted, fontSize: 11.5, marginTop: 3 },
-  tripIdBox: { alignItems: 'flex-end' },
-  tripIdLabel: { color: colors.subtle, fontSize: 9, fontWeight: '800' },
-  tripIdValue: { color: colors.ink, fontSize: 14, fontWeight: '900', marginTop: 2 },
-  finishTripButton: { minHeight: 48, marginTop: 16, borderRadius: 14, backgroundColor: colors.success, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
-  finishTripButtonText: { color: colors.white, fontSize: 11.5, fontWeight: '900', textAlign: 'center' },
-  emptyTrip: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.line },
-  emptyTripText: { flex: 1, color: colors.muted, fontSize: 11.5, lineHeight: 17 },
-  controlCard: { padding: 19, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: compact ? 'column' : 'row', alignItems: compact ? 'stretch' : 'center', gap: 15 },
-  controlCopy: { flex: 1 },
-  controlDescription: { color: colors.muted, fontSize: 11.5, lineHeight: 17, marginTop: 6 },
-  privacyButton: { minHeight: 44, borderRadius: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  resumeButton: { backgroundColor: colors.accent },
-  pauseButton: { backgroundColor: colors.warningSoft, borderWidth: 1, borderColor: colors.warning },
-  privacyButtonText: { fontSize: 12, fontWeight: '900' },
-  retryButton: { minHeight: 48, borderRadius: 15, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accentLine, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
-  retryText: { color: colors.accent, fontSize: 12, fontWeight: '900' },
+  content: { paddingHorizontal: compact ? 16 : 24, paddingTop: 8, paddingBottom: 36, gap: 12, maxWidth: 640, width: '100%', alignSelf: 'center' },
+  pressed: { opacity: 0.85, transform: [{ scale: 0.99 }] },
+  tripHead: { paddingHorizontal: 4, paddingTop: 4, paddingBottom: 8 },
+  tripStatus: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  tripStatusText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  tripPlate: { color: colors.ink, fontSize: 30, fontWeight: '800', letterSpacing: -0.5, marginTop: 6 },
+  tripRoute: { color: colors.muted, fontSize: 15, lineHeight: 21, marginTop: 2 },
+  speedCard: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20, borderRadius: 28, backgroundColor: colors.surface, alignItems: 'center' },
+  speedValueRow: { height: compact ? 100 : 116, justifyContent: 'center' },
+  speedValue: { fontSize: compact ? 92 : 108, lineHeight: compact ? 100 : 116, fontWeight: '700', letterSpacing: -3, fontVariant: ['tabular-nums'] },
+  speedEmpty: { fontSize: compact ? 30 : 34, fontWeight: '700' },
+  speedUnit: { color: colors.muted, fontSize: 15, fontWeight: '600', marginTop: -2 },
+  speedTrack: { alignSelf: 'stretch', height: 6, borderRadius: 3, backgroundColor: colors.surfaceSoft, overflow: 'hidden', marginTop: 20 },
+  speedFill: { height: '100%', borderRadius: 3 },
+  speedMark: { position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: colors.surface },
+  speedFoot: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 },
+  speedLabel: { fontSize: 13, fontWeight: '700' },
+  gpsChip: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  gpsChipText: { fontSize: 12.5, fontWeight: '600' },
+  primaryAction: { minHeight: 58, borderRadius: 29, backgroundColor: colors.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 4 },
+  primaryActionText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
+  secondaryAction: { minHeight: 54, borderRadius: 27, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  secondaryActionActive: { backgroundColor: colors.highlight },
+  secondaryActionText: { color: colors.ink, fontSize: 15, fontWeight: '700' },
+  privacyNote: { color: colors.muted, fontSize: 12.5, lineHeight: 18, textAlign: 'center', paddingHorizontal: 12 },
+  notice: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 22, backgroundColor: colors.warningSoft },
+  noticeDanger: { backgroundColor: colors.dangerSoft },
+  noticeCopy: { flex: 1, gap: 4 },
+  noticeTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
+  noticeText: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+  noticeButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  noticeButton: { alignSelf: 'flex-start', minHeight: 36, borderRadius: 18, paddingHorizontal: 14, justifyContent: 'center', backgroundColor: colors.surface, marginTop: 4 },
+  noticeButtonText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  retryButton: { minHeight: 48, borderRadius: 24, backgroundColor: colors.accentSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  retryText: { color: colors.accent, fontSize: 14, fontWeight: '700' },
+  infoCard: { borderRadius: 24, backgroundColor: colors.surface, paddingHorizontal: 18, marginTop: 4 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  infoRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  infoCopy: { flex: 1, minWidth: 0 },
+  infoLabel: { color: colors.ink, fontSize: 14.5, fontWeight: '600' },
+  infoHint: { color: colors.subtle, fontSize: 12, marginTop: 2 },
+  infoValue: { color: colors.ink, fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  finishTripButton: { minHeight: 54, marginTop: 6, borderRadius: 27, borderWidth: 1, borderColor: colors.lineStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 16 },
+  finishTripButtonText: { color: colors.ink, fontSize: 15, fontWeight: '700', textAlign: 'center' },
   modalLayer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22 },
-  modalBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#020617b8' },
-  confirmCard: { width: '100%', maxWidth: 430, borderRadius: 22, padding: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
-  confirmIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.successSoft },
-  confirmTitle: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: 17 },
-  confirmMessage: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 8 },
-  confirmActions: { flexDirection: compact ? 'column' : 'row', gap: 9, marginTop: 20 },
-  confirmCancel: { flex: 1, minHeight: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.line },
-  confirmCancelText: { color: colors.ink, fontSize: 11.5, fontWeight: '800' },
-  confirmFinish: { flex: 1, minHeight: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success },
-  confirmFinishText: { color: colors.white, fontSize: 11.5, fontWeight: '900' },
+  modalBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
+  confirmCard: { width: '100%', maxWidth: 430, borderRadius: 28, padding: 24, backgroundColor: colors.surface },
+  confirmIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.successSoft },
+  confirmTitle: { color: colors.ink, fontSize: 20, fontWeight: '800', marginTop: 16 },
+  confirmMessage: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 8 },
+  confirmActions: { flexDirection: compact ? 'column-reverse' : 'row', gap: 9, marginTop: 22 },
+  confirmCancel: { flex: compact ? 0 : 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft },
+  confirmCancelText: { color: colors.ink, fontSize: 14, fontWeight: '700' },
+  confirmFinish: { flex: compact ? 0 : 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success },
+  confirmFinishText: { color: colors.onStatus, fontSize: 14, fontWeight: '700' },
 });
