@@ -4,6 +4,7 @@ import { useAuth } from '../context/useAuth';
 import api, { buildWebSocketUrl } from '../services/api';
 import { GoogleMapWeb } from './GoogleMapWeb';
 import { ConfirmationDialog } from './ConfirmationDialog';
+import { Dialog, Field } from './Dialog';
 import type { ConfirmationState } from './ConfirmationDialog';
 import { AnimatedSelect } from './AnimatedSelect';
 import { ToastViewport } from './ToastViewport';
@@ -36,7 +37,7 @@ import {
   UserRoundCheck,
   UserRoundX,
   Save,
-  X,
+  RefreshCw,
   FileDown,
   Sheet,
   ChevronDown,
@@ -230,14 +231,7 @@ export const TelemetryDashboard: React.FC = () => {
     activateButtonStyle,
     statusBadgeStyle,
     errorBannerStyle,
-    modalOverlayStyle,
-    modalCardStyle,
-    modalTitleStyle,
-    formGroupStyle,
-    formLabelStyle,
     formInputStyle,
-    modalActionsStyle,
-    cancelButtonStyle,
     saveButtonStyle
   } = getDashboardStyles(isDark);
 
@@ -2058,90 +2052,62 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* MODAL / FORMULARIO FLOTANTE (GLASSMORPHISM) */}
       {showModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>
-              {editingUserId === null ? 'Registrar Nuevo Usuario' : 'Editar Usuario'}
-            </h3>
-            
-            <form onSubmit={handleSaveUser}>
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Nombre Completo</label>
-                <input 
-                  type="text" 
-                  value={formNombre} 
-                  onChange={(e) => setFormNombre(e.target.value)} 
-                  style={formInputStyle} 
-                  required 
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Usuario de Login</label>
-                <input 
-                  type="text" 
-                  value={formLogin} 
-                  onChange={(e) => setFormLogin(e.target.value)} 
-                  style={formInputStyle} 
-                  required 
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Rol</label>
-                <AnimatedSelect
-                  aria-label="Rol del usuario"
-                  value={formRol} 
-                  onChange={(e) => setFormRol(e.target.value as ManagedUser['tipoRol'])} 
-                  style={formInputStyle}
-                >
-                  <option value="Piloto">Piloto</option>
-                  <option value="Administrador">Administrador</option>
-                  <option value="Supervisor">Supervisor</option>
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>
-                  Contraseña {editingUserId !== null && '(Dejar vacío para conservar actual)'}
-                </label>
-                <input 
-                  type="password" 
-                  value={formContrasena} 
-                  onChange={(e) => setFormContrasena(e.target.value)} 
-                  style={formInputStyle} 
-                  required={editingUserId === null}
-                  minLength={formContrasena ? 12 : undefined}
-                  maxLength={128}
-                  autoComplete="new-password"
-                  placeholder={editingUserId !== null ? 'Dejar vacío para conservarla' : 'Mínimo 12 caracteres'} 
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Estado</label>
-                <AnimatedSelect
-                  aria-label="Estado del usuario"
-                  value={formEstado} 
-                  onChange={(e) => setFormEstado(e.target.value as ManagedUser['estado'])} 
-                  style={formInputStyle}
-                >
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </AnimatedSelect>
-              </div>
-
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button className="button-with-icon" type="button" onClick={() => setShowModal(false)} style={cancelButtonStyle}>
-                  <X size={15} /> Cancelar
-                </button>
-                <button className="button-with-icon" type="submit" style={saveButtonStyle}>
-                  <Save size={15} /> Guardar Cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Dialog
+          kicker="Personal"
+          icon={<Users size={20} />}
+          title={editingUserId === null ? 'Agregar persona' : 'Editar persona'}
+          description={editingUserId === null
+            ? 'Crea el acceso para un piloto, supervisor o administrador.'
+            : 'Actualiza sus datos. Deja la contraseña vacía para conservar la actual.'}
+          onClose={() => setShowModal(false)}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => setShowModal(false)}>Cancelar</button>
+              <button type="submit" form="user-form" className="pill-button"><Save size={16} aria-hidden="true" /> Guardar</button>
+            </>
+          )}
+        >
+          {crudError && <div role="alert" className="auth-alert">{crudError}</div>}
+          <form id="user-form" className="dlg-form" onSubmit={handleSaveUser}>
+            <Field label="Nombre completo" htmlFor="user-name" wide>
+              <input id="user-name" className="dlg-input" type="text" value={formNombre} onChange={(e) => setFormNombre(e.target.value)} required autoFocus placeholder="Ej. Juan Pérez" />
+            </Field>
+            <Field label="Usuario para entrar" htmlFor="user-login">
+              <input id="user-login" className="dlg-input" type="text" value={formLogin} onChange={(e) => setFormLogin(e.target.value)} required autoComplete="off" placeholder="Ej. jperez" />
+            </Field>
+            <Field label="Rol">
+              <AnimatedSelect aria-label="Rol del usuario" value={formRol} onChange={(e) => setFormRol(e.target.value as ManagedUser['tipoRol'])}>
+                <option value="Piloto">Piloto</option>
+                <option value="Administrador">Administrador</option>
+                <option value="Supervisor">Supervisor</option>
+              </AnimatedSelect>
+            </Field>
+            <Field
+              label="Contraseña"
+              htmlFor="user-password"
+              hint={editingUserId !== null ? 'Déjala vacía para conservar la actual.' : 'Mínimo 12 caracteres.'}
+            >
+              <input
+                id="user-password"
+                className="dlg-input"
+                type="password"
+                value={formContrasena}
+                onChange={(e) => setFormContrasena(e.target.value)}
+                required={editingUserId === null}
+                minLength={formContrasena ? 12 : undefined}
+                maxLength={128}
+                autoComplete="new-password"
+                placeholder={editingUserId !== null ? '••••••••••••' : 'Nueva contraseña'}
+              />
+            </Field>
+            <Field label="Estado">
+              <AnimatedSelect aria-label="Estado del usuario" value={formEstado} onChange={(e) => setFormEstado(e.target.value as ManagedUser['estado'])}>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </AnimatedSelect>
+            </Field>
+          </form>
+        </Dialog>
       )}
 
       {activeTab === 'routes' && canMonitorOperations && (() => {
@@ -2208,38 +2174,35 @@ export const TelemetryDashboard: React.FC = () => {
       })()}
 
       {showRouteModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="route-modal-title" style={modalCardStyle}>
-            <div style={{ width: '46px', height: '46px', borderRadius: '14px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent-line)', marginBottom: '14px' }}>
-              <MapPin size={22} />
-            </div>
-            <h3 id="route-modal-title" style={modalTitleStyle}>{routeTripContext ? 'Guardar ruta del viaje' : 'Guardar nueva ruta'}</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '-6px 0 18px' }}>
-              {routeTripContext
-                ? 'Nombra este recorrido. Se asociará al viaje actual y quedará disponible para futuros despachos.'
-                : 'Define un trayecto frecuente. Después aparecerá al asignar rutas a viajes y autobuses.'}
-            </p>
-            {crudError && <div role="alert" style={{ ...errorBannerStyle, marginBottom: '16px' }}>{crudError}</div>}
-            <form onSubmit={handleSaveAdminRoute}>
-              <div style={formGroupStyle}>
-                <label htmlFor="route-name" style={formLabelStyle}>Nombre de la ruta</label>
-                <input id="route-name" value={formRouteName} onChange={(event) => setFormRouteName(event.target.value)} minLength={2} maxLength={100} required autoFocus placeholder="Ej. Terminal - Centro" style={formInputStyle} />
-              </div>
-              <div style={formGroupStyle}>
-                <label htmlFor="route-origin" style={formLabelStyle}>Origen</label>
-                <input id="route-origin" value={formRouteOrigin} onChange={(event) => setFormRouteOrigin(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Terminal Minerva" style={formInputStyle} />
-              </div>
-              <div style={formGroupStyle}>
-                <label htmlFor="route-destination" style={formLabelStyle}>Destino</label>
-                <input id="route-destination" value={formRouteDestination} onChange={(event) => setFormRouteDestination(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Parque Central" style={formInputStyle} />
-              </div>
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button className="button-with-icon" type="button" onClick={() => { setShowRouteModal(false); setRouteTripContext(null); }} style={cancelButtonStyle} disabled={routeSaving}><X size={15} /> Cancelar</button>
-                <button className="button-with-icon" type="submit" style={{ ...saveButtonStyle, opacity: routeSaving ? 0.65 : 1 }} disabled={routeSaving}><Save size={15} /> {routeSaving ? 'Guardando…' : 'Guardar ruta'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Dialog
+          kicker="Rutas"
+          icon={<MapPin size={20} />}
+          title={routeTripContext ? 'Guardar ruta del viaje' : 'Nueva ruta'}
+          description={routeTripContext
+            ? 'Nombra este recorrido. Quedará asociado al viaje y disponible para futuros despachos.'
+            : 'Define un trayecto frecuente. Después podrás marcar sus paradas en el mapa.'}
+          busy={routeSaving}
+          onClose={() => { setShowRouteModal(false); setRouteTripContext(null); }}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => { setShowRouteModal(false); setRouteTripContext(null); }} disabled={routeSaving}>Cancelar</button>
+              <button type="submit" form="route-form" className="pill-button" disabled={routeSaving}><Save size={16} aria-hidden="true" /> {routeSaving ? 'Guardando…' : 'Guardar ruta'}</button>
+            </>
+          )}
+        >
+          {crudError && <div role="alert" className="auth-alert">{crudError}</div>}
+          <form id="route-form" className="dlg-form" onSubmit={handleSaveAdminRoute}>
+            <Field label="Nombre de la ruta" htmlFor="route-name" wide>
+              <input id="route-name" className="dlg-input" value={formRouteName} onChange={(event) => setFormRouteName(event.target.value)} minLength={2} maxLength={100} required autoFocus placeholder="Ej. Terminal - Centro" />
+            </Field>
+            <Field label="Origen" htmlFor="route-origin">
+              <input id="route-origin" className="dlg-input" value={formRouteOrigin} onChange={(event) => setFormRouteOrigin(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Terminal Minerva" />
+            </Field>
+            <Field label="Destino" htmlFor="route-destination">
+              <input id="route-destination" className="dlg-input" value={formRouteDestination} onChange={(event) => setFormRouteDestination(event.target.value)} minLength={2} maxLength={100} required placeholder="Ej. Parque Central" />
+            </Field>
+          </form>
+        </Dialog>
       )}
 
       {/* La supervisión puede consultar la flota; solo administración puede modificarla. */}
@@ -2325,131 +2288,117 @@ export const TelemetryDashboard: React.FC = () => {
       })()}
 
 
-      {/* MODAL / FORMULARIO FLOTANTE AUTOBUSES */}
       {showBusModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>
-              {editingBusId === null ? 'Registrar Nuevo Autobús' : 'Editar Autobús'}
-            </h3>
-
-            {crudError && (
-              <div role="alert" style={{ ...errorBannerStyle, marginBottom: '16px' }}>
-                {crudError}
+        <Dialog
+          kicker="Flota"
+          icon={<Bus size={20} />}
+          title={editingBusId === null ? 'Agregar autobús' : 'Editar autobús'}
+          description={editingBusId === null
+            ? 'Registra la unidad. Si eliges piloto, el viaje empieza al guardar.'
+            : 'Cambia los datos de la unidad o, si lo necesitas, su operación actual.'}
+          busy={busSaving}
+          onClose={() => setShowBusModal(false)}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => setShowBusModal(false)} disabled={busSaving}>Cancelar</button>
+              <button type="submit" form="bus-form" className="pill-button" disabled={busSaving}><Save size={16} aria-hidden="true" /> {busSaving ? 'Guardando…' : 'Guardar'}</button>
+            </>
+          )}
+        >
+          {crudError && <div role="alert" className="auth-alert">{crudError}</div>}
+          <form id="bus-form" className="dlg-form" onSubmit={handleSaveBus}>
+            <Field label="Placa" htmlFor="bus-plate">
+              <input id="bus-plate" className="dlg-input" type="text" value={formPlaca} onChange={(e) => setFormPlaca(e.target.value)} required autoFocus placeholder="Ej. P-123ABC" />
+            </Field>
+            <Field label="Marca y modelo" htmlFor="bus-model">
+              <input id="bus-model" className="dlg-input" type="text" value={formMarcaModelo} onChange={(e) => setFormMarcaModelo(e.target.value)} placeholder="Ej. Mercedes-Benz 2024" />
+            </Field>
+            <Field label="Estado" wide>
+              <div className="dlg-segment" role="radiogroup" aria-label="Estado del autobús">
+                {(['Activo', 'En Taller', 'Inactivo'] as Autobus['estado'][]).map((estado) => (
+                  <button
+                    key={estado}
+                    type="button"
+                    role="radio"
+                    aria-checked={formEstadoBus === estado}
+                    className={formEstadoBus === estado ? 'is-active' : ''}
+                    onClick={() => setFormEstadoBus(estado)}
+                  >
+                    {estado}
+                  </button>
+                ))}
               </div>
-            )}
-             
-            <form onSubmit={handleSaveBus}>
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Placa</label>
-                <input 
-                  type="text" 
-                  value={formPlaca} 
-                  onChange={(e) => setFormPlaca(e.target.value)} 
-                  style={formInputStyle} 
-                  required 
-                  placeholder="Ej: P-123ABC"
-                />
+            </Field>
+
+            <div className="dlg-section is-wide">
+              <div className="dlg-section-head">
+                <div>
+                  <strong>Operación</strong>
+                  <span>Cambiar el piloto finaliza el viaje anterior de esta unidad.</span>
+                </div>
+                {editingBusId !== null && (
+                  <label className="dlg-switch">
+                    <input type="checkbox" checked={manageBusAssignment} onChange={(e) => setManageBusAssignment(e.target.checked)} />
+                    <span aria-hidden="true" />
+                    Modificar
+                  </label>
+                )}
               </div>
+              <div className="dlg-form">
+                <Field label="Piloto">
+                  <AnimatedSelect
+                    aria-label="Piloto asignado"
+                    disabled={!manageBusAssignment}
+                    value={formPilotoAsignado}
+                    onChange={(e) => {
+                      const pilotId = Number(e.target.value);
+                      setFormPilotoAsignado(pilotId);
+                      if (pilotId === 0) setFormRutaAsignadaBus(0);
+                    }}
+                  >
+                    <option value={0}>Sin piloto (en base)</option>
+                    {users.filter(u => u.tipoRol === 'Piloto').map(u => {
+                      const activeAssignment = trips.find(
+                        trip => trip.idUsuario === u.idUsuario && trip.estadoViaje === 'En Curso'
+                      );
+                      const assignedElsewhere = Boolean(
+                        activeAssignment && activeAssignment.idAutobus !== editingBusId
+                      );
+                      const unavailable = u.estado !== 'Activo' || assignedElsewhere;
+                      const availabilityLabel = u.estado !== 'Activo'
+                        ? 'Inactivo'
+                        : assignedElsewhere
+                          ? `Asignado a ${activeAssignment?.placaAutobus ?? 'otra unidad'}`
+                          : null;
 
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Marca / Modelo</label>
-                <input 
-                  type="text" 
-                  value={formMarcaModelo} 
-                  onChange={(e) => setFormMarcaModelo(e.target.value)} 
-                  style={formInputStyle} 
-                  placeholder="Ej: Mercedes-Benz 2024"
-                />
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Estado</label>
-                <AnimatedSelect
-                  aria-label="Estado del autobús"
-                  value={formEstadoBus} 
-                  onChange={(e) => setFormEstadoBus(e.target.value as Autobus['estado'])} 
-                  style={formInputStyle}
-                >
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                  <option value="En Taller">En Taller</option>
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                {editingBusId !== null && <label style={formLabelStyle}><input type="checkbox" checked={manageBusAssignment} onChange={e => setManageBusAssignment(e.target.checked)} /> Cambiar operación del viaje (opcional)</label>}
-                <label style={formLabelStyle}>Piloto asignado — cambiarlo finaliza el viaje anterior</label>
-                <AnimatedSelect
-                  aria-label="Piloto asignado"
-                  disabled={!manageBusAssignment}
-                  value={formPilotoAsignado} 
-                  onChange={(e) => {
-                    const pilotId = Number(e.target.value);
-                    setFormPilotoAsignado(pilotId);
-                    if (pilotId === 0) setFormRutaAsignadaBus(0);
-                  }} 
-                  style={formInputStyle}
-                >
-                  <option value={0}>-- Sin Asignar / En Base --</option>
-                  {users.filter(u => u.tipoRol === 'Piloto').map(u => {
-                    const activeAssignment = trips.find(
-                      trip => trip.idUsuario === u.idUsuario && trip.estadoViaje === 'En Curso'
-                    );
-                    const assignedElsewhere = Boolean(
-                      activeAssignment && activeAssignment.idAutobus !== editingBusId
-                    );
-                    const unavailable = u.estado !== 'Activo' || assignedElsewhere;
-                    const availabilityLabel = u.estado !== 'Activo'
-                      ? 'Inactivo'
-                      : assignedElsewhere
-                        ? `Asignado a ${activeAssignment?.placaAutobus ?? 'otra unidad'}`
-                        : null;
-
-                    return (
-                      <option key={u.idUsuario} value={u.idUsuario} disabled={unavailable}>
-                        {u.nombreCompleto} ({u.usuarioLogin})
-                        {availabilityLabel ? ` — ${availabilityLabel}` : ''}
+                      return (
+                        <option key={u.idUsuario} value={u.idUsuario} disabled={unavailable}>
+                          {u.nombreCompleto} ({u.usuarioLogin})
+                          {availabilityLabel ? ` — ${availabilityLabel}` : ''}
+                        </option>
+                      );
+                    })}
+                  </AnimatedSelect>
+                </Field>
+                <Field label="Ruta (opcional)">
+                  <AnimatedSelect
+                    aria-label="Ruta asignada"
+                    value={formRutaAsignadaBus}
+                    onChange={(e) => setFormRutaAsignadaBus(Number(e.target.value))}
+                    disabled={!manageBusAssignment || formPilotoAsignado === 0}
+                  >
+                    <option value={0}>Sin ruta fija</option>
+                    {routes.map(r => (
+                      <option key={r.idRuta} value={r.idRuta}>
+                        {r.nombreRuta} ({r.origen} a {r.destino})
                       </option>
-                    );
-                  })}
-                </AnimatedSelect>
+                    ))}
+                  </AnimatedSelect>
+                </Field>
               </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Ruta Asignada (Opcional)</label>
-                <AnimatedSelect
-                  aria-label="Ruta asignada"
-                  value={formRutaAsignadaBus} 
-                  onChange={(e) => setFormRutaAsignadaBus(Number(e.target.value))} 
-                  disabled={!manageBusAssignment || formPilotoAsignado === 0}
-                  style={formInputStyle}
-                >
-                  <option value={0}>-- Sin Ruta Asignada (Predeterminado) --</option>
-                  {routes.map(r => (
-                    <option key={r.idRuta} value={r.idRuta}>
-                      {r.nombreRuta} ({r.origen} a {r.destino})
-                    </option>
-                  ))}
-                </AnimatedSelect>
-              </div>
-
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button className="button-with-icon" type="button" onClick={() => setShowBusModal(false)} style={cancelButtonStyle} disabled={busSaving}>
-                  <X size={15} /> Cancelar
-                </button>
-                <button
-                  className="button-with-icon"
-                  type="submit"
-                  style={{ ...saveButtonStyle, opacity: busSaving ? 0.65 : 1, cursor: busSaving ? 'wait' : 'pointer' }}
-                  disabled={busSaving}
-                >
-                  <Save size={15} /> {busSaving ? 'Guardando…' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+          </form>
+        </Dialog>
       )}
 
 
@@ -2715,77 +2664,51 @@ export const TelemetryDashboard: React.FC = () => {
       )}
 
 
-      {/* MODAL / FORMULARIO FLOTANTE DE DESPACHO DE VIAJES */}
       {showTripModal && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>Registrar Despacho de Viaje</h3>
-            
-            <form onSubmit={handleSaveTrip}>
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Piloto Disponible</label>
-                <AnimatedSelect
-                  aria-label="Piloto disponible"
-                  value={formTripPiloto} 
-                  onChange={(e) => setFormTripPiloto(Number(e.target.value))} 
-                  style={formInputStyle}
-                  required
-                >
-                  <option value="">-- Seleccionar Piloto --</option>
-                  {users
-                    .filter(u => u.tipoRol === 'Piloto' && u.estado === 'Activo' && !trips.some(t => t.idUsuario === u.idUsuario && t.estadoViaje === 'En Curso'))
-                    .map(u => (
-                      <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
-                    ))
-                  }
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Autobús Disponible</label>
-                <AnimatedSelect
-                  aria-label="Autobús disponible"
-                  value={formTripBus} 
-                  onChange={(e) => setFormTripBus(Number(e.target.value))} 
-                  style={formInputStyle}
-                  required
-                >
-                  <option value="">-- Seleccionar Autobús --</option>
-                  {buses
-                    .filter(b => b.estado === 'Activo' && !trips.some(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso'))
-                    .map(b => (
-                      <option key={b.idAutobus} value={b.idAutobus}>{b.placa} ({b.marcaModelo || 'Sin marca'})</option>
-                    ))
-                  }
-                </AnimatedSelect>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label style={formLabelStyle}>Ruta Asignada (Opcional)</label>
-                <AnimatedSelect
-                  aria-label="Ruta del viaje"
-                  value={formTripRoute} 
-                  onChange={(e) => setFormTripRoute(Number(e.target.value))} 
-                  style={formInputStyle}
-                >
-                  <option value={0}>-- Sin Ruta / Tránsito Libre --</option>
-                  {routes.map(r => (
-                    <option key={r.idRuta} value={r.idRuta}>{r.nombreRuta} ({r.origen} a {r.destino})</option>
+        <Dialog
+          kicker="Despacho"
+          icon={<Navigation size={20} />}
+          title="Iniciar un viaje"
+          description="Solo aparecen pilotos y unidades activos que no están en ruta."
+          onClose={() => setShowTripModal(false)}
+          footer={(
+            <>
+              <button type="button" className="pill-button is-ghost" onClick={() => setShowTripModal(false)}>Cancelar</button>
+              <button type="submit" form="trip-form" className="pill-button"><Navigation size={16} aria-hidden="true" /> Despachar</button>
+            </>
+          )}
+        >
+          <form id="trip-form" className="dlg-form" onSubmit={handleSaveTrip}>
+            <Field label="Piloto">
+              <AnimatedSelect aria-label="Piloto disponible" value={formTripPiloto} onChange={(e) => setFormTripPiloto(Number(e.target.value))} required>
+                <option value="">Elige un piloto</option>
+                {users
+                  .filter(u => u.tipoRol === 'Piloto' && u.estado === 'Activo' && !trips.some(t => t.idUsuario === u.idUsuario && t.estadoViaje === 'En Curso'))
+                  .map(u => (
+                    <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
                   ))}
-                </AnimatedSelect>
-              </div>
-
-              <div className="modal-actions" style={modalActionsStyle}>
-                <button type="button" onClick={() => setShowTripModal(false)} style={cancelButtonStyle}>
-                  Cancelar
-                </button>
-                <button type="submit" style={saveButtonStyle}>
-                  Iniciar Viaje (Despachar)
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              </AnimatedSelect>
+            </Field>
+            <Field label="Autobús">
+              <AnimatedSelect aria-label="Autobús disponible" value={formTripBus} onChange={(e) => setFormTripBus(Number(e.target.value))} required>
+                <option value="">Elige una unidad</option>
+                {buses
+                  .filter(b => b.estado === 'Activo' && !trips.some(t => t.idAutobus === b.idAutobus && t.estadoViaje === 'En Curso'))
+                  .map(b => (
+                    <option key={b.idAutobus} value={b.idAutobus}>{b.placa} ({b.marcaModelo || 'Sin marca'})</option>
+                  ))}
+              </AnimatedSelect>
+            </Field>
+            <Field label="Ruta (opcional)" wide>
+              <AnimatedSelect aria-label="Ruta del viaje" value={formTripRoute} onChange={(e) => setFormTripRoute(Number(e.target.value))}>
+                <option value={0}>Sin ruta fija</option>
+                {routes.map(r => (
+                  <option key={r.idRuta} value={r.idRuta}>{r.nombreRuta} ({r.origen} a {r.destino})</option>
+                ))}
+              </AnimatedSelect>
+            </Field>
+          </form>
+        </Dialog>
       )}
 
       {/* VISTA DE ACTIVIDAD / HISTORIAL DE VIAJES (Inspirada en Uber Activity & Trip Details) */}
@@ -2984,308 +2907,122 @@ export const TelemetryDashboard: React.FC = () => {
         })()
       )}
 
-      {/* MODAL "DETALLES DEL VIAJE" */}
-      {showTripDetailModal && selectedTripDetail && (
-        <div className="modal-overlay" style={modalOverlayStyle}>
-          <div className="modal-card" role="dialog" aria-modal="true" style={{
-            ...modalCardStyle,
-            maxWidth: '560px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--line)',
-            borderRadius: '16px',
-            padding: '0',
-            overflow: 'hidden',
-            maxHeight: '90vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: 'var(--shadow-modal)'
-          }}>
-            {/* Header con botón de cerrar */}
-            <div className="trip-detail-header" style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '18px 24px',
-              borderBottom: `1px solid ${'var(--surface-soft)'}`
-            }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--ink)' }}>
-                Detalles del Viaje
-              </h3>
-              <button
-                onClick={() => setShowTripDetailModal(false)}
-                style={{
-                  background: 'var(--surface-soft)',
-                  border: `1px solid ${'var(--line)'}`,
-                  borderRadius: '8px',
-                  color: 'var(--muted)',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700
-                }}
-              >
-                <X size={17} />
-              </button>
-            </div>
-
-            {/* Contenido Scrollable */}
-            <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Encabezado del Viaje con Avatar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
-                    Viaje con {selectedTripDetail.nombrePiloto}
-                  </h2>
-                  <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '4px', fontWeight: 500 }}>
-                    {new Date(selectedTripDetail.fechaInicio).toLocaleDateString('es-GT', { day: 'numeric', month: 'short' })} {new Date(selectedTripDetail.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Placa: {selectedTripDetail.placaAutobus}
-                  </div>
-                </div>
-
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '14px',
-                  backgroundColor: 'var(--accent-soft)',
-                  border: '1px solid var(--accent-line)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--accent)',
-                  flexShrink: 0
-                }}>
-                  <Bus size={24} color="var(--accent)" strokeWidth={2} />
-                </div>
-              </div>
-
-              {/* Botón Principal de Ver Ruta HASTA ARRIBA */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowTripDetailModal(false);
-                  setActiveLiveRoutePlaca(selectedTripDetail.placaAutobus);
-                  setFocusedBusPlaca(selectedTripDetail.placaAutobus);
-                  setActiveTab('map');
-                }}
-                style={{
-                  backgroundColor: 'var(--accent)',
-                  backgroundImage: 'none',
-                  color: 'var(--on-accent)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '12px 18px',
-                  fontSize: '0.92rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 9px 22px var(--accent-shadow)',
-                  transition: 'all 0.15s ease',
-                  width: '100%'
-                }}
-              >
-                <Navigation size={18} />
-                <span>Ver Ruta en el Mapa</span>
-              </button>
-
-              {canManageOperations
-                && !selectedTripDetail.idRuta
-                && selectedTripDetail.destinoLatitud != null
-                && selectedTripDetail.destinoLongitud != null && (
-                <button
-                  type="button"
-                  onClick={() => openSaveTripAsRouteModal(selectedTripDetail)}
-                  style={{
-                    ...cancelButtonStyle,
-                    width: '100%',
-                    justifyContent: 'center',
-                    color: 'var(--accent)',
-                    borderColor: 'var(--accent-line)',
-                    background: 'var(--accent-soft)',
-                    padding: '11px 16px',
-                  }}
-                >
-                  <BookmarkPlus size={17} /> Guardar como ruta frecuente
-                </button>
-              )}
-
-              {canManageOperations && selectedTripDetail.estadoViaje === 'En Curso' && (
-                <div style={{
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  border: '1px solid var(--accent-line)',
-                  borderRadius: '14px',
-                  background: 'var(--accent-soft)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div>
-                      <strong style={{ color: 'var(--ink)', fontSize: '0.88rem' }}>Seguimiento para pasajeros</strong>
-                      <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: '0.76rem', lineHeight: 1.45 }}>
-                        Compartir reutiliza el enlace vigente. Rotar invalida el anterior y conserva el historial interno.
-                      </p>
-                    </div>
-                    <QrCode size={21} color="var(--accent)" />
-                  </div>
-                  <button type="button" onClick={() => void createPublicTripLink(selectedTripDetail, true)} disabled={creatingPublicLink}>Rotar enlace</button>
-                  {!publicTripLink ? (
-                    <button
-                      type="button"
-                      onClick={() => void createPublicTripLink(selectedTripDetail)}
-                      disabled={creatingPublicLink}
-                      style={{ ...saveButtonStyle, justifyContent: 'center', width: '100%', opacity: creatingPublicLink ? 0.65 : 1 }}
-                    >
-                      <QrCode size={16} /> {creatingPublicLink ? 'Generando acceso...' : 'Generar enlace y QR'}
-                    </button>
-                  ) : (
-                    <div className="public-link-grid" style={{ display: 'grid', gridTemplateColumns: '112px minmax(0, 1fr)', gap: '12px', alignItems: 'center' }}>
-                      {publicTripQr && <img src={publicTripQr} alt="Código QR del viaje" style={{ width: '112px', height: '112px', padding: '6px', borderRadius: '12px', background: '#fff' }} />}
-                      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <input
-                          aria-label="Enlace público del viaje"
-                          readOnly
-                          value={publicTripLink}
-                          onFocus={(event) => event.currentTarget.select()}
-                          style={{ ...formInputStyle, width: '100%', fontSize: '0.72rem', padding: '9px 10px' }}
-                        />
-                        <div className="public-link-actions" style={{ display: 'flex', gap: '7px' }}>
-                          <button type="button" onClick={() => void copyPublicTripLink()} style={{ ...cancelButtonStyle, flex: 1, justifyContent: 'center' }}><Copy size={14} /> Copiar</button>
-                          <button type="button" onClick={() => window.open(publicTripLink, '_blank', 'noopener,noreferrer')} style={{ ...saveButtonStyle, flex: 1, justifyContent: 'center' }}><ExternalLink size={14} /> Abrir</button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Puntos de Origen y Destino */}
-              <div style={{
-                backgroundColor: 'var(--surface-soft)',
-                borderRadius: '14px',
-                padding: '16px',
-                border: `1px solid ${'var(--line)'}`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px'
-              }}>
-                {/* Origen */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--accent)',
-                    marginTop: '5px',
-                    flexShrink: 0
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: 'var(--ink)', fontSize: '0.9rem', fontWeight: 700 }}>
-                      Origen: {selectedTripDetail.origenRuta || 'Punto de salida'}
-                    </div>
-                    <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: '2px' }}>
-                      Salida programada • {new Date(selectedTripDetail.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Línea divisoria */}
-                <div style={{ width: '2px', height: '12px', backgroundColor: 'var(--line-strong)', marginLeft: '4px' }} />
-
-                {/* Destino */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '2px',
-                    backgroundColor: '#ef4444',
-                    marginTop: '5px',
-                    flexShrink: 0
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: 'var(--ink)', fontSize: '0.9rem', fontWeight: 700 }}>
-                      Destino: {selectedTripDetail.destinoRuta || selectedTripDetail.destinoNombre || 'Destino por confirmar'}
-                    </div>
-                    <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: '2px' }}>
-                      {selectedTripDetail.fechaFin
-                        ? `Llegada registrada • ${new Date(selectedTripDetail.fechaFin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                        : 'Recorrido en progreso (En Ruta)'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Registro de Seguridad y Alertas */}
-              <div style={{
-                backgroundColor: 'var(--surface-soft)',
-                borderRadius: '14px',
-                padding: '16px',
-                border: `1px solid ${'var(--line)'}`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ color: 'var(--ink)', fontSize: '0.88rem' }}>Seguridad y Telemetría</strong>
-                  <span style={{ fontSize: '0.76rem', color: 'var(--success)', fontWeight: 700, backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5', padding: '2px 8px', borderRadius: '6px' }}>
-                    Estado: {selectedTripDetail.estadoViaje}
-                  </span>
-                </div>
-                {historicalAlerts.filter(a => a.idViaje === selectedTripDetail.idViaje).length === 0 ? (
-                  <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginTop: '4px' }}>
-                    <strong>Conducción Segura:</strong> No se detectaron infracciones de velocidad ni maniobras bruscas durante este recorrido.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
-                    {historicalAlerts.filter(a => a.idViaje === selectedTripDetail.idViaje).map((alt) => (
-                      <div key={alt.idAlerta} style={{ backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2', border: `1px solid ${isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca'}`, borderRadius: '8px', padding: '8px 10px', fontSize: '0.8rem', color: '#ef4444' }}>
-                        <strong>{alt.tipoAlerta}:</strong> {alt.valorRegistrado} registrado a las {new Date(alt.fechaHora).toLocaleTimeString()}
-                      </div>
-                    ))}
-                  </div>
+      {showTripDetailModal && selectedTripDetail && (() => {
+        const detail = selectedTripDetail;
+        const tripAlerts = historicalAlerts.filter(a => a.idViaje === detail.idViaje);
+        const started = new Date(detail.fechaInicio);
+        const inProgress = detail.estadoViaje === 'En Curso';
+        const closeDetail = () => setShowTripDetailModal(false);
+        return (
+          <Dialog
+            kicker={`Viaje #${detail.idViaje}`}
+            icon={<Bus size={20} />}
+            title={`Viaje con ${detail.nombrePiloto}`}
+            description={`${started.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' })} · ${started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Unidad ${detail.placaAutobus}`}
+            onClose={closeDetail}
+            footer={(
+              <>
+                {canManageOperations && !detail.idRuta && detail.destinoLatitud != null && detail.destinoLongitud != null && (
+                  <button type="button" className="pill-button is-ghost dlg-foot-start" onClick={() => openSaveTripAsRouteModal(detail)}>
+                    <BookmarkPlus size={16} aria-hidden="true" /> Guardar como ruta
+                  </button>
                 )}
-              </div>
-
-              {/* Botones de Acción */}
-              <div className="trip-detail-actions" style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button type="button" className="pill-button is-ghost" onClick={closeDetail}>Cerrar</button>
                 <button
                   type="button"
+                  className="pill-button"
                   onClick={() => {
-                    setShowTripDetailModal(false);
+                    closeDetail();
+                    setActiveLiveRoutePlaca(detail.placaAutobus);
+                    setFocusedBusPlaca(detail.placaAutobus);
                     setActiveTab('map');
                   }}
-                  style={{
-                    ...saveButtonStyle,
-                    flex: 1,
-                    backgroundColor: 'var(--accent)',
-                    padding: '11px',
-                    fontSize: '0.88rem',
-                    fontWeight: 600
-                  }}
                 >
-                  Ver en Mapa en Vivo
+                  <Navigation size={16} aria-hidden="true" /> Ver en el mapa
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowTripDetailModal(false)}
-                  style={{
-                    ...cancelButtonStyle,
-                    padding: '11px 20px',
-                    fontSize: '0.88rem'
-                  }}
-                >
-                  Cerrar
-                </button>
-              </div>
+              </>
+            )}
+          >
+            <div className="dlg-chips">
+              <span className={`dlg-chip${inProgress ? ' is-live' : ''}`}>{inProgress ? 'En ruta' : detail.estadoViaje}</span>
+              <span className={`dlg-chip${tripAlerts.length ? ' is-danger' : ' is-ok'}`}>
+                {tripAlerts.length ? `${tripAlerts.length} ${tripAlerts.length === 1 ? 'alerta' : 'alertas'}` : 'Conducción segura'}
+              </span>
             </div>
-          </div>
-        </div>
-      )}
+
+            <ol className="dlg-timeline">
+              <li>
+                <span className="dlg-dot" aria-hidden="true" />
+                <div>
+                  <strong>{detail.origenRuta || 'Punto de salida'}</strong>
+                  <span>Salida · {started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              </li>
+              <li>
+                <span className="dlg-dot is-end" aria-hidden="true" />
+                <div>
+                  <strong>{detail.destinoRuta || detail.destinoNombre || 'Destino por confirmar'}</strong>
+                  <span>{detail.fechaFin
+                    ? `Llegada · ${new Date(detail.fechaFin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : 'En camino'}</span>
+                </div>
+              </li>
+            </ol>
+
+            {canManageOperations && inProgress && (
+              <section className="dlg-section">
+                <div className="dlg-section-head">
+                  <div>
+                    <strong>Enlace para pasajeros</strong>
+                    <span>Compartir reutiliza el enlace vigente. Rotarlo invalida el anterior.</span>
+                  </div>
+                  <button type="button" className="pill-button is-ghost is-small" onClick={() => void createPublicTripLink(detail, true)} disabled={creatingPublicLink}>
+                    <RefreshCw size={14} aria-hidden="true" /> Rotar
+                  </button>
+                </div>
+                {!publicTripLink ? (
+                  <button type="button" className="pill-button is-ghost" onClick={() => void createPublicTripLink(detail)} disabled={creatingPublicLink}>
+                    <QrCode size={16} aria-hidden="true" /> {creatingPublicLink ? 'Generando…' : 'Generar enlace y QR'}
+                  </button>
+                ) : (
+                  <div className="dlg-share">
+                    {publicTripQr && <img src={publicTripQr} alt="Código QR del viaje" />}
+                    <div>
+                      <input aria-label="Enlace público del viaje" className="dlg-input" readOnly value={publicTripLink} onFocus={(event) => event.currentTarget.select()} />
+                      <div className="dlg-share-actions">
+                        <button type="button" className="pill-button is-ghost is-small" onClick={() => void copyPublicTripLink()}><Copy size={14} aria-hidden="true" /> Copiar</button>
+                        <button type="button" className="pill-button is-ghost is-small" onClick={() => window.open(publicTripLink, '_blank', 'noopener,noreferrer')}><ExternalLink size={14} aria-hidden="true" /> Abrir</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="dlg-section">
+              <div className="dlg-section-head">
+                <div>
+                  <strong>Seguridad</strong>
+                  <span>{tripAlerts.length
+                    ? 'Eventos registrados durante este recorrido.'
+                    : 'Sin excesos de velocidad ni maniobras bruscas en este recorrido.'}</span>
+                </div>
+              </div>
+              {tripAlerts.length > 0 && (
+                <ul className="dlg-alerts">
+                  {tripAlerts.map((alt) => (
+                    <li key={alt.idAlerta}>
+                      <strong>{alt.tipoAlerta}</strong>
+                      <span>{alt.valorRegistrado}</span>
+                      <time>{new Date(alt.fechaHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </Dialog>
+        );
+      })()}
 
       {/* VISTA DE CHAT OPERATIVO EN TIEMPO REAL - CANAL GENERAL Y PRIVADO */}
       {activeTab === 'chat' && (
