@@ -57,42 +57,12 @@ namespace webapi.Controllers
             try
             {
                 Response.Headers.CacheControl = "no-store";
-                var normalizedLogin = request.UsuarioLogin.Trim();
-
-                // Buscar el usuario en la base de datos
-                var usuario = await _context.Usuarios
-                    .WithoutDeletedAccounts()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.UsuarioLogin == normalizedLogin);
-
-                // Ejecutar siempre BCrypt evita revelar si el usuario existe por diferencias de tiempo.
-                var passwordHash = usuario?.Contrasena ?? DummyPasswordHash;
-                var passwordValida = BCrypt.Net.BCrypt.Verify(request.Contrasena, passwordHash);
-                if (usuario == null || !passwordValida || !string.Equals(usuario.Estado, EstadosRegistro.Activo, StringComparison.Ordinal))
-                {
-                    return Unauthorized(new { mensaje = "Credenciales incorrectas o usuario inactivo." });
-                }
-
-                // Generar el JWT Token
-                var token = GenerarJwtToken(usuario);
-
-                var cookieOptions = CreateAuthCookieOptions(DateTimeOffset.UtcNow.AddHours(8));
-
-                // Insertar la cookie en la respuesta HTTP
-                Response.Cookies.Append(AuthCookieName, token, cookieOptions);
-
-                // Inyectar virtualmente el rol SuperAdministrador para el frontend
-                var virtualRole = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol);
+                var usuario = await AutenticarAsync(request);
+                if (usuario == null) return CredencialesInvalidas();
 
                 // El token queda exclusivamente en la cookie HttpOnly y nunca se expone a JavaScript.
-                return Ok(new UserResponseDto
-                {
-                    IdUsuario = usuario.IdUsuario,
-                    NombreCompleto = usuario.NombreCompleto,
-                    TipoRol = virtualRole,
-                    UsuarioLogin = usuario.UsuarioLogin,
-                    Estado = usuario.Estado
-                });
+                EmitirCookie(GenerarJwtToken(usuario));
+                return Ok(ToResponse(usuario));
             }
             catch (Exception ex)
             {
@@ -118,34 +88,16 @@ namespace webapi.Controllers
             try
             {
                 Response.Headers.CacheControl = "no-store";
-                var normalizedLogin = request.UsuarioLogin.Trim();
-                var usuario = await _context.Usuarios
-                    .WithoutDeletedAccounts()
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.UsuarioLogin == normalizedLogin);
-
-                var passwordHash = usuario?.Contrasena ?? DummyPasswordHash;
-                var passwordValida = BCrypt.Net.BCrypt.Verify(request.Contrasena, passwordHash);
-                if (usuario == null || !passwordValida || !string.Equals(usuario.Estado, EstadosRegistro.Activo, StringComparison.Ordinal))
-                {
-                    return Unauthorized(new { mensaje = "Credenciales incorrectas o usuario inactivo." });
-                }
+                var usuario = await AutenticarAsync(request);
+                if (usuario == null) return CredencialesInvalidas();
 
                 var token = GenerarJwtToken(usuario);
-                Response.Cookies.Append(AuthCookieName, token, CreateAuthCookieOptions(DateTimeOffset.UtcNow.AddHours(8)));
-                var virtualRole = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol);
+                EmitirCookie(token);
                 return Ok(new MobileLoginResponseDto
                 {
                     Token = token,
-                    ExpiresAtUtc = DateTime.UtcNow.AddHours(8),
-                    Usuario = new UserResponseDto
-                    {
-                        IdUsuario = usuario.IdUsuario,
-                        NombreCompleto = usuario.NombreCompleto,
-                        TipoRol = virtualRole,
-                        UsuarioLogin = usuario.UsuarioLogin,
-                        Estado = usuario.Estado
-                    }
+                    ExpiresAtUtc = DateTime.UtcNow.Add(SessionDuration),
+                    Usuario = ToResponse(usuario)
                 });
             }
             catch (Exception ex)
@@ -267,17 +219,7 @@ namespace webapi.Controllers
                     return Unauthorized(new { mensaje = "El usuario ya no está activo o no existe." });
                 }
 
-                // Inyectar virtualmente el rol SuperAdministrador para el frontend
-                var virtualRole = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol);
-
-                return Ok(new UserResponseDto
-                {
-                    IdUsuario = usuario.IdUsuario,
-                    NombreCompleto = usuario.NombreCompleto,
-                    TipoRol = virtualRole,
-                    UsuarioLogin = usuario.UsuarioLogin,
-                    Estado = usuario.Estado
-                });
+                return Ok(ToResponse(usuario));
             }
             catch (Exception ex)
             {
@@ -287,6 +229,42 @@ namespace webapi.Controllers
         }
 
         #region Métodos Auxiliares
+
+        private static readonly TimeSpan SessionDuration = TimeSpan.FromHours(8);
+
+        /// <summary>
+        /// Verifica usuario y contraseña. Devuelve null si no existen, no coinciden o la cuenta
+        /// no está activa; el llamador responde siempre lo mismo para no revelar cuál fue el caso.
+        /// </summary>
+        private async Task<Usuario?> AutenticarAsync(LoginRequestDto request)
+        {
+            var normalizedLogin = request.UsuarioLogin.Trim();
+            var usuario = await _context.Usuarios
+                .WithoutDeletedAccounts()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UsuarioLogin == normalizedLogin);
+
+            // Ejecutar siempre BCrypt evita revelar si el usuario existe por diferencias de tiempo.
+            var passwordValida = BCrypt.Net.BCrypt.Verify(request.Contrasena, usuario?.Contrasena ?? DummyPasswordHash);
+            return usuario != null && passwordValida && string.Equals(usuario.Estado, EstadosRegistro.Activo, StringComparison.Ordinal)
+                ? usuario
+                : null;
+        }
+
+        private UnauthorizedObjectResult CredencialesInvalidas() =>
+            Unauthorized(new { mensaje = "Credenciales incorrectas o usuario inactivo." });
+
+        private void EmitirCookie(string token) =>
+            Response.Cookies.Append(AuthCookieName, token, CreateAuthCookieOptions(DateTimeOffset.UtcNow.Add(SessionDuration)));
+
+        private static UserResponseDto ToResponse(Usuario usuario) => new()
+        {
+            IdUsuario = usuario.IdUsuario,
+            NombreCompleto = usuario.NombreCompleto,
+            TipoRol = UserAccounts.EffectiveRole(usuario.UsuarioLogin, usuario.TipoRol),
+            UsuarioLogin = usuario.UsuarioLogin,
+            Estado = usuario.Estado
+        };
 
         private string GenerarJwtToken(Usuario usuario)
         {
@@ -324,7 +302,7 @@ namespace webapi.Controllers
                 issuer: jwtIssuer,
                 audience: jwtAudience,
                 claims: claimsList,
-                expires: DateTime.UtcNow.AddHours(8),
+                expires: DateTime.UtcNow.Add(SessionDuration),
                 signingCredentials: creds
             );
 

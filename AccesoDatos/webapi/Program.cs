@@ -123,6 +123,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAutobusService, AutobusService>();
 builder.Services.AddScoped<IRutaService, RutaService>();
 builder.Services.AddScoped<IViajeService, ViajeService>();
+var alertThresholds = builder.Configuration.GetSection(AlertThresholds.SectionName).Get<AlertThresholds>() ?? new AlertThresholds();
+alertThresholds.Validate(); // Un límite mal escrito detiene el arranque en lugar de generar alertas falsas.
+builder.Services.AddSingleton(Microsoft.Extensions.Options.Options.Create(alertThresholds));
 builder.Services.AddScoped<ITelemetriaService, TelemetriaService>();
 builder.Services.AddScoped<IEvaluacionService, EvaluacionService>();
 builder.Services.AddScoped<IPushNotificationService, ExpoPushNotificationService>();
