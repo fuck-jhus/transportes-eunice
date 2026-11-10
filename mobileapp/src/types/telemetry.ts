@@ -66,6 +66,8 @@ export interface MobileTrackingSnapshot {
   locationFresh?: boolean;
   backgroundStatus?: 'inactive' | 'starting' | 'active' | 'denied' | 'error';
   queueError?: string | null;
+  /** Acelerómetro y giroscopio: sin sensores, calibrando (primeros segundos) o listos. */
+  sensorState?: 'unavailable' | 'calibrating' | 'ready';
   speedKmh: number;
   heading: number | null;
   accuracy: number | null;
@@ -83,14 +85,3 @@ export interface MobileTrackingSnapshot {
   ) => void;
 }
 
-export interface SensorReading {
-  speed: number;
-  accelX: number;
-  accelY: number;
-  accelZ: number;
-  gyroX: number;
-  gyroY: number;
-  gyroZ: number;
-  lat: number;
-  lng: number;
-}

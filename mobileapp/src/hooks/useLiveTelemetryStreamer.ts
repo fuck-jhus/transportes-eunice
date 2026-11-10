@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { isAxiosError } from 'axios';
 import * as Location from 'expo-location';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
+import { VehicleMotionEstimator, type SensorState } from '../services/vehicleMotion';
 import NetInfo from '@react-native-community/netinfo';
 import api from '../api/client';
 import { createFleetConnection } from '../services/fleetConnection';
@@ -123,8 +124,8 @@ export const useLiveTelemetryStreamer = (
   const tripActiveRef = useRef(liveTripActive);
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const speedRef = useRef(0);
-  const sensorRef = useRef({ accelX: 0, accelY: 0, accelZ: 0, gyroX: 0, gyroY: 0, gyroZ: 0 });
-  const gravityRef = useRef({ x: 0, y: 0, z: 9.81 });
+  const motionRef = useRef(new VehicleMotionEstimator());
+  const [sensorState, setSensorState] = useState<SensorState>('unavailable');
   const previousPositionRef = useRef<{ lat: number; lng: number; timestamp: number; accuracy: number } | null>(null);
   const displayFixRef = useRef<NavigationFix | null>(null);
   const lastQueuedAtRef = useRef(0);
@@ -282,23 +283,24 @@ export const useLiveTelemetryStreamer = (
     lastDeviceTimestampRef.current = timestamp;
     const destination = destinationOverride !== undefined ? destinationOverride : destinationRef.current;
     const hasActiveNavigation = tripActiveOverride !== undefined ? tripActiveOverride : tripActiveRef.current;
-    const sensors = sensorRef.current;
+    const motion = motionRef.current.takeWindow();
     const sourceId = await trackingSourceId();
     if (currentUserId.current !== user.idUsuario || !publicationAllowed.current) return;
     const payload: CrearTelemetriaDto = {
       idViaje: assignedTrip.idViaje,
       idFuente: sourceId,
-      sensoresCalibrados: false,
+      // Ejes del autobús: Y = adelante (negativo = frenado), X = lateral, Z = vertical; giro = yaw.
+      sensoresCalibrados: motion.calibrated,
       ...(accuracy != null ? { precisionMetros: accuracy } : {}),
       latitud: Number(coordinates.lat.toFixed(7)),
       longitud: Number(coordinates.lng.toFixed(7)),
       velocidadKmh: Number(speedRef.current.toFixed(1)),
-      aceleracionX: sensors.accelX,
-      aceleracionY: sensors.accelY,
-      aceleracionZ: sensors.accelZ,
-      giroscopioX: sensors.gyroX,
-      giroscopioY: sensors.gyroY,
-      giroscopioZ: sensors.gyroZ,
+      ...(motion.calibrated ? {
+        aceleracionX: motion.lateral,
+        aceleracionY: motion.longitudinal,
+        aceleracionZ: motion.vertical,
+        giroscopioZ: motion.yawRate,
+      } : {}),
       ...(headingRef.current != null ? { heading: headingRef.current } : {}),
       fechaHoraDispositivo: new Date(timestamp).toISOString(),
       ...(hasActiveNavigation && destination ? {
@@ -388,30 +390,35 @@ export const useLiveTelemetryStreamer = (
 
     // Un teléfono sin acelerómetro o giroscopio (o el navegador) no debe tumbar la pantalla del piloto:
     // el GPS sigue funcionando y solo se pierden las alertas de frenado o giro brusco.
-    try {
-    Accelerometer.setUpdateInterval(100);
-    accelerationSubscription = Accelerometer.addListener((sample) => {
-      const raw = { x: sample.x * 9.81, y: sample.y * 9.81, z: sample.z * 9.81 };
-      const gravity = gravityRef.current;
-      gravity.x = gravity.x * 0.9 + raw.x * 0.1;
-      gravity.y = gravity.y * 0.9 + raw.y * 0.1;
-      gravity.z = gravity.z * 0.9 + raw.z * 0.1;
-      sensorRef.current.accelX = Number((raw.x - gravity.x).toFixed(2));
-      sensorRef.current.accelY = Number((raw.y - gravity.y).toFixed(2));
-      sensorRef.current.accelZ = Number((raw.z - gravity.z).toFixed(2));
-    });
-
-    Gyroscope.setUpdateInterval(100);
-    gyroscopeSubscription = Gyroscope.addListener((sample) => {
-      sensorRef.current.gyroX = Number(sample.x.toFixed(2));
-      sensorRef.current.gyroY = Number(sample.y.toFixed(2));
-      sensorRef.current.gyroZ = Number(sample.z.toFixed(2));
-    });
-    } catch (error) {
-      console.warn('[Sensores] No disponibles en este dispositivo', error);
-    }
+    const motion = new VehicleMotionEstimator();
+    motionRef.current = motion;
+    let cancelled = false;
+    const refreshState = setInterval(() => setSensorState(motion.state()), 2_000);
+    const subscribe = async () => {
+      const [hasAccelerometer, hasGyroscope] = await Promise.all([
+        Promise.resolve().then(() => Accelerometer.isAvailableAsync()).catch(() => false),
+        Promise.resolve().then(() => Gyroscope.isAvailableAsync()).catch(() => false),
+      ]);
+      if (cancelled) return;
+      try {
+        if (hasAccelerometer) {
+          Accelerometer.setUpdateInterval(100);
+          accelerationSubscription = Accelerometer.addListener((sample) => motion.onAccelerometer(sample));
+        }
+        if (hasGyroscope) {
+          Gyroscope.setUpdateInterval(100);
+          gyroscopeSubscription = Gyroscope.addListener((sample) => motion.onGyroscope(sample));
+        }
+      } catch (error) {
+        console.warn('[Sensores] No disponibles en este dispositivo', error);
+      }
+      setSensorState(motion.state());
+    };
+    void subscribe();
 
     return () => {
+      cancelled = true;
+      clearInterval(refreshState);
       accelerationSubscription?.remove();
       gyroscopeSubscription?.remove();
     };
@@ -500,6 +507,8 @@ export const useLiveTelemetryStreamer = (
         nextSpeed = Math.min(300, Math.max(0, Number(nextSpeed.toFixed(1))));
         coordsRef.current = nextLocation;
         speedRef.current = nextSpeed;
+        // Solo la velocidad Doppler del GPS sirve para medir frenadas; la calculada por distancia es muy gruesa.
+        if (sample.coords.speed != null && sample.coords.speed >= 0) motionRef.current.onGps(sample.coords.speed, measuredAt);
         const fix = { ...nextLocation, timestamp: measuredAt, accuracy: measuredAccuracy };
         const nextHeading = resolveNavigationHeading(sample.coords.heading, nextSpeed, previous, fix, compassRef.current, courseRef.current);
         if (nextHeading != null) {
@@ -589,5 +598,6 @@ export const useLiveTelemetryStreamer = (
     takeTrackingControl,
     retry,
     streamTelemetryNow,
+    sensorState,
   };
 };
