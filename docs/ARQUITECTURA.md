@@ -14,6 +14,8 @@ El esquema usa SQL Server, índices únicos, versiones de concurrencia y transac
 
 Los módulos de viajes y telemetría administran asignaciones, inicio/finalización y fuentes de ubicación. La app incluye GPS, sensores, envío en vivo y archivo local de lecturas pendientes separado por usuario y viaje. La recepción identifica las lecturas para evitar duplicados; una falta de conectividad no equivale a una confirmación de guardado.
 
+Las alertas de conducción usan los límites de la sección `Alertas` de la configuración (`VelocidadMaximaKmh`, `FrenadoBruscoMs2`, `AceleracionPeligrosaMs2`, `GiroBruscoLateralMs2`, `GiroBruscoRadS`); sin configuración se usan 80 km/h, 3 m/s² y 2,5 rad/s. La evaluación mensual de pilotos se consolida sola un día después del cierre de cada mes (hora de Guatemala) mediante `MonthlyEvaluationService`, y un administrador puede recalcular cualquier mes desde el panel.
+
 La frescura del GPS se calcula con el momento de observación. La interpolación de marcadores es una presentación visual y no debe producir lecturas nuevas. Las pruebas de navegación y sesión controlan relojes y señales para verificar estos límites.
 
 Los mapas utilizan Leaflet/OpenStreetMap y servicios de búsqueda/rutas consumidos por el backend. Para una instalación propia, revisa su disponibilidad, atribución y condiciones antes de exponer tráfico público. Algunos nombres de componentes conservan referencias históricas a otros proveedores de mapas.
