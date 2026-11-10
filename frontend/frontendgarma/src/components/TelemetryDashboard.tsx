@@ -214,7 +214,6 @@ export const TelemetryDashboard: React.FC = () => {
   const {
     containerStyle,
     mainContentWrapperStyle,
-    cardStyle,
     cardTitleStyle,
     usersContainerStyle,
     tableHeaderStyle,
@@ -1756,7 +1755,7 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
       <main className="main-content" style={mainContentWrapperStyle}>
-        {activeTab !== 'map' && activeTab !== 'telemetry' && activeTab !== 'alerts' && (
+        {activeTab !== 'map' && activeTab !== 'telemetry' && activeTab !== 'alerts' && activeTab !== 'activity' && (
           <DashboardHeader activeTab={activeTab} isDark={isDark} />
         )}
 
@@ -2749,505 +2748,198 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* VISTA DE ACTIVIDAD / HISTORIAL DE VIAJES (Inspirada en Uber Activity & Trip Details) */}
       {activeTab === 'activity' && (
-        <div className="dashboard-view" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-          {/* Tarjeta de Viaje Activo para el Piloto */}
-          {user?.tipoRol === 'Piloto' && (
-            <div style={cardStyle}>
-              <h3 style={{ ...cardTitleStyle, marginBottom: '12px' }}>Tu Viaje Asignado Actual</h3>
-              {loadingActiveTrip ? (
-                <div style={{ color: '#64748b', textAlign: 'center', padding: '16px' }}>
-                  Consultando base de datos de despacho...
-                </div>
-              ) : activeTrip ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Ruta Asignada:</span>
-                    <strong style={{ color: 'var(--accent)' }}>{activeTrip.nombreRuta || 'N/D'}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Autobús (Placa):</span>
-                    <strong style={{ color: '#0f172a' }}>{activeTrip.placaAutobus}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Hora de Inicio:</span>
-                    <span style={{ color: '#0f172a' }}>{new Date(activeTrip.fechaInicio).toLocaleString()}</span>
-                  </div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                     <span style={{ color: '#64748b', fontSize: '0.86rem' }}>Estado:</span>
-                     <span style={{ color: '#059669', fontWeight: 600, backgroundColor: '#ecfdf5', padding: '2px 8px', borderRadius: '6px' }}>{activeTrip.estadoViaje}</span>
-                   </div>
-                   <button
-                     type="button"
-                     className="button-with-icon"
-                     onClick={() => handleFinalizeTrip(activeTrip.idViaje)}
-                     style={{ ...saveButtonStyle, marginTop: '8px', width: '100%', justifyContent: 'center' }}
-                   >
-                     <CheckCircle2 size={16} /> Finalizar recorrido y quedar disponible
-                   </button>
-                 </div>
-              ) : (
-                <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '0.86rem' }}>
-                  <strong>Sin Viaje Asignado:</strong> No tienes ningún viaje activo en este momento. Comunícate con tu supervisor para tu asignación.
-                </div>
-              )}
-            </div>
-          )}
+        (() => {
+          const isPilotUser = user?.tipoRol === 'Piloto';
+          const canDispatchTrips = user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador';
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          oneWeekAgo.setHours(0, 0, 0, 0);
+          const q = activitySearchQuery.trim().toLowerCase();
+          const filtered = trips.filter((t) => {
+            if (isPilotUser) {
+              const matchId = t.idUsuario === user?.idUsuario;
+              const matchName = t.nombrePiloto && user?.nombreCompleto
+                && t.nombrePiloto.trim().toLowerCase() === user.nombreCompleto.trim().toLowerCase();
+              if (!matchId && !matchName) return false;
+            }
+            const matchesSearch = q === ''
+              || (t.nombreRuta && t.nombreRuta.toLowerCase().includes(q))
+              || t.placaAutobus.toLowerCase().includes(q)
+              || t.nombrePiloto.toLowerCase().includes(q);
+            const matchesPilot = activityFilterPilot === '' || t.idUsuario === Number(activityFilterPilot);
+            const matchesStatus = activityFilterStatus === '' || t.estadoViaje === activityFilterStatus;
+            const matchesDate = activityFilterDate === '' || (t.fechaInicio && t.fechaInicio.startsWith(activityFilterDate));
+            let matchesTimeRange = true;
+            if (activityTimeRange === 'week' && !activityFilterDate) {
+              const tripDate = new Date(t.fechaInicio);
+              matchesTimeRange = !isNaN(tripDate.getTime()) && tripDate >= oneWeekAgo;
+            }
+            return matchesSearch && matchesPilot && matchesStatus && matchesDate && matchesTimeRange;
+          });
 
-          {/* Cabecera y Filtros de Actividad */}
-          <div className="data-view activity-panel" style={usersContainerStyle}>
-            <div className="activity-toolbar" style={{ ...tableHeaderStyle, flexDirection: 'column', alignItems: 'stretch', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          const dayLabel = (date: Date) => {
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const day = new Date(date); day.setHours(0, 0, 0, 0);
+            const diff = Math.round((today.getTime() - day.getTime()) / 86400000);
+            if (diff === 0) return 'Hoy';
+            if (diff === 1) return 'Ayer';
+            return date.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' });
+          };
+          const groups: { label: string; items: Viaje[] }[] = [];
+          filtered.forEach((trip) => {
+            const date = new Date(trip.fechaInicio);
+            const label = isNaN(date.getTime()) ? 'Sin fecha' : dayLabel(date);
+            const last = groups[groups.length - 1];
+            if (last && last.label === label) last.items.push(trip);
+            else groups.push({ label, items: [trip] });
+          });
+          const hasFilters = Boolean(activitySearchQuery || activityFilterPilot || activityFilterStatus || activityFilterDate);
+          const openDetail = (trip: Viaje) => { setSelectedTripDetail(trip); setShowTripDetailModal(true); };
+
+          return (
+            <div className="screen trips-screen">
+              <header className="screen-head">
                 <div>
-                  <h2 style={{ ...cardTitleStyle, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {user?.tipoRol === 'Piloto' ? 'Mis Rutas y Viajes Asignados' : 'Actividad e Historial de Recorridos'}
-                  </h2>
-                  <p style={{ color: '#64748b', fontSize: '0.86rem', margin: '4px 0 0 0' }}>
-                    {user?.tipoRol === 'Piloto'
-                      ? 'Historial de tus viajes realizados, rutas cubiertas y autobuses asignados'
-                      : 'Auditoría cronológica de todos los viajes despachados y operados en la flota'}
-                  </p>
+                  <h1>{isPilotUser ? 'Mis viajes' : 'Viajes'}</h1>
+                  <p>{isPilotUser ? 'Tu viaje de hoy y los que ya hiciste.' : 'Cada salida de la flota, del despacho al cierre.'}</p>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  {/* Selector Segmentado de Rango: Última Semana vs Ver Todos */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundColor: 'var(--surface-soft)',
-                    padding: '3px',
-                    borderRadius: '12px',
-                    border: `1px solid ${'var(--line)'}`,
-                    gap: '3px'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => setActivityTimeRange('week')}
-                      style={{
-                        backgroundColor: activityTimeRange === 'week' ? 'var(--accent)' : 'transparent',
-                        color: activityTimeRange === 'week' ? 'var(--on-accent)' : 'var(--muted)',
-                        border: 'none',
-                        borderRadius: '9px',
-                        padding: '6px 14px',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.15s ease',
-                        boxShadow: activityTimeRange === 'week' ? '0 7px 18px var(--accent-shadow)' : 'none'
-                      }}
-                    >
-                      Última Semana
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActivityTimeRange('all')}
-                      style={{
-                        backgroundColor: activityTimeRange === 'all' ? 'var(--accent)' : 'transparent',
-                        color: activityTimeRange === 'all' ? 'var(--on-accent)' : 'var(--muted)',
-                        border: 'none',
-                        borderRadius: '9px',
-                        padding: '6px 14px',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.15s ease',
-                        boxShadow: activityTimeRange === 'all' ? '0 7px 18px var(--accent-shadow)' : 'none'
-                      }}
-                    >
-                      Ver Todos
-                    </button>
+                <div className="screen-head-actions">
+                  <div className="ops-segment is-inline" role="group" aria-label="Rango de fechas">
+                    <button type="button" aria-pressed={activityTimeRange === 'week'} onClick={() => setActivityTimeRange('week')}>Última semana</button>
+                    <button type="button" aria-pressed={activityTimeRange === 'all'} onClick={() => setActivityTimeRange('all')}>Todo</button>
                   </div>
-
-                  {(user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador') && (
-                    <button onClick={openCreateTripModal} style={addButtonStyle}>
-                      Nuevo Despacho
+                  {canDispatchTrips && (
+                    <button type="button" className="pill-button is-highlight" onClick={openCreateTripModal}>
+                      <Plus size={16} aria-hidden="true" /> Nuevo despacho
                     </button>
                   )}
                 </div>
-              </div>
+              </header>
 
-              {/* Barra de Filtros y Búsqueda Compacta */}
-              <div className="activity-filters" style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'flex-end',
-                gap: '12px',
-                padding: '14px 16px',
-                borderRadius: '16px',
-                backgroundColor: 'var(--surface-soft)',
-                border: `1px solid ${'var(--line)'}`,
-                width: '100%',
-                boxSizing: 'border-box'
-              }}>
-                <div style={{ flex: '2 1 200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Buscar Ruta / Destino / Placa</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: XELABUS, Terminal, C-102BKL..."
-                    value={activitySearchQuery}
-                    onChange={(e) => setActivitySearchQuery(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                  />
-                </div>
+              {isPilotUser && (
+                loadingActiveTrip ? (
+                  <section className="trip-hero is-muted"><p>Buscando tu viaje…</p></section>
+                ) : activeTrip ? (
+                  <section className="trip-hero" aria-label="Viaje en curso">
+                    <div className="trip-hero-main">
+                      <span>Viaje en curso</span>
+                      <strong>{activeTrip.nombreRuta || 'Ruta libre'}</strong>
+                      <p>Bus {activeTrip.placaAutobus} · salió {new Date(activeTrip.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <button type="button" className="pill-button is-highlight" onClick={() => handleFinalizeTrip(activeTrip.idViaje)}>
+                      <CheckCircle2 size={16} aria-hidden="true" /> Finalizar viaje
+                    </button>
+                  </section>
+                ) : (
+                  <section className="trip-hero is-muted">
+                    <div className="trip-hero-main">
+                      <span>Sin viaje asignado</span>
+                      <p>Cuando tu supervisor te despache, aparecerá aquí.</p>
+                    </div>
+                  </section>
+                )
+              )}
 
-                {(user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador' || user?.tipoRol === 'Supervisor') && (
-                  <div style={{ flex: '1 1 160px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Filtrar por Piloto</label>
-                    <AnimatedSelect
-                      aria-label="Filtrar actividad por piloto"
-                      value={activityFilterPilot}
-                      onChange={(e) => setActivityFilterPilot(e.target.value)}
-                      style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                    >
-                      <option value="">Todos los Pilotos</option>
+              <form className="filter-row" onSubmit={(event) => event.preventDefault()}>
+                <label className="filter-field is-wide">
+                  <span>Buscar</span>
+                  <input type="search" placeholder="Ruta, placa o piloto" value={activitySearchQuery} onChange={(e) => setActivitySearchQuery(e.target.value)} />
+                </label>
+                {!isPilotUser && (
+                  <div className="filter-field">
+                    <span>Piloto</span>
+                    <AnimatedSelect aria-label="Filtrar viajes por piloto" value={activityFilterPilot} onChange={(e) => setActivityFilterPilot(e.target.value)}>
+                      <option value="">Todos</option>
                       {users.filter(u => u.tipoRol === 'Piloto').map(u => (
                         <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
                       ))}
                     </AnimatedSelect>
                   </div>
                 )}
-
-                <div style={{ flex: '1 1 150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Estado del Viaje</label>
-                  <AnimatedSelect
-                    aria-label="Filtrar actividad por estado"
-                    value={activityFilterStatus}
-                    onChange={(e) => setActivityFilterStatus(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                  >
-                    <option value="">Todos los Estados</option>
-                    <option value="En Curso">En Curso</option>
+                <div className="filter-field">
+                  <span>Estado</span>
+                  <AnimatedSelect aria-label="Filtrar viajes por estado" value={activityFilterStatus} onChange={(e) => setActivityFilterStatus(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="En Curso">En curso</option>
                     <option value="Completado">Completado</option>
                     <option value="Cancelado">Cancelado</option>
                   </AnimatedSelect>
                 </div>
+                <label className="filter-field">
+                  <span>Día</span>
+                  <input type="date" value={activityFilterDate} onChange={(e) => setActivityFilterDate(e.target.value)} />
+                </label>
+                {hasFilters && (
+                  <div className="filter-buttons">
+                    <button type="button" className="pill-button is-ghost" onClick={() => {
+                      setActivitySearchQuery(''); setActivityFilterPilot(''); setActivityFilterStatus(''); setActivityFilterDate('');
+                    }}>Limpiar</button>
+                  </div>
+                )}
+              </form>
 
-                <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Fecha Específica</label>
-                  <input
-                    type="date"
-                    value={activityFilterDate}
-                    onChange={(e) => setActivityFilterDate(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                  />
+              {loadingTrips ? (
+                <p className="feed-empty">Cargando viajes…</p>
+              ) : groups.length === 0 ? (
+                <div className="feed-empty is-column">
+                  <p>{activityTimeRange === 'week' ? 'No hay viajes en los últimos 7 días con estos filtros.' : 'No hay viajes con estos filtros.'}</p>
+                  {activityTimeRange === 'week' && (
+                    <button type="button" className="pill-button is-ghost" onClick={() => setActivityTimeRange('all')}>Ver todo el historial</button>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivitySearchQuery('');
-                    setActivityFilterPilot('');
-                    setActivityFilterStatus('');
-                    setActivityFilterDate('');
-                    setActivityTimeRange('week');
-                  }}
-                  style={{
-                    backgroundColor: 'var(--surface)',
-                    border: `1.5px solid ${'var(--line)'}`,
-                    color: 'var(--muted)',
-                    borderRadius: '10px',
-                    padding: '8px 16px',
-                    height: '38px',
-                    fontWeight: 600,
-                    fontSize: '0.84rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease',
-                    flexShrink: 0
-                  }}
-                >
-                  Limpiar Filtros
-                </button>
-              </div>
-            </div>
-
-            {/* Feed de Tarjetas de Actividad (Estilo SaaS Moderno) */}
-            {loadingTrips ? (
-              <div style={loadingTableStyle}>Cargando historial de actividad...</div>
-            ) : (
-              <div className="activity-feed" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-                {(() => {
-                  const oneWeekAgo = new Date();
-                  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                  oneWeekAgo.setHours(0, 0, 0, 0);
-
-                  const filtered = trips.filter((t) => {
-                    if (user?.tipoRol === 'Piloto') {
-                      const matchId = t.idUsuario === user.idUsuario;
-                      const matchName = t.nombrePiloto && user.nombreCompleto &&
-                        t.nombrePiloto.trim().toLowerCase() === user.nombreCompleto.trim().toLowerCase();
-                      if (!matchId && !matchName) return false;
-                    }
-                    const q = activitySearchQuery.trim().toLowerCase();
-                    const matchesSearch =
-                      q === '' ||
-                      (t.nombreRuta && t.nombreRuta.toLowerCase().includes(q)) ||
-                      t.placaAutobus.toLowerCase().includes(q) ||
-                      t.nombrePiloto.toLowerCase().includes(q);
-
-                    const matchesPilot =
-                      activityFilterPilot === '' || t.idUsuario === Number(activityFilterPilot);
-
-                    const matchesStatus =
-                      activityFilterStatus === '' || t.estadoViaje === activityFilterStatus;
-
-                    const matchesDate =
-                      activityFilterDate === '' || (t.fechaInicio && t.fechaInicio.startsWith(activityFilterDate));
-
-                    // Filtro de rango: 1 semana por defecto
-                    let matchesTimeRange = true;
-                    if (activityTimeRange === 'week' && !activityFilterDate) {
-                      const tripDate = new Date(t.fechaInicio);
-                      matchesTimeRange = !isNaN(tripDate.getTime()) && tripDate >= oneWeekAgo;
-                    }
-
-                    return matchesSearch && matchesPilot && matchesStatus && matchesDate && matchesTimeRange;
-                  });
-
-                  if (filtered.length === 0) {
-                    return (
-                      <div className="empty-state" style={{ textAlign: 'center', color: 'var(--muted)', padding: '48px 24px', backgroundColor: 'var(--surface-soft)', borderRadius: '12px', border: '1px solid var(--line)' }}>
-                        <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', margin: '8px 0' }}>
-                          {activityTimeRange === 'week'
-                            ? 'No se encontraron viajes en los últimos 7 días con los filtros actuales'
-                            : 'No se encontraron registros de viajes en el historial'}
-                        </p>
-                        {activityTimeRange === 'week' && (
-                          <button
-                            type="button"
-                            onClick={() => setActivityTimeRange('all')}
-                            style={{
-                              backgroundColor: 'var(--accent)',
-                              color: 'var(--on-accent)',
-                              border: 'none',
-                              borderRadius: '10px',
-                              padding: '8px 16px',
-                              fontSize: '0.84rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              marginTop: '8px',
-                              boxShadow: '0 7px 18px var(--accent-shadow)'
-                            }}
-                          >
-                            Ver Todo el Historial Anterior
-                          </button>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <>
-                      {filtered.map((trip) => {
-                        const isEnCurso = trip.estadoViaje === 'En Curso';
-                        const isCancelado = trip.estadoViaje === 'Cancelado';
-                        const dateObj = new Date(trip.fechaInicio);
-                        const formattedDate = dateObj.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' });
-                        const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                        return (
-                          <div
-                            className="trip-history-card"
-                            key={trip.idViaje}
-                            onClick={() => {
-                              setSelectedTripDetail(trip);
-                              setShowTripDetailModal(true);
-                            }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              backgroundColor: 'var(--surface)',
-                              border: '1px solid var(--line)',
-                              borderRadius: '12px',
-                              padding: '16px 20px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                              gap: '16px',
-                              flexWrap: 'wrap',
-                              boxShadow: 'none'
-                            }}
-                          >
-                            {/* Lado Izquierdo: Ícono de Autobús */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '240px' }}>
-                              <div style={{
-                                width: '46px',
-                                height: '46px',
-                                borderRadius: '12px',
-                                backgroundColor: 'var(--accent-soft)',
-                                border: '1px solid var(--accent-line)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'var(--accent)',
-                                flexShrink: 0
-                              }}>
-                                <Bus size={22} color="var(--accent)" strokeWidth={2} />
-                              </div>
-
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <strong style={{ color: 'var(--ink)', fontSize: '0.98rem', fontWeight: 700 }}>
-                                  {trip.nombreRuta && trip.nombreRuta !== 'N/D'
-                                    ? trip.nombreRuta
-                                    : trip.destinoNombre || 'Ruta sin guardar'}
-                                </strong>
-                                <div style={{ color: 'var(--muted)', fontSize: '0.8rem', fontWeight: 500 }}>
-                                  {formattedDate} • {formattedTime}
-                                </div>
-                                <div style={{ color: 'var(--subtle)', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span><strong>{trip.placaAutobus}</strong></span>
-                                  <span>•</span>
-                                  <span>{trip.nombrePiloto}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Lado Derecho: Estado y Botón Reagendar / Ver Detalle */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                              <span style={{
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                padding: '4px 10px',
-                                borderRadius: '8px',
-                                backgroundColor: isEnCurso ? 'var(--accent-soft)' : isCancelado ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2') : (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5'),
-                                color: isEnCurso ? 'var(--accent)' : isCancelado ? '#ef4444' : ('var(--success)'),
-                                border: `1px solid ${isEnCurso ? 'var(--accent-line)' : isCancelado ? (isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca') : (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0')}`,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                {isEnCurso ? (
-                                  <>
-                                    <Radio size={12} />
-                                    <span>En Curso</span>
-                                  </>
-                                ) : isCancelado ? (
-                                  <>
-                                    <AlertTriangle size={12} />
-                                    <span>Cancelado</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 size={12} />
-                                    <span>Completado</span>
-                                  </>
-                                )}
+              ) : (
+                <div className="trip-timeline">
+                  {groups.map((group) => (
+                    <section key={group.label} className="trip-day">
+                      <h2>{group.label}</h2>
+                      <ol>
+                        {group.items.map((trip) => {
+                          const status = trip.estadoViaje === 'En Curso' ? 'live' : trip.estadoViaje === 'Cancelado' ? 'cancelled' : 'done';
+                          const date = new Date(trip.fechaInicio);
+                          const routeName = trip.nombreRuta && trip.nombreRuta !== 'N/D' ? trip.nombreRuta : (trip.destinoNombre || 'Ruta sin guardar');
+                          return (
+                            <li key={trip.idViaje} className="trip-row" data-status={status}>
+                              <time dateTime={trip.fechaInicio}>
+                                {isNaN(date.getTime()) ? '—' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </time>
+                              <span className="trip-row-dot" aria-hidden="true" />
+                              <button type="button" className="trip-row-main" onClick={() => openDetail(trip)} aria-label={`Ver detalle del viaje ${routeName}`}>
+                                <strong>{routeName}</strong>
+                                <span>{trip.placaAutobus}{isPilotUser ? '' : ` · ${trip.nombrePiloto}`}</span>
+                              </button>
+                              <span className={`trip-status is-${status}`}>
+                                {status === 'live' ? <Radio size={13} aria-hidden="true" /> : status === 'cancelled' ? <AlertTriangle size={13} aria-hidden="true" /> : <CheckCircle2 size={13} aria-hidden="true" />}
+                                {status === 'live' ? 'En curso' : status === 'cancelled' ? 'Cancelado' : 'Completado'}
                               </span>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveLiveRoutePlaca(trip.placaAutobus);
-                                  setFocusedBusPlaca(trip.placaAutobus);
-                                  setActiveTab('map');
-                                }}
-                                style={{
-                                  backgroundColor: 'var(--accent-soft)',
-                                  color: 'var(--accent)',
-                                  border: '1px solid var(--accent-line)',
-                                  borderRadius: '10px',
-                                  padding: '7px 14px',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--accent-soft)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--accent-soft)';
-                                }}
-                              >
-                                <Navigation size={14} />
-                                <span>Ver Ruta</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedTripDetail(trip);
-                                  setShowTripDetailModal(true);
-                                }}
-                                style={{
-                                  backgroundColor: 'var(--surface-soft)',
-                                  color: 'var(--ink)',
-                                  border: `1.5px solid ${'var(--line)'}`,
-                                  borderRadius: '10px',
-                                  padding: '7px 14px',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDark ? '#374151' : '#f1f5f9';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--surface-soft)';
-                                }}
-                              >
-                                Ver Detalle
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Botón inferior para ver todo si está en modo semana */}
-                      {activityTimeRange === 'week' && (
-                        <div className="history-more" style={{ textAlign: 'center', marginTop: '12px', padding: '12px' }}>
-                          <button
-                            type="button"
-                            onClick={() => setActivityTimeRange('all')}
-                            style={{
-                              backgroundColor: 'var(--surface)',
-                              color: 'var(--accent)',
-                              border: `1.5px solid ${'var(--line)'}`,
-                              borderRadius: '12px',
-                              padding: '10px 22px',
-                              fontSize: '0.84rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              transition: 'all 0.15s ease',
-                              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.02)'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = 'var(--accent-soft)';
-                              e.currentTarget.style.borderColor = 'var(--accent-line)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'var(--surface)';
-                              e.currentTarget.style.borderColor = 'var(--line)';
-                            }}
-                          >
-                            Ver todo el historial completo <ChevronDown size={15} />
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        </div>
+                              {status === 'live' && !isPilotUser && (
+                                <button
+                                  type="button"
+                                  className="pill-button is-ghost trip-row-map"
+                                  onClick={() => {
+                                    setActiveLiveRoutePlaca(trip.placaAutobus);
+                                    setFocusedBusPlaca(trip.placaAutobus);
+                                    setActiveTab('map');
+                                  }}
+                                >
+                                  <Navigation size={14} aria-hidden="true" /> Ver en mapa
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </section>
+                  ))}
+                  {activityTimeRange === 'week' && (
+                    <button type="button" className="pill-button is-ghost trip-more" onClick={() => setActivityTimeRange('all')}>
+                      Ver todo el historial <ChevronDown size={15} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()
       )}
 
       {/* MODAL "DETALLES DEL VIAJE" */}
