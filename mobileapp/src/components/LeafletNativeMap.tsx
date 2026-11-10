@@ -116,8 +116,8 @@ export const createLeafletDocument = (): string => `<!doctype html>
       -webkit-user-select: none;
       user-select: none;
     }
-    body { background: #102229; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .leaflet-container { background: #102229; touch-action: none !important; }
+    body { background: #171e26; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .leaflet-container { background: #171e26; touch-action: none !important; }
     .leaflet-tile { image-rendering: auto; }
     .leaflet-control-attribution {
       border-radius: 8px 0 0 0;
@@ -137,7 +137,7 @@ export const createLeafletDocument = (): string => `<!doctype html>
       height: 48px !important;
       line-height: 48px !important;
       border: 0 !important;
-      color: #17343c !important;
+      color: #1d2630 !important;
       font-size: 24px !important;
       touch-action: manipulation;
     }
@@ -162,12 +162,12 @@ export const createLeafletDocument = (): string => `<!doctype html>
     .bus-orb svg { width: 19px; height: 19px; color: #fff; }
     .bus-label { color: #fff; background: rgba(8,25,31,.9); border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 5px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; box-shadow: 0 5px 16px rgba(0,0,0,.24); }
     .destination-pin { width: 38px; height: 45px; position: relative; }
-    .destination-pin .flag { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: #d85f28; border: 3px solid #fff; box-shadow: 0 5px 16px rgba(0,0,0,.28); }
+    .destination-pin .flag { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: #1f5c46; border: 3px solid #fff; box-shadow: 0 5px 16px rgba(0,0,0,.28); }
     .destination-pin .flag svg { width: 17px; height: 17px; color: #fff; }
-    .destination-pin::after { content: ""; position: absolute; width: 10px; height: 10px; left: 12px; top: 29px; background: #d85f28; transform: rotate(45deg); border-right: 2px solid #fff; border-bottom: 2px solid #fff; }
+    .destination-pin::after { content: ""; position: absolute; width: 10px; height: 10px; left: 12px; top: 29px; background: #1f5c46; transform: rotate(45deg); border-right: 2px solid #fff; border-bottom: 2px solid #fff; }
     .leaflet-popup-content-wrapper { border-radius: 14px; }
     .leaflet-popup-content { margin: 12px 14px; min-width: 150px; }
-    .popup-title { color: #17343c; font-weight: 800; font-size: 12px; }
+    .popup-title { color: #1d2630; font-weight: 800; font-size: 12px; }
     .popup-copy { color: #64777c; font-size: 10px; margin-top: 4px; }
   </style>
 </head>
@@ -289,7 +289,7 @@ export const createLeafletDocument = (): string => `<!doctype html>
           if (entry.selected !== route.selected) {
             entry.selected = route.selected; entry.progress = null;
             entry.outline.setStyle({ color: '#173f87', weight: 8, opacity: route.selected ? .95 : 0 });
-            entry.line.setStyle({ color: route.selected ? '#3b82f6' : '#94a3b8', weight: route.selected ? 5 : 4, opacity: route.selected ? 1 : .55, dashArray: route.selected ? null : '7 7' });
+            entry.line.setStyle({ color: route.selected ? '#3b82f6' : '#9aa7b4', weight: route.selected ? 5 : 4, opacity: route.selected ? 1 : .55, dashArray: route.selected ? null : '7 7' });
             entry.outline.setLatLngs(points); entry.line.setLatLngs(points);
             if (route.selected) { entry.outline.bringToFront(); entry.line.bringToFront(); }
           }
@@ -382,7 +382,7 @@ export const createLeafletDocument = (): string => `<!doctype html>
           activeBusIds[key] = true;
           var busMarker = busMarkers[key];
           var busAngle = rotation(busMarker, bus.heading);
-          var speedColor = bus.speedKmh > 80 ? '#dc3b48' : (bus.speedKmh > 50 ? '#d98b18' : '#147d62');
+          var speedColor = bus.speedKmh > 80 ? '#dc3b48' : (bus.speedKmh > 50 ? '#d98b18' : '#1f7a52');
           var busHtml = '<div class="bus-marker"><div class="bus-orb" style="background:' + speedColor + ';transform:rotate(' + (busAngle || 0) + 'deg)">' + busSvg() + '</div><div class="bus-label">' + escapeHtml(bus.plate) + ' · ' + Math.round(bus.speedKmh) + ' km/h</div></div>';
           var busIcon = icon(busHtml, [170, 42], [18, 21]);
           if (!busMarker) {
@@ -638,7 +638,7 @@ export const LeafletNativeMap = forwardRef<LeafletMapHandle, LeafletNativeMapPro
         showsVerticalScrollIndicator={false}
         overScrollMode="never"
         androidLayerType="hardware"
-        style={[styles.webView, { backgroundColor: theme === 'dark' ? '#102229' : '#eef3f2' }]}
+        style={[styles.webView, { backgroundColor: theme === 'dark' ? '#171e26' : '#f3ecdf' }]}
         onLayout={() => {
           webViewRef.current?.injectJavaScript('window.__EUNICE_MAP_RESIZE && window.__EUNICE_MAP_RESIZE(); true;');
         }}
@@ -653,14 +653,14 @@ export const LeafletNativeMap = forwardRef<LeafletMapHandle, LeafletNativeMapPro
         }}
       />
       {loading && !failed && (
-        <View style={[styles.overlay, { backgroundColor: theme === 'dark' ? '#102229' : '#eef3f2' }]} pointerEvents="none">
-          <ActivityIndicator color="#d85f28" size="large" />
+        <View style={[styles.overlay, { backgroundColor: theme === 'dark' ? '#171e26' : '#f3ecdf' }]} pointerEvents="none">
+          <ActivityIndicator color="#1f5c46" size="large" />
           <Text style={[styles.statusText, { color: theme === 'dark' ? '#d4e0e2' : '#385159' }]}>Preparando el mapa…</Text>
         </View>
       )}
       {failed && (
-        <View style={[styles.overlay, { backgroundColor: theme === 'dark' ? '#102229' : '#eef3f2' }]}>
-          <Text style={[styles.errorTitle, { color: theme === 'dark' ? '#f4f7f7' : '#17343c' }]}>No se pudo cargar el mapa</Text>
+        <View style={[styles.overlay, { backgroundColor: theme === 'dark' ? '#171e26' : '#f3ecdf' }]}>
+          <Text style={[styles.errorTitle, { color: theme === 'dark' ? '#f4f7f7' : '#1d2630' }]}>No se pudo cargar el mapa</Text>
           <Text style={[styles.errorCopy, { color: theme === 'dark' ? '#9fb2b7' : '#64777c' }]}>Comprueba la conexión a internet e inténtalo nuevamente.</Text>
           <TouchableOpacity style={styles.retryButton} onPress={retry} activeOpacity={0.82}>
             <Text style={styles.retryText}>Reintentar</Text>
@@ -689,6 +689,6 @@ const styles = StyleSheet.create({
   statusText: { marginTop: 10, fontSize: 12, fontWeight: '700' },
   errorTitle: { fontSize: 15, fontWeight: '900', textAlign: 'center' },
   errorCopy: { marginTop: 6, maxWidth: 260, fontSize: 11, lineHeight: 16, textAlign: 'center' },
-  retryButton: { marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: '#d85f28' },
+  retryButton: { marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: '#1f5c46' },
   retryText: { color: '#fff', fontSize: 11, fontWeight: '900' },
 });

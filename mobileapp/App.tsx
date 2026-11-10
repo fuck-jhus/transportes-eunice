@@ -52,7 +52,7 @@ interface TabDefinition {
 
 const tabTitles: Record<TabType, { eyebrow: string; title: string }> = {
   map: { eyebrow: 'CENTRO DE CONTROL / EN VIVO', title: 'Monitoreo de unidades' },
-  telemetry: { eyebrow: 'DISPOSITIVO DEL PILOTO', title: 'Telemetría móvil' },
+  telemetry: { eyebrow: 'PILOTO', title: 'Mi viaje' },
   alerts: { eyebrow: 'SEGURIDAD OPERATIVA', title: 'Alertas y reportes' },
   trips: { eyebrow: 'OPERACIÓN DE FLOTA', title: 'Recorridos y despachos' },
   buses: { eyebrow: 'ADMINISTRACIÓN', title: 'Flota de autobuses' },
@@ -63,7 +63,7 @@ const tabTitles: Record<TabType, { eyebrow: string; title: string }> = {
 
 const allTabs: TabDefinition[] = [
   { id: 'map', label: 'Monitoreo', icon: 'navigation' },
-  { id: 'telemetry', label: 'Telemetría', icon: 'activity' },
+  { id: 'telemetry', label: 'Mi viaje', icon: 'activity' },
   { id: 'alerts', label: 'Alertas', icon: 'bar-chart-2' },
   { id: 'trips', label: 'Viajes', icon: 'clipboard' },
   { id: 'buses', label: 'Autobuses', icon: 'truck' },
@@ -252,7 +252,7 @@ const MainNavigator: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.loadingScreen}>
-        <View style={styles.loadingMark}><MaterialCommunityIcons name="bus" size={28} color={colors.white} /></View>
+        <View style={styles.loadingMark}><MaterialCommunityIcons name="bus" size={28} color={colors.onAccent} /></View>
         <ActivityIndicator color={colors.accent} size="large" />
         <Text style={styles.loadingTitle}>Preparando Eunice</Text>
         <Text style={styles.loadingSubtitle}>Validando tu sesión segura</Text>
@@ -474,8 +474,8 @@ const MainNavigator: React.FC = () => {
                 style={[styles.privacyQuickButton, isPrivacyMode && styles.privacyQuickButtonActive]}
                 onPress={() => void togglePrivacy()}
               >
-                <Feather name={isPrivacyMode ? 'play' : 'pause'} size={15} color={isPrivacyMode ? colors.white : colors.warning} />
-                {!isDesktop ? null : <Text style={[styles.privacyQuickText, isPrivacyMode && { color: colors.white }]}>{isPrivacyMode ? 'Reanudar' : 'Pausar'}</Text>}
+                <Feather name={isPrivacyMode ? 'play' : 'pause'} size={15} color={isPrivacyMode ? colors.onAccent : colors.warning} />
+                {!isDesktop ? null : <Text style={[styles.privacyQuickText, isPrivacyMode && { color: colors.onAccent }]}>{isPrivacyMode ? 'Reanudar' : 'Pausar'}</Text>}
               </Pressable>
             </View>
           )}
@@ -503,7 +503,7 @@ const MainNavigator: React.FC = () => {
                 return (
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} key={tab.id} style={styles.bottomNavItem} onPress={() => selectTab(tab.id)}>
                     <View style={[styles.bottomIconBox, active && styles.bottomIconBoxActive]}>
-                      <Feather name={tab.icon} size={19} color={active ? colors.white : colors.muted} />
+                      <Feather name={tab.icon} size={19} color={active ? colors.onAccent : colors.muted} />
                     </View>
                     <Text style={[styles.bottomNavLabel, active && styles.bottomNavLabelActive]}>{tab.label}</Text>
                   </Pressable>
@@ -602,7 +602,7 @@ const MainNavigator: React.FC = () => {
                 onPress={() => void confirmDeleteAccount()}
               >
                 {deletingAccount
-                  ? <ActivityIndicator size="small" color={colors.white} />
+                  ? <ActivityIndicator size="small" color={colors.onAccent} />
                   : <Text style={styles.confirmLogoutText}>Eliminar definitivamente</Text>}
               </Pressable>
             </View>
@@ -649,7 +649,7 @@ const createStyles = (colors: AppColors, isDesktop: boolean) => StyleSheet.creat
   navItemText: { flex: 1, color: colors.navMuted, fontSize: 12, fontWeight: '700' },
   navItemTextActive: { color: colors.ink, fontWeight: '900' },
   navUnreadBadge: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
-  navUnreadText: { color: colors.white, fontSize: 8.5, fontWeight: '900' },
+  navUnreadText: { color: colors.onStatus, fontSize: 8.5, fontWeight: '900' },
   navActiveIndicator: { position: 'absolute', left: 0, width: 3, height: 22, borderRadius: 2, backgroundColor: colors.accent },
   navFooter: { padding: 12, borderTopWidth: 1, borderTopColor: colors.line, gap: 8 },
   navUtilityButton: { minHeight: 48, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
@@ -697,7 +697,7 @@ const createStyles = (colors: AppColors, isDesktop: boolean) => StyleSheet.creat
   cancelButton: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
   cancelText: { color: colors.ink, fontSize: 12, fontWeight: '900' },
   confirmLogoutButton: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
-  confirmLogoutText: { color: colors.white, fontSize: 12, fontWeight: '900' },
+  confirmLogoutText: { color: colors.onStatus, fontSize: 12, fontWeight: '900' },
   deletePasswordLabel: { color: colors.ink, fontSize: 11.5, fontWeight: '900', marginTop: 18, marginBottom: 7 },
   deletePasswordField: { minHeight: 50, borderRadius: 14, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.lineStrong },
   deletePasswordInput: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 12.5, paddingVertical: 12 },

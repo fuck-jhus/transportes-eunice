@@ -89,7 +89,7 @@ export const PrimaryButton = ({
 }) => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const tint = variant === 'danger' ? colors.danger : variant === 'secondary' ? colors.ink : colors.white;
+  const tint = variant === 'danger' ? colors.danger : variant === 'secondary' ? colors.ink : colors.onAccent;
   return (
     <Pressable
       accessibilityRole="button"
@@ -133,7 +133,7 @@ export const ChoiceChip = ({ label, active, onPress, icon }: {
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }} style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
-      {icon ? <Feather name={icon} size={13} color={active ? colors.white : colors.muted} /> : null}
+      {icon ? <Feather name={icon} size={13} color={active ? colors.onAccent : colors.muted} /> : null}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -189,7 +189,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   chip: { minHeight: 48, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.muted, fontSize: 10.5, fontWeight: '800' },
-  chipTextActive: { color: colors.white },
+  chipTextActive: { color: colors.onAccent },
   emptyState: { alignItems: 'center', paddingVertical: 30 },
   emptyIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised },
   emptyTitle: { color: colors.ink, fontSize: 14, fontWeight: '900', marginTop: 12 },

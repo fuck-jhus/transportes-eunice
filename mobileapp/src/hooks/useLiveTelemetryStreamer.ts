@@ -386,6 +386,9 @@ export const useLiveTelemetryStreamer = (
     let accelerationSubscription: { remove: () => void } | null = null;
     let gyroscopeSubscription: { remove: () => void } | null = null;
 
+    // Un teléfono sin acelerómetro o giroscopio (o el navegador) no debe tumbar la pantalla del piloto:
+    // el GPS sigue funcionando y solo se pierden las alertas de frenado o giro brusco.
+    try {
     Accelerometer.setUpdateInterval(100);
     accelerationSubscription = Accelerometer.addListener((sample) => {
       const raw = { x: sample.x * 9.81, y: sample.y * 9.81, z: sample.z * 9.81 };
@@ -404,6 +407,9 @@ export const useLiveTelemetryStreamer = (
       sensorRef.current.gyroY = Number(sample.y.toFixed(2));
       sensorRef.current.gyroZ = Number(sample.z.toFixed(2));
     });
+    } catch (error) {
+      console.warn('[Sensores] No disponibles en este dispositivo', error);
+    }
 
     return () => {
       accelerationSubscription?.remove();

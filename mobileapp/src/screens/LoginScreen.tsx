@@ -108,7 +108,7 @@ export const LoginScreen: React.FC = () => {
           {isWide && (
             <View style={styles.brandPanel}>
               <View style={styles.brandMark}>
-                <MaterialCommunityIcons name="bus" size={27} color={colors.white} />
+                <MaterialCommunityIcons name="bus" size={27} color={colors.onHighlight} />
               </View>
               <View style={styles.brandCopy}>
                 <Text style={styles.brandEyebrow}>CENTRO DE OPERACIONES</Text>
@@ -200,11 +200,11 @@ export const LoginScreen: React.FC = () => {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={colors.white} />
+                <ActivityIndicator color={colors.onAccent} />
               ) : (
                 <>
                   <Text style={styles.submitText}>Ingresar</Text>
-                  <Feather name="arrow-right" size={19} color={colors.white} />
+                  <Feather name="arrow-right" size={19} color={colors.onAccent} />
                 </>
               )}
             </Pressable>
@@ -247,18 +247,18 @@ const createStyles = (colors: AppColors, isWide: boolean, isCompact: boolean) =>
     shadowColor: '#04121c', shadowOffset: { width: 0, height: 22 }, shadowOpacity: 0.18,
     shadowRadius: 44, elevation: 12,
   },
-  brandPanel: { width: '52%', padding: 42, justifyContent: 'space-between', backgroundColor: colors.nav },
+  brandPanel: { width: '52%', padding: 42, justifyContent: 'space-between', backgroundColor: colors.brand },
   brandMark: {
     width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.accent,
+    backgroundColor: colors.highlight,
   },
   brandCopy: { marginVertical: 32 },
-  brandEyebrow: { color: '#ff9b6c', fontSize: 11, fontWeight: '900', letterSpacing: 1.2, marginBottom: 14 },
+  brandEyebrow: { color: colors.highlight, fontSize: 11, fontWeight: '900', letterSpacing: 1.2, marginBottom: 14 },
   brandTitle: { color: colors.white, fontSize: 39, lineHeight: 45, fontWeight: '900', letterSpacing: -1.2 },
-  brandDescription: { color: colors.navMuted, fontSize: 15, lineHeight: 23, fontWeight: '500', marginTop: 18 },
+  brandDescription: { color: '#d7e4dc', fontSize: 15, lineHeight: 23, fontWeight: '500', marginTop: 18 },
   brandStatus: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  brandStatusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#49b997' },
-  brandStatusText: { color: colors.navMuted, fontSize: 12, fontWeight: '600' },
+  brandStatusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.highlight },
+  brandStatusText: { color: '#d7e4dc', fontSize: 12, fontWeight: '600' },
   formPanel: { flex: 1, paddingHorizontal: isWide ? 48 : isCompact ? 18 : 24, paddingVertical: isWide ? 46 : isCompact ? 24 : 30, justifyContent: 'center' },
   mobileBrandRow: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: isCompact ? 24 : 30 },
   mobileBrandCopy: { flex: 1, minWidth: 0 },
@@ -291,7 +291,7 @@ const createStyles = (colors: AppColors, isWide: boolean, isCompact: boolean) =>
   },
   submitButtonPressed: { transform: [{ scale: 0.988 }], opacity: 0.92 },
   submitButtonDisabled: { opacity: 0.65 },
-  submitText: { color: colors.white, fontSize: 14, fontWeight: '900' },
+  submitText: { color: colors.onAccent, fontSize: 14, fontWeight: '900' },
   securityNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 22 },
   securityText: { flex: 1, color: colors.muted, fontSize: 11.5, lineHeight: 17, fontWeight: '600' },
 });

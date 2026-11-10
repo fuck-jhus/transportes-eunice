@@ -339,11 +339,11 @@ export const TOP_WEEKLY_ROUTES: PredefinedRoute[] = REGISTERED_BUS_ROUTES.slice(
 const DEFAULT_CENTER = { lat: 14.8347, lng: -91.5181 };
 
 const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#102229' }] },
+  { elementType: 'geometry', stylers: [{ color: '#171e26' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#9fb0b4' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#102229' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#355159' }] },
-  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#102229' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#171e26' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#33404d' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#171e26' }] },
   { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#183038' }] },
   { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#173a32' }] },
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#29434a' }] },
@@ -1324,7 +1324,7 @@ const normalizeSearchText = (str: string): string => {
                 onPress={() => setViewMode('map')}
                 activeOpacity={0.8}
               >
-                <Feather name="navigation" size={13} color={viewMode === 'map' ? '#ffffff' : (mapTheme === 'light' ? '#64748b' : '#94a3b8')} />
+                <Feather name="navigation" size={13} color={viewMode === 'map' ? '#ffffff' : (mapTheme === 'light' ? '#6f7c89' : '#9aa7b4')} />
                 <Text style={[styles.segmentBtnText, mapTheme === 'light' && styles.segmentBtnTextLight, viewMode === 'map' && styles.segmentBtnTextActive]}>
                   Mapa GPS
                 </Text>
@@ -1335,7 +1335,7 @@ const normalizeSearchText = (str: string): string => {
                 onPress={() => setViewMode('feed')}
                 activeOpacity={0.8}
               >
-                <Feather name="radio" size={13} color={viewMode === 'feed' ? '#ffffff' : (mapTheme === 'light' ? '#64748b' : '#94a3b8')} />
+                <Feather name="radio" size={13} color={viewMode === 'feed' ? '#ffffff' : (mapTheme === 'light' ? '#6f7c89' : '#9aa7b4')} />
                 <Text style={[styles.segmentBtnText, mapTheme === 'light' && styles.segmentBtnTextLight, viewMode === 'feed' && styles.segmentBtnTextActive]}>
                   Feed Unidades
                 </Text>
@@ -1352,7 +1352,7 @@ const normalizeSearchText = (str: string): string => {
                 <Feather
                   name={isAdminHeaderCollapsed ? "chevron-down" : "chevron-up"}
                   size={18}
-                  color={isAdminHeaderCollapsed ? "#ffffff" : "#ff9b6c"}
+                  color={isAdminHeaderCollapsed ? "#ffffff" : "#e8a317"}
                 />
               </TouchableOpacity>
             )}
@@ -1402,11 +1402,11 @@ const normalizeSearchText = (str: string): string => {
                       onPress={() => setShowFleetModal(true)}
                       activeOpacity={0.8}
                     >
-                      <MaterialCommunityIcons name="bus" size={14} color="#ff9b6c" style={{ marginRight: 4 }} />
+                      <MaterialCommunityIcons name="bus" size={14} color="#e8a317" style={{ marginRight: 4 }} />
                       <Text style={styles.adminFleetBtnText} numberOfLines={2}>
                         {realFleetBuses.length === 0 ? 'Sin ubicación reciente' : `${realFleetBuses.length} ${realFleetBuses.length === 1 ? 'unidad con señal' : 'unidades con señal'}`}
                       </Text>
-                      <Feather name="chevron-down" size={12} color="#94a3b8" style={{ marginLeft: 4 }} />
+                      <Feather name="chevron-down" size={12} color="#9aa7b4" style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
                   </View>
 
@@ -1415,14 +1415,14 @@ const normalizeSearchText = (str: string): string => {
                       style={[styles.adminActionPillBtn, mapTheme === 'light' && styles.adminActionPillBtnLight]}
                       onPress={handleCenterOnUser}
                     >
-                      <Feather name="crosshair" size={13} color="#d85f28" style={{ marginRight: 4 }} />
+                      <Feather name="crosshair" size={13} color="#1f5c46" style={{ marginRight: 4 }} />
                       <Text style={[styles.adminActionPillBtnText, mapTheme === 'light' && styles.adminActionPillBtnTextLight]}>Mi Ubicación GPS</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.adminActionPillBtn, mapTheme === 'light' && styles.adminActionPillBtnLight]}
                       onPress={handleRecenterFleet}
                     >
-                      <Feather name="maximize-2" size={13} color="#d85f28" style={{ marginRight: 4 }} />
+                      <Feather name="maximize-2" size={13} color="#1f5c46" style={{ marginRight: 4 }} />
                       <Text style={[styles.adminActionPillBtnText, mapTheme === 'light' && styles.adminActionPillBtnTextLight]}>Centrar Flota</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -1430,7 +1430,7 @@ const normalizeSearchText = (str: string): string => {
                       onPress={() => setIsAdminHeaderCollapsed(true)}
                       activeOpacity={0.7}
                     >
-                      <Feather name="chevron-up" size={16} color={mapTheme === 'light' ? '#64748b' : '#94a3b8'} />
+                      <Feather name="chevron-up" size={16} color={mapTheme === 'light' ? '#6f7c89' : '#9aa7b4'} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1461,7 +1461,7 @@ const normalizeSearchText = (str: string): string => {
                     ) : (
                       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Buscar destino"
                         style={styles.pilotSearchButton} onPress={() => setShowPlanModal(true)}>
-                        <Feather name="search" size={20} color="#d85f28" />
+                        <Feather name="search" size={20} color="#1f5c46" />
                         <View style={styles.pilotToolbarCopy}>
                           <Text style={[styles.pilotToolbarTitle, mapTheme === 'light' && styles.pilotToolbarTitleLight]}>Buscar destino</Text>
                           <Text style={[styles.pilotToolbarSubtitle, mapTheme === 'light' && styles.pilotToolbarSubtitleLight]} numberOfLines={2}>{isPrivacyMode ? 'GPS pausado por privacidad' : originInputText}</Text>
@@ -1471,7 +1471,7 @@ const normalizeSearchText = (str: string): string => {
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Opciones del mapa"
                       accessibilityState={{ expanded: showMapOptions }} style={styles.pilotOptionsButton}
                       onPress={() => setShowMapOptions(value => !value)}>
-                      <Feather name="more-horizontal" size={22} color={mapTheme === 'light' ? '#17343c' : '#ecf2f3'} />
+                      <Feather name="more-horizontal" size={22} color={mapTheme === 'light' ? '#1d2630' : '#f3ecdf'} />
                     </TouchableOpacity>
                   </View>
                   {!isTripActive && activeRoutesList.length > 1 && (
@@ -1633,13 +1633,13 @@ const normalizeSearchText = (str: string): string => {
                       onPress={() => setSelectedFloatingBus(null)}
                       activeOpacity={0.7}
                     >
-                      <Feather name="x" size={16} color="#94a3b8" />
+                      <Feather name="x" size={16} color="#9aa7b4" />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.quickCardBottomRow}>
                     <View style={styles.quickCardStatusPillLive}>
-                      <Feather name="radio" size={11} color="#147d62" style={{ marginRight: 4 }} />
+                      <Feather name="radio" size={11} color="#1f7a52" style={{ marginRight: 4 }} />
                       <Text style={styles.quickCardStatusTextLive}>En Rastreo</Text>
                     </View>
 
@@ -1694,7 +1694,7 @@ const normalizeSearchText = (str: string): string => {
                       disabled={isPrivacyMode}
                       style={[styles.floatingGpsCenterBtn, mapTheme === 'light' && styles.floatingGpsCenterBtnLight,
                         isPrivacyMode && { opacity: .45 }]} onPress={handleCenterOnUser}>
-                      <Feather name="crosshair" size={23} color={mapTheme === 'light' ? '#17343c' : '#ecf2f3'} />
+                      <Feather name="crosshair" size={23} color={mapTheme === 'light' ? '#1d2630' : '#f3ecdf'} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1707,7 +1707,7 @@ const normalizeSearchText = (str: string): string => {
                         <Feather
                           name={isAddingLocationToSaved ? "bookmark" : "map-pin"}
                           size={15}
-                          color={isAddingLocationToSaved ? "#f59e0b" : "#d85f28"}
+                          color={isAddingLocationToSaved ? "#f59e0b" : "#1f5c46"}
                         />
                       </View>
                       <View style={{ flex: 1 }}>
@@ -1726,7 +1726,7 @@ const normalizeSearchText = (str: string): string => {
                       <TextInput
                         style={[styles.savedLocationNameInput, mapTheme === 'light' && styles.savedLocationNameInputLight]}
                         placeholder="Nombre del lugar (Ej: Taller Central, Parada Norte)..."
-                        placeholderTextColor={mapTheme === 'light' ? '#71717a' : '#94a3b8'}
+                        placeholderTextColor={mapTheme === 'light' ? '#71717a' : '#9aa7b4'}
                         value={customPinName}
                         onChangeText={setCustomPinName}
                         autoFocus={true}
@@ -1806,14 +1806,14 @@ const normalizeSearchText = (str: string): string => {
                     <View style={styles.planModalHeader}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <View style={styles.planModalHeaderIconSquare}>
-                          <Feather name="navigation" size={16} color="#d85f28" />
+                          <Feather name="navigation" size={16} color="#1f5c46" />
                         </View>
                         <Text style={[styles.planModalTitle, mapTheme === 'light' && styles.planModalTitleLight]}>
                           Planifica tu viaje
                         </Text>
                       </View>
                       <TouchableOpacity onPress={() => setShowPlanModal(false)} style={styles.closeModalCircleBtn} activeOpacity={0.7}>
-                        <Feather name="x" size={16} color={mapTheme === 'light' ? '#64748b' : '#94a3b8'} />
+                        <Feather name="x" size={16} color={mapTheme === 'light' ? '#6f7c89' : '#9aa7b4'} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1839,7 +1839,7 @@ const normalizeSearchText = (str: string): string => {
                     <TextInput
                       style={[styles.destTextInput, mapTheme === 'light' && styles.destTextInputLight]}
                       placeholder="Busca una ruta, destino o dirección..."
-                      placeholderTextColor={mapTheme === 'light' ? '#71717a' : '#64748b'}
+                      placeholderTextColor={mapTheme === 'light' ? '#71717a' : '#6f7c89'}
                       value={destinationSearch}
                       onChangeText={handleDestinationSearchChange}
                       autoFocus={true}
@@ -1848,7 +1848,7 @@ const normalizeSearchText = (str: string): string => {
                     />
                     {destinationSearch.length > 0 && (
                       <TouchableOpacity onPress={() => handleDestinationSearchChange('')} style={styles.clearSearchInputBtn}>
-                        <Feather name="x" size={14} color="#94a3b8" />
+                        <Feather name="x" size={14} color="#9aa7b4" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1864,12 +1864,12 @@ const normalizeSearchText = (str: string): string => {
                   activeOpacity={0.8}
                 >
                   <View style={styles.fixOnMapIconBox}>
-                    <Feather name="crosshair" size={16} color="#d85f28" />
+                    <Feather name="crosshair" size={16} color="#1f5c46" />
                   </View>
                   <Text style={[styles.fixOnMapQuickText, mapTheme === 'light' && styles.fixOnMapQuickTextLight]}>
                     Fijar ubicación personalizada en el mapa
                   </Text>
-                  <Feather name="chevron-right" size={15} color="#64748b" style={{ marginLeft: 'auto' }} />
+                  <Feather name="chevron-right" size={15} color="#6f7c89" style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
 
                 {/* Botón rápido: Ubicaciones Guardadas */}
@@ -1894,7 +1894,7 @@ const normalizeSearchText = (str: string): string => {
                       </Text>
                     </View>
                   </View>
-                  <Feather name="chevron-right" size={16} color="#d85f28" />
+                  <Feather name="chevron-right" size={16} color="#1f5c46" />
                 </TouchableOpacity>
 
                 {/* Contenido del Modal: Rutas Top, Coincidencias de Búsqueda o Historial */}
@@ -1907,7 +1907,7 @@ const normalizeSearchText = (str: string): string => {
                 >
                   {isSearchingPlaces ? (
                     <View style={styles.searchingBox}>
-                      <ActivityIndicator size="small" color="#d85f28" />
+                      <ActivityIndicator size="small" color="#1f5c46" />
                       <Text style={styles.searchingText}>Buscando rutas y direcciones...</Text>
                     </View>
                   ) : searchSuggestions.length > 0 ? (
@@ -1932,7 +1932,7 @@ const normalizeSearchText = (str: string): string => {
                         >
                           <View style={[styles.placeIconSquare, place.isPredefinedRoute && styles.placeIconSquareRoute, mapTheme === 'light' && styles.placeIconSquareLight]}>
                             {place.isPredefinedRoute ? (
-                              <MaterialCommunityIcons name="bus" size={18} color="#ff9b6c" />
+                              <MaterialCommunityIcons name="bus" size={18} color="#e8a317" />
                             ) : (
                               <Feather name="map-pin" size={16} color="#3b82f6" />
                             )}
@@ -1954,7 +1954,7 @@ const normalizeSearchText = (str: string): string => {
                               {place.placeType ? `${place.placeType} • ` : ''}{place.address}
                             </Text>
                           </View>
-                          <Feather name="chevron-right" size={16} color="#d85f28" />
+                          <Feather name="chevron-right" size={16} color="#1f5c46" />
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -1965,7 +1965,7 @@ const normalizeSearchText = (str: string): string => {
                         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
                           <View style={styles.topRoutesSectionHeader}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Feather name="trending-up" size={14} color="#d85f28" />
+                              <Feather name="trending-up" size={14} color="#1f5c46" />
                               <Text style={styles.topRoutesSectionTitle}>3 Rutas Más Usadas Esta Semana</Text>
                             </View>
                             <View style={styles.topRoutesBadge}>
@@ -2001,7 +2001,7 @@ const normalizeSearchText = (str: string): string => {
                                     <Text style={styles.topRouteMetricItem}>{route.distKm} km</Text>
                                   </View>
                                   <View style={styles.metricPill}>
-                                    <Feather name="clock" size={10} color="#94a3b8" style={{ marginRight: 3 }} />
+                                    <Feather name="clock" size={10} color="#9aa7b4" style={{ marginRight: 3 }} />
                                     <Text style={styles.topRouteMetricItem}>~{route.avgDurationMin} min</Text>
                                   </View>
                                   <View style={[styles.metricPill, styles.metricPillHighlight]}>
@@ -2010,7 +2010,7 @@ const normalizeSearchText = (str: string): string => {
                                   </View>
                                 </View>
                               </View>
-                              <Feather name="chevron-right" size={16} color="#d85f28" />
+                              <Feather name="chevron-right" size={16} color="#1f5c46" />
                             </TouchableOpacity>
                           ))}
                         </View>
@@ -2030,7 +2030,7 @@ const normalizeSearchText = (str: string): string => {
                               activeOpacity={0.75}
                             >
                               <View style={[styles.placeIconSquare, mapTheme === 'light' && styles.placeIconSquareLight]}>
-                                <Feather name="clock" size={15} color="#94a3b8" />
+                                <Feather name="clock" size={15} color="#9aa7b4" />
                               </View>
                               <View style={{ flex: 1 }}>
                                 <Text style={[styles.suggestionName, mapTheme === 'light' && styles.suggestionNameLight]} numberOfLines={1}>
@@ -2040,7 +2040,7 @@ const normalizeSearchText = (str: string): string => {
                                   {item.address}
                                 </Text>
                               </View>
-                              <Feather name="chevron-right" size={14} color="#64748b" />
+                              <Feather name="chevron-right" size={14} color="#6f7c89" />
                             </TouchableOpacity>
                           ))}
                         </View>
@@ -2076,7 +2076,7 @@ const normalizeSearchText = (str: string): string => {
                     </View>
                   </View>
                   <TouchableOpacity onPress={() => setShowSavedPlacesModal(false)} style={styles.closeModalCircleBtn} activeOpacity={0.7}>
-                    <Feather name="x" size={16} color={mapTheme === 'light' ? '#64748b' : '#94a3b8'} />
+                    <Feather name="x" size={16} color={mapTheme === 'light' ? '#6f7c89' : '#9aa7b4'} />
                   </TouchableOpacity>
                 </View>
 
@@ -2098,7 +2098,7 @@ const normalizeSearchText = (str: string): string => {
                     <Text style={styles.addNewPlaceTitle}>Agregar ubicación nueva</Text>
                     <Text style={styles.addNewPlaceSub}>Toca aquí para elegir el punto exacto en el mapa</Text>
                   </View>
-                  <Feather name="chevron-right" size={16} color="#d85f28" />
+                  <Feather name="chevron-right" size={16} color="#1f5c46" />
                 </TouchableOpacity>
 
                 {/* Lista de Ubicaciones Guardadas */}
@@ -2114,7 +2114,7 @@ const normalizeSearchText = (str: string): string => {
 
                     {savedFavorites.length === 0 ? (
                       <View style={styles.emptySavedPlacesBox}>
-                        <Feather name="map-pin" size={28} color="#64748b" style={{ marginBottom: 8 }} />
+                        <Feather name="map-pin" size={28} color="#6f7c89" style={{ marginBottom: 8 }} />
                         <Text style={[styles.emptySavedPlacesText, mapTheme === 'light' && styles.emptySavedPlacesTextLight]}>
                           Aún no tienes ubicaciones guardadas
                         </Text>
@@ -2229,14 +2229,14 @@ const normalizeSearchText = (str: string): string => {
               <View style={[styles.serverRouteModalCard, mapTheme === 'light' && styles.serverRouteModalCardLight]}>
                 <View style={styles.serverRouteModalHeader}>
                   <View style={styles.serverRouteModalIcon}>
-                    <Feather name="bookmark" size={20} color="#d85f28" />
+                    <Feather name="bookmark" size={20} color="#1f5c46" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.serverRouteModalEyebrow, mapTheme === 'light' && styles.serverRouteModalEyebrowLight]}>RUTA FRECUENTE</Text>
                     <Text style={[styles.serverRouteModalTitle, mapTheme === 'light' && styles.serverRouteModalTitleLight]}>Guardar recorrido</Text>
                   </View>
                   <TouchableOpacity onPress={() => setShowServerRouteModal(false)} style={styles.serverRouteModalClose} disabled={savingServerRoute}>
-                    <Feather name="x" size={18} color={mapTheme === 'light' ? '#64748b' : '#cbd5e1'} />
+                    <Feather name="x" size={18} color={mapTheme === 'light' ? '#6f7c89' : '#cbd5e1'} />
                   </TouchableOpacity>
                 </View>
 
@@ -2265,7 +2265,7 @@ const normalizeSearchText = (str: string): string => {
                   maxLength={100}
                   autoFocus
                   placeholder="Ej. Terminal - Centro"
-                  placeholderTextColor="#64748b"
+                  placeholderTextColor="#6f7c89"
                   style={[styles.serverRouteInput, mapTheme === 'light' && styles.serverRouteInputLight]}
                 />
                 {serverRouteError && <Text style={styles.serverRouteErrorText}>{serverRouteError}</Text>}
@@ -2324,7 +2324,7 @@ const normalizeSearchText = (str: string): string => {
           <DialogViewport>
             <View style={[styles.arrivalModalCard, mapTheme === 'light' && styles.arrivalModalCardLight]}>
               <View style={styles.arrivalIconCircle}>
-                <Feather name="check-circle" size={30} color="#147d62" />
+                <Feather name="check-circle" size={30} color="#1f7a52" />
               </View>
 
               <Text style={[styles.arrivalModalTitle, mapTheme === 'light' && styles.arrivalModalTitleLight]}>
@@ -2412,7 +2412,7 @@ const normalizeSearchText = (str: string): string => {
 
                 <View style={styles.fleetModalHeader}>
                   <View style={[styles.fleetModalHeaderIcon, mapTheme === 'light' && styles.fleetModalHeaderIconLight]}>
-                    <MaterialCommunityIcons name="bus" size={20} color="#d85f28" />
+                    <MaterialCommunityIcons name="bus" size={20} color="#1f5c46" />
                   </View>
                   <View style={styles.fleetModalHeaderCopy}>
                     <Text numberOfLines={1} style={[styles.fleetModalTitle, mapTheme === 'light' && styles.fleetModalTitleLight]}>
@@ -2434,18 +2434,18 @@ const normalizeSearchText = (str: string): string => {
                     accessibilityRole="button"
                     accessibilityLabel="Cerrar flota"
                   >
-                    <Feather name="x" size={20} color={mapTheme === 'light' ? '#334155' : '#ffffff'} />
+                    <Feather name="x" size={20} color={mapTheme === 'light' ? '#33404d' : '#ffffff'} />
                   </TouchableOpacity>
                 </View>
 
                 {realFleetBuses.length > 0 ? (
                   <>
                     <View style={[styles.fleetSearchBox, mapTheme === 'light' && styles.fleetSearchBoxLight]}>
-                      <Feather name="search" size={17} color={mapTheme === 'light' ? '#64748b' : '#94a3b8'} />
+                      <Feather name="search" size={17} color={mapTheme === 'light' ? '#6f7c89' : '#9aa7b4'} />
                       <TextInput
                         style={[styles.fleetSearchInput, mapTheme === 'light' && styles.fleetSearchInputLight]}
                         placeholder="Buscar placa, piloto o ruta"
-                        placeholderTextColor={mapTheme === 'light' ? '#64748b' : '#94a3b8'}
+                        placeholderTextColor={mapTheme === 'light' ? '#6f7c89' : '#9aa7b4'}
                         value={fleetSearchFilter}
                         onChangeText={setFleetSearchFilter}
                         returnKeyType="search"
@@ -2457,7 +2457,7 @@ const normalizeSearchText = (str: string): string => {
                           accessibilityRole="button"
                           accessibilityLabel="Limpiar búsqueda"
                         >
-                          <Feather name="x" size={15} color={mapTheme === 'light' ? '#64748b' : '#94a3b8'} />
+                          <Feather name="x" size={15} color={mapTheme === 'light' ? '#6f7c89' : '#9aa7b4'} />
                         </TouchableOpacity>
                       ) : null}
                     </View>
@@ -2465,7 +2465,7 @@ const normalizeSearchText = (str: string): string => {
                     {filteredBuses.length === 0 ? (
                       <View style={[styles.fleetEmptyState, styles.fleetSearchEmptyState, mapTheme === 'light' && styles.fleetEmptyStateLight]}>
                         <View style={[styles.fleetEmptyIcon, mapTheme === 'light' && styles.fleetEmptyIconLight]}>
-                          <Feather name="search" size={23} color="#d85f28" />
+                          <Feather name="search" size={23} color="#1f5c46" />
                         </View>
                         <Text style={[styles.fleetEmptyTitle, mapTheme === 'light' && styles.fleetEmptyTitleLight]}>
                           No encontramos coincidencias
@@ -2483,7 +2483,7 @@ const normalizeSearchText = (str: string): string => {
                           keyboardShouldPersistTaps="handled"
                         >
                           {filteredBuses.map((bus) => {
-                            const spdColor = bus.velocidadKmh > 80 ? '#ef4444' : (bus.velocidadKmh > 50 ? '#f59e0b' : '#147d62');
+                            const spdColor = bus.velocidadKmh > 80 ? '#ef4444' : (bus.velocidadKmh > 50 ? '#f59e0b' : '#1f7a52');
                             return (
                               <TouchableOpacity
                                 key={bus.placaAutobus}
@@ -2492,7 +2492,7 @@ const normalizeSearchText = (str: string): string => {
                                 activeOpacity={0.78}
                               >
                                 <View style={[styles.fleetBusItemIcon, mapTheme === 'light' && styles.fleetBusItemIconLight]}>
-                                  <MaterialCommunityIcons name="bus" size={20} color="#d85f28" />
+                                  <MaterialCommunityIcons name="bus" size={20} color="#1f5c46" />
                                 </View>
                                 <View style={styles.fleetBusItemCopy}>
                                   <Text numberOfLines={1} style={[styles.fleetBusItemPlate, mapTheme === 'light' && styles.fleetBusItemPlateLight]}>
@@ -2509,7 +2509,7 @@ const normalizeSearchText = (str: string): string => {
                                   <View style={[styles.fleetBusItemSpeedBadge, { backgroundColor: spdColor }]}>
                                     <Text style={styles.fleetBusItemSpeedText}>{Math.max(0, Math.round(bus.velocidadKmh || 0))} km/h</Text>
                                   </View>
-                                  <Feather name="chevron-right" size={18} color={mapTheme === 'light' ? '#94a3b8' : '#64748b'} />
+                                  <Feather name="chevron-right" size={18} color={mapTheme === 'light' ? '#9aa7b4' : '#6f7c89'} />
                                 </View>
                               </TouchableOpacity>
                             );
@@ -2524,7 +2524,7 @@ const normalizeSearchText = (str: string): string => {
                 ) : (
                   <View style={[styles.fleetEmptyState, mapTheme === 'light' && styles.fleetEmptyStateLight]}>
                     <View style={[styles.fleetEmptyIcon, mapTheme === 'light' && styles.fleetEmptyIconLight]}>
-                      <MaterialCommunityIcons name="bus-stop" size={28} color="#d85f28" />
+                      <MaterialCommunityIcons name="bus-stop" size={28} color="#1f5c46" />
                     </View>
                     <Text style={[styles.fleetEmptyTitle, mapTheme === 'light' && styles.fleetEmptyTitleLight]}>
                       Sin ubicaciones recientes
@@ -2579,12 +2579,12 @@ const normalizeSearchText = (str: string): string => {
 };
 
 const styles = StyleSheet.create({
-  pilotToolbar: { backgroundColor: '#102229', paddingHorizontal: 14, paddingVertical: 8, gap: 6 },
+  pilotToolbar: { backgroundColor: '#171e26', paddingHorizontal: 14, paddingVertical: 8, gap: 6 },
   pilotToolbarLight: { backgroundColor: '#ffffff' },
   pilotToolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   pilotToolbarCopy: { flex: 1, minWidth: 0 },
-  pilotToolbarTitle: { color: '#ecf2f3', fontSize: 16, fontWeight: '700' },
-  pilotToolbarTitleLight: { color: '#17343c' },
+  pilotToolbarTitle: { color: '#f3ecdf', fontSize: 16, fontWeight: '700' },
+  pilotToolbarTitleLight: { color: '#1d2630' },
   pilotToolbarSubtitle: { color: '#b8c9cd', fontSize: 13, lineHeight: 19, marginTop: 3 },
   pilotToolbarSubtitleLight: { color: '#53666b' },
   pilotSearchButton: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -2593,11 +2593,11 @@ const styles = StyleSheet.create({
   pilotRouteChoices: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   pilotRemaining: { flex: 1, minWidth: 120, fontSize: 12, color: '#b8c9cd' },
   pilotTextButton: { minHeight: 48, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
-  pilotActionText: { fontSize: 13, color: '#ff9b6c', fontWeight: '700' },
-  pilotActionTextLight: { color: '#b9481b' },
+  pilotActionText: { fontSize: 13, color: '#e8a317', fontWeight: '700' },
+  pilotActionTextLight: { color: '#163f31' },
   pilotStopText: { fontSize: 13, color: '#f27b7b', fontWeight: '700' },
   pilotStopTextLight: { color: '#b73a45' },
-  pilotStartButton: { minHeight: 48, paddingHorizontal: 20, borderRadius: 12, backgroundColor: '#b9481b', alignItems: 'center', justifyContent: 'center' },
+  pilotStartButton: { minHeight: 48, paddingHorizontal: 20, borderRadius: 12, backgroundColor: '#163f31', alignItems: 'center', justifyContent: 'center' },
   pilotStartText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
   pilotErrorRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   pilotWarningText: { color: '#e5a64a', fontSize: 13 },
@@ -2615,9 +2615,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 6,
     paddingBottom: 8,
-    backgroundColor: '#102229',
+    backgroundColor: '#171e26',
     borderBottomWidth: 1,
-    borderBottomColor: '#254047',
+    borderBottomColor: '#26303b',
     gap: 8,
     zIndex: 100,
   },
@@ -2637,14 +2637,14 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   adminHeaderTitleLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   adminFleetBtn: {
     maxWidth: '48%',
     flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#d85f28',
+    backgroundColor: '#1f5c46',
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -2662,7 +2662,7 @@ const styles = StyleSheet.create({
   adminActionPillBtn: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     paddingVertical: 8,
     borderRadius: 12,
     alignItems: 'center',
@@ -2682,7 +2682,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   adminActionPillBtnTextLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   adminCollapseMiniBtnLight: {
     backgroundColor: '#f1f5f9',
@@ -2701,12 +2701,12 @@ const styles = StyleSheet.create({
   searchTripBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
@@ -2723,7 +2723,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2731,14 +2731,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   pilotTelemetryQuickBtn: {
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
     gap: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -2751,18 +2751,18 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   pilotTelemetryQuickText: {
-    color: '#ff9b6c',
+    color: '#e8a317',
     fontSize: 10,
     fontWeight: '800',
   },
   pilotTelemetryQuickTextLight: {
-    color: '#d85f28',
+    color: '#1f5c46',
   },
   searchActionIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2770,12 +2770,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   searchPlaceholderText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 15,
     fontWeight: '700',
   },
   searchPlaceholderTextLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   searchTripTitle: {
     color: '#ffffff',
@@ -2783,16 +2783,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   searchTripTitleLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   searchTripSub: {
-    color: '#64748b',
+    color: '#6f7c89',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
   searchTripSubLight: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
   },
 
   /* Botones de Ruta */
@@ -2813,13 +2813,13 @@ const styles = StyleSheet.create({
   },
   saveServerRoutePillBtnDisabled: { opacity: 0.45 },
   saveServerRoutePillBtnText: {
-    color: '#ff9b6c',
+    color: '#e8a317',
     fontSize: 12,
     fontWeight: '900',
   },
   cancelRoutePillBtn: {
     flex: 1,
-    backgroundColor: '#334155',
+    backgroundColor: '#33404d',
     borderRadius: 16,
     paddingVertical: 10,
     alignItems: 'center',
@@ -2878,9 +2878,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 460,
     alignSelf: 'center',
-    backgroundColor: '#102229',
+    backgroundColor: '#171e26',
     borderWidth: 1,
-    borderColor: '#254047',
+    borderColor: '#26303b',
     borderRadius: 24,
     padding: 20,
     shadowColor: '#000000',
@@ -2901,10 +2901,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(216, 95, 40, 0.32)',
   },
-  serverRouteModalEyebrow: { color: '#ff9b6c', fontSize: 10, fontWeight: '900', letterSpacing: 1.1 },
+  serverRouteModalEyebrow: { color: '#e8a317', fontSize: 10, fontWeight: '900', letterSpacing: 1.1 },
   serverRouteModalEyebrowLight: { color: '#c84f1e' },
   serverRouteModalTitle: { color: '#ffffff', fontSize: 19, fontWeight: '900', marginTop: 2 },
-  serverRouteModalTitleLight: { color: '#0f172a' },
+  serverRouteModalTitleLight: { color: '#0f1419' },
   serverRouteModalClose: {
     width: 36,
     height: 36,
@@ -2916,21 +2916,21 @@ const styles = StyleSheet.create({
   serverRoutePathCard: {
     backgroundColor: '#0b1920',
     borderWidth: 1,
-    borderColor: '#254047',
+    borderColor: '#26303b',
     borderRadius: 18,
     padding: 16,
     marginBottom: 18,
   },
   serverRoutePathCardLight: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
   serverRoutePathRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  serverRouteOriginDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#d85f28', marginTop: 5 },
+  serverRouteOriginDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1f5c46', marginTop: 5 },
   serverRouteDestinationDot: { width: 10, height: 10, borderRadius: 3, backgroundColor: '#ef4444', marginTop: 5 },
   serverRoutePathLine: { width: 2, height: 18, marginLeft: 4, marginVertical: 4, backgroundColor: '#3b555c' },
   serverRoutePathLabel: { color: '#78909a', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   serverRoutePathValue: { color: '#f8fafc', fontSize: 13, fontWeight: '800', marginTop: 2 },
-  serverRoutePathValueLight: { color: '#0f172a' },
+  serverRoutePathValueLight: { color: '#0f1419' },
   serverRouteInputLabel: { color: '#d9e3e7', fontSize: 12, fontWeight: '800', marginBottom: 7 },
-  serverRouteInputLabelLight: { color: '#334155' },
+  serverRouteInputLabelLight: { color: '#33404d' },
   serverRouteInput: {
     height: 48,
     borderRadius: 14,
@@ -2942,7 +2942,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  serverRouteInputLight: { backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#0f172a' },
+  serverRouteInputLight: { backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#0f1419' },
   serverRouteErrorText: { color: '#fb7185', fontSize: 11, fontWeight: '700', marginTop: 8 },
   serverRouteModalActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
   serverRouteCancelBtn: {
@@ -2957,7 +2957,7 @@ const styles = StyleSheet.create({
   },
   serverRouteCancelBtnLight: { backgroundColor: '#f8fafc', borderColor: '#cbd5e1' },
   serverRouteCancelBtnText: { color: '#d9e3e7', fontSize: 13, fontWeight: '800' },
-  serverRouteCancelBtnTextLight: { color: '#334155' },
+  serverRouteCancelBtnTextLight: { color: '#33404d' },
   serverRouteSaveBtn: {
     flex: 1.25,
     height: 46,
@@ -2966,7 +2966,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#d85f28',
+    backgroundColor: '#1f5c46',
   },
   serverRouteSaveBtnDisabled: { opacity: 0.5 },
   serverRouteSaveBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '900' },
@@ -3066,7 +3066,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   liveOriginBadge: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -3101,7 +3101,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   nativeBusBadge: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0f1419',
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -3123,7 +3123,7 @@ const styles = StyleSheet.create({
   calloutTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#0f172a',
+    color: '#0f1419',
     marginBottom: 2,
   },
   calloutSub: {
@@ -3133,7 +3133,7 @@ const styles = StyleSheet.create({
   },
   calloutRoute: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#6f7c89',
     marginTop: 2,
   },
   calloutSpeed: {
@@ -3235,7 +3235,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0f1419',
     borderWidth: 2.5,
     borderColor: '#3b82f6',
     justifyContent: 'center',
@@ -3255,7 +3255,7 @@ const styles = StyleSheet.create({
   floatingSpeedometerInner: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 29,
     justifyContent: 'center',
     alignItems: 'center',
@@ -3270,7 +3270,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   speedometerUnitText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 9,
     fontWeight: '800',
     marginTop: -2,
@@ -3281,7 +3281,7 @@ const styles = StyleSheet.create({
   privacyTopAlertCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 12,
     paddingVertical: 7,
     paddingHorizontal: 12,
@@ -3306,15 +3306,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   privacyTopAlertTitleLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   privacyTopAlertSub: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 10,
     marginTop: 1,
   },
   privacyTopAlertSubLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   privacyTopAlertBtn: {
     backgroundColor: '#15803d',
@@ -3479,11 +3479,11 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
@@ -3522,7 +3522,7 @@ const styles = StyleSheet.create({
   wazeBadgePill: {
     position: 'absolute',
     bottom: -6,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0f1419',
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 4,
@@ -3580,11 +3580,11 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 16,
     right: 16,
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.5,
@@ -3607,7 +3607,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3617,15 +3617,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   pinConfirmTitleLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   pinConfirmSubtitle: {
-    color: '#64748b',
+    color: '#6f7c89',
     fontSize: 12,
     marginTop: 2,
   },
   pinConfirmSubtitleLight: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
   },
   pinConfirmButtonsRow: {
     flexDirection: 'row',
@@ -3633,7 +3633,7 @@ const styles = StyleSheet.create({
   },
   pinCancelBtn: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     borderRadius: 14,
     paddingVertical: 10,
     alignItems: 'center',
@@ -3642,12 +3642,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   pinCancelBtnText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 13,
     fontWeight: '800',
   },
   pinCancelBtnTextLight: {
-    color: '#475569',
+    color: '#5b6660',
   },
   pinConfirmBtn: {
     flex: 1.8,
@@ -3708,7 +3708,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     maxHeight: '92%',
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.35,
@@ -3728,7 +3728,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#334155',
+    backgroundColor: '#33404d',
   },
   modalDragIndicatorLight: {
     backgroundColor: '#cbd5e1',
@@ -3737,7 +3737,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#147d62',
+    backgroundColor: '#1f7a52',
     marginRight: 4,
   },
   planModalHeader: {
@@ -3760,13 +3760,13 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   planModalTitleLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   closeModalCircleBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3776,12 +3776,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   routeInputsBox: {
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 18,
     padding: 14,
     gap: 8,
     borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
   },
   routeInputsBoxLight: {
     backgroundColor: '#f8fafc',
@@ -3804,13 +3804,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 3,
-    backgroundColor: '#d85f28',
+    backgroundColor: '#1f5c46',
   },
   destRedSquare: {
     width: 10,
     height: 10,
     borderRadius: 3,
-    backgroundColor: '#d85f28',
+    backgroundColor: '#1f5c46',
   },
   clearSearchInputBtn: {
     padding: 6,
@@ -3843,13 +3843,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginTop: 10,
     borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
   },
   fixOnMapQuickBtnLight: {
     backgroundColor: '#f8fafc',
@@ -3869,7 +3869,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fixOnMapQuickTextLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   placesScrollView: {
     marginTop: 12,
@@ -3894,11 +3894,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#171e26',
     gap: 12,
   },
   suggestionItemRouteHighlight: {
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderBottomColor: '#243248',
   },
   suggestionItemRowLight: {
@@ -3908,11 +3908,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
   },
   placeIconSquareRoute: {
     backgroundColor: 'rgba(124, 58, 237, 0.15)',
@@ -3939,12 +3939,12 @@ const styles = StyleSheet.create({
     color: '#71717a',
   },
   placeDistanceBadge: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#33404d',
   },
   placeDistanceBadgeText: {
     color: '#ffffff',
@@ -3977,7 +3977,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(124, 58, 237, 0.3)',
   },
   topRoutesBadgeText: {
-    color: '#ff9b6c',
+    color: '#e8a317',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -3987,12 +3987,12 @@ const styles = StyleSheet.create({
   topRouteCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
   },
   topRouteCardLight: {
     backgroundColor: '#f8fafc',
@@ -4021,15 +4021,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topRouteCardNameLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   topRouteCodeBadge: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#33404d',
   },
   topRouteCodeText: {
     color: '#ffffff',
@@ -4037,12 +4037,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   topRouteCardSub: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 11,
     marginTop: 2,
   },
   topRouteCardSubLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   topRouteMetricsRow: {
     flexDirection: 'row',
@@ -4053,12 +4053,12 @@ const styles = StyleSheet.create({
   metricPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     paddingHorizontal: 7,
     paddingVertical: 2.5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#33404d',
   },
   metricPillHighlight: {
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
@@ -4075,7 +4075,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   topRouteSelectArrow: {
-    color: '#d85f28',
+    color: '#1f5c46',
     fontSize: 16,
     fontWeight: '900',
     marginLeft: 4,
@@ -4086,17 +4086,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionTitle: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 8,
     textTransform: 'uppercase',
   },
   sectionTitleLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   emptyHistoryText: {
-    color: '#64748b',
+    color: '#6f7c89',
     fontSize: 13,
     fontStyle: 'italic',
     paddingVertical: 10,
@@ -4111,14 +4111,14 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   cancelTripModalCard: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0f1419',
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
   },
   cancelTripIconCircle: {
     width: 56,
@@ -4138,7 +4138,7 @@ const styles = StyleSheet.create({
   },
   cancelTripModalDescription: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#9aa7b4',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
@@ -4150,7 +4150,7 @@ const styles = StyleSheet.create({
   },
   cancelTripModalKeepBtn: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -4182,15 +4182,15 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   arrivalModalCard: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0f1419',
     borderRadius: 24,
     padding: 22,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
     borderWidth: 1.5,
-    borderColor: '#147d62',
-    shadowColor: '#147d62',
+    borderColor: '#1f7a52',
+    shadowColor: '#1f7a52',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -4198,7 +4198,7 @@ const styles = StyleSheet.create({
   },
   arrivalModalCardLight: {
     backgroundColor: '#ffffff',
-    borderColor: '#147d62',
+    borderColor: '#1f7a52',
   },
   arrivalIconCircle: {
     width: 58,
@@ -4220,12 +4220,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   arrivalModalTitleLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   arrivalModalQuestion: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#147d62',
+    color: '#1f7a52',
     textAlign: 'center',
     marginBottom: 14,
   },
@@ -4235,12 +4235,12 @@ const styles = StyleSheet.create({
   arrivalDestinationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     borderRadius: 14,
     padding: 10,
     width: '100%',
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
     gap: 10,
     marginBottom: 12,
   },
@@ -4262,25 +4262,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   arrivalDestinationNameLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   arrivalDestinationAddress: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 11,
     marginTop: 1,
   },
   arrivalDestinationAddressLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   arrivalModalHint: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#6f7c89',
     textAlign: 'center',
     marginBottom: 18,
     lineHeight: 15,
   },
   arrivalModalHintLight: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
   },
   arrivalModalButtonsRow: {
     flexDirection: 'row',
@@ -4289,35 +4289,35 @@ const styles = StyleSheet.create({
   },
   arrivalCancelBtn: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#33404d',
   },
   arrivalCancelBtnLight: {
     backgroundColor: '#f1f5f9',
     borderColor: '#cbd5e1',
   },
   arrivalCancelBtnText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 13,
     fontWeight: '800',
   },
   arrivalCancelBtnTextLight: {
-    color: '#475569',
+    color: '#5b6660',
   },
   arrivalFinishBtn: {
     flex: 1.3,
-    backgroundColor: '#147d62',
+    backgroundColor: '#1f7a52',
     borderRadius: 14,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#147d62',
+    shadowColor: '#1f7a52',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
@@ -4347,7 +4347,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   fleetModalCard: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0f1419',
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     paddingHorizontal: 18,
@@ -4355,7 +4355,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#171e26',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.24,
@@ -4365,7 +4365,7 @@ const styles = StyleSheet.create({
   fleetModalCardLight: {
     backgroundColor: '#ffffff',
     borderColor: '#dbe4e8',
-    shadowColor: '#172429',
+    shadowColor: '#1e2a24',
     shadowOpacity: 0.12,
   },
   fleetModalHandle: {
@@ -4373,7 +4373,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#334155',
+    backgroundColor: '#33404d',
     marginBottom: 12,
   },
   fleetModalHandleLight: {
@@ -4396,7 +4396,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fleetModalHeaderIconLight: {
-    backgroundColor: '#fff0e8',
+    backgroundColor: '#dcebe3',
     borderColor: '#ffd6c1',
   },
   fleetModalHeaderCopy: {
@@ -4410,16 +4410,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.25,
   },
   fleetModalTitleLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   fleetModalSubtitle: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
   fleetModalSubtitleLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   fleetModalCountBadge: {
     minWidth: 30,
@@ -4431,10 +4431,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fleetModalCountBadgeLight: {
-    backgroundColor: '#fff0e8',
+    backgroundColor: '#dcebe3',
   },
   fleetModalCountText: {
-    color: '#d85f28',
+    color: '#1f5c46',
     fontSize: 13,
     fontWeight: '900',
   },
@@ -4442,7 +4442,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4451,10 +4451,10 @@ const styles = StyleSheet.create({
   },
   fleetSearchBox: {
     minHeight: 48,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#33404d',
     paddingHorizontal: 13,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4474,7 +4474,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   fleetSearchInputLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   fleetSearchClearButton: {
     width: 30,
@@ -4492,7 +4492,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#26364a',
-    backgroundColor: '#111c2e',
+    backgroundColor: '#171e26',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4513,19 +4513,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   fleetEmptyIconLight: {
-    backgroundColor: '#fff0e8',
+    backgroundColor: '#dcebe3',
   },
   fleetEmptyTitle: { color: '#ffffff', fontWeight: '900', fontSize: 16, marginBottom: 5, textAlign: 'center' },
-  fleetEmptyTitleLight: { color: '#0f172a' },
-  fleetEmptyMessage: { maxWidth: 310, color: '#94a3b8', fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  fleetEmptyMessageLight: { color: '#64748b' },
+  fleetEmptyTitleLight: { color: '#0f1419' },
+  fleetEmptyMessage: { maxWidth: 310, color: '#9aa7b4', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  fleetEmptyMessageLight: { color: '#6f7c89' },
   fleetBusItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#171e26',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#33404d',
     padding: 12,
     marginBottom: 9,
     gap: 10,
@@ -4543,7 +4543,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fleetBusItemIconLight: {
-    backgroundColor: '#fff0e8',
+    backgroundColor: '#dcebe3',
   },
   fleetBusItemCopy: {
     flex: 1,
@@ -4555,7 +4555,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   fleetBusItemPlateLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   fleetBusItemPilot: {
     color: '#cbd5e1',
@@ -4564,15 +4564,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   fleetBusItemPilotLight: {
-    color: '#475569',
+    color: '#5b6660',
   },
   fleetBusItemRoute: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 12,
     marginTop: 2,
   },
   fleetBusItemRouteLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   fleetBusItemAside: {
     alignItems: 'flex-end',
@@ -4590,7 +4590,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   fleetModalHint: {
-    color: '#64748b',
+    color: '#6f7c89',
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
@@ -4668,12 +4668,12 @@ const styles = StyleSheet.create({
     color: '#09090b',
   },
   recentTripTimeText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 11,
     marginTop: 1,
   },
   recentTripTimeTextLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   quickStartTripMiniBtn: {
     backgroundColor: '#2563eb',
@@ -4880,9 +4880,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: '#102229',
+    backgroundColor: '#171e26',
     borderWidth: 1,
-    borderColor: '#254047',
+    borderColor: '#26303b',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4891,16 +4891,16 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   collapseArrowBtnCollapsed: {
-    backgroundColor: '#d85f28',
-    borderColor: '#f07840',
+    backgroundColor: '#1f5c46',
+    borderColor: '#e8a317',
   },
   adminCollapseMiniBtn: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#102229',
+    backgroundColor: '#171e26',
     borderWidth: 1,
-    borderColor: '#254047',
+    borderColor: '#26303b',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4908,7 +4908,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#102229',
+    backgroundColor: '#171e26',
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
@@ -4925,11 +4925,11 @@ const styles = StyleSheet.create({
   topSegmentedBar: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#102229',
+    backgroundColor: '#171e26',
     padding: 3,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#254047',
+    borderColor: '#26303b',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -4951,20 +4951,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   segmentBtnActive: {
-    backgroundColor: '#d85f28',
-    shadowColor: '#d85f28',
+    backgroundColor: '#1f5c46',
+    shadowColor: '#1f5c46',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
   segmentBtnText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 11,
     fontWeight: '700',
   },
   segmentBtnTextLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   segmentBtnTextActive: {
     color: '#ffffff',
@@ -4973,7 +4973,7 @@ const styles = StyleSheet.create({
 
   /* --- Tarjeta Flotante Quick Card Exacta al Diseño de la Web App Eunice --- */
   adminHeaderCoordsText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 9.5,
     fontWeight: '600',
     marginTop: 2,
@@ -4983,11 +4983,11 @@ const styles = StyleSheet.create({
     bottom: 16,
     left: 10,
     right: 10,
-    backgroundColor: '#102229',
+    backgroundColor: '#171e26',
     borderRadius: 18,
     padding: 12,
     borderWidth: 1.5,
-    borderColor: '#254047',
+    borderColor: '#26303b',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.6,
@@ -5005,7 +5005,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#d85f28',
+    backgroundColor: '#1f5c46',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -5028,21 +5028,21 @@ const styles = StyleSheet.create({
     paddingVertical: 1.5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#d85f28',
+    borderColor: '#1f5c46',
   },
   quickCardPilotRoleText: {
-    color: '#f0c6b1',
+    color: '#b7d1c4',
     fontSize: 8.5,
     fontWeight: '800',
   },
   quickCardRouteText: {
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontSize: 10,
     fontWeight: '600',
     marginTop: 1,
   },
   quickCardSpeedText: {
-    color: '#49b997',
+    color: '#4cc38a',
     fontSize: 10,
     fontWeight: '800',
     marginTop: 1,
@@ -5051,7 +5051,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#254047',
+    backgroundColor: '#26303b',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -5061,7 +5061,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#254047',
+    borderTopColor: '#26303b',
   },
   quickCardStatusPillLive: {
     flexDirection: 'row',
@@ -5074,18 +5074,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   quickCardStatusTextLive: {
-    color: '#49b997',
+    color: '#4cc38a',
     fontSize: 10,
     fontWeight: '900',
   },
   quickCardTraceRouteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#d85f28',
+    backgroundColor: '#1f5c46',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
-    shadowColor: '#d85f28',
+    shadowColor: '#1f5c46',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
@@ -5099,7 +5099,7 @@ const styles = StyleSheet.create({
 
   /* --- Panel de Navegación Activa y Asistente de Carriles --- */
   activeNavigationCard: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0f1419',
     borderRadius: 16,
     padding: 12,
     borderWidth: 1.5,
@@ -5133,7 +5133,7 @@ const styles = StyleSheet.create({
   navDistanceCountdown: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#147d62',
+    color: '#1f7a52',
     letterSpacing: -0.3,
   },
   navDistanceCountdownLight: {
@@ -5146,7 +5146,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   navInstructionMainLight: {
-    color: '#0f172a',
+    color: '#0f1419',
   },
   laneAssistantRow: {
     flexDirection: 'row',
@@ -5174,7 +5174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   laneArrowPillActive: {
-    backgroundColor: '#147d62',
+    backgroundColor: '#1f7a52',
   },
   laneLabelBadge: {
     paddingHorizontal: 8,
@@ -5185,7 +5185,7 @@ const styles = StyleSheet.create({
   laneLabelBadgeText: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: '#49b997',
+    color: '#4cc38a',
   },
   navFooterRow: {
     flexDirection: 'row',
@@ -5195,12 +5195,12 @@ const styles = StyleSheet.create({
   },
   navFooterSub: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: '#9aa7b4',
     fontWeight: '600',
     flex: 1,
   },
   navFooterSubLight: {
-    color: '#64748b',
+    color: '#6f7c89',
   },
   cancelTripCompactBtn: {
     flexDirection: 'row',

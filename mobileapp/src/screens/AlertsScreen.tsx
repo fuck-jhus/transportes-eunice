@@ -182,7 +182,7 @@ const SegmentButton = ({ colors, styles, active, icon, label, onPress }: {
   onPress: () => void;
 }) => (
   <Pressable style={[styles.segmentButton, active && styles.segmentButtonActive]} onPress={onPress}>
-    <Feather name={icon} size={14} color={active ? colors.white : colors.muted} />
+    <Feather name={icon} size={14} color={active ? colors.onAccent : colors.muted} />
     <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
   </Pressable>
 );
@@ -204,7 +204,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   segmentButton: { flex: 1, minHeight: 40, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   segmentButtonActive: { backgroundColor: colors.accent },
   segmentText: { color: colors.muted, fontSize: 10.5, fontWeight: '800' },
-  segmentTextActive: { color: colors.white },
+  segmentTextActive: { color: colors.onAccent },
   statsRow: { flexDirection: 'row', gap: 9 },
   statCard: { flex: 1, padding: 13 },
   statLabel: { color: colors.muted, fontSize: 9.5, fontWeight: '800' },
