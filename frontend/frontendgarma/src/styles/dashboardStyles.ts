@@ -239,7 +239,7 @@ export const getDashboardStyles = (isDark: boolean) => {
     loadingTableStyle: {
       textAlign: 'center' as const,
       padding: '40px 0',
-      color: isDark ? '#94a3b8' : '#64748b',
+      color: 'var(--muted)',
     },
     tableWrapperStyle: {
       overflowX: 'auto' as const,
@@ -314,7 +314,7 @@ export const getDashboardStyles = (isDark: boolean) => {
     activateButtonStyle: {
       backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5',
       border: `1px solid ${isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0'}`,
-      color: isDark ? '#34d399' : '#059669',
+      color: 'var(--success)',
       borderRadius: '8px',
       padding: '6px 12px',
       cursor: 'pointer',
@@ -339,13 +339,13 @@ export const getDashboardStyles = (isDark: boolean) => {
       const isActive = status === 'Activo' || status === 'En Curso';
       const isTaller = status === 'En Taller';
       return {
-        backgroundColor: isActive ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : isTaller ? (isDark ? 'rgba(217, 119, 6, 0.15)' : '#fffbeb') : (isDark ? '#1f2937' : '#f1f5f9'),
-        color: isActive ? (isDark ? '#34d399' : '#059669') : isTaller ? (isDark ? '#fbbf24' : '#d97706') : (isDark ? '#94a3b8' : '#64748b'),
+        backgroundColor: isActive ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : isTaller ? (isDark ? 'rgba(217, 119, 6, 0.15)' : '#fffbeb') : ('var(--surface-soft)'),
+        color: isActive ? ('var(--success)') : isTaller ? ('var(--warning-ink)') : ('var(--muted)'),
         padding: '4px 10px',
         borderRadius: '8px',
         fontSize: '0.74rem',
         fontWeight: 600,
-        border: `1px solid ${isActive ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : isTaller ? (isDark ? 'rgba(217, 119, 6, 0.3)' : '#fde68a') : (isDark ? '#374151' : '#e2e8f0')}`,
+        border: `1px solid ${isActive ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : isTaller ? (isDark ? 'rgba(217, 119, 6, 0.3)' : '#fde68a') : ('var(--line)')}`,
         display: 'inline-block',
       };
     },
@@ -365,7 +365,7 @@ export const getDashboardStyles = (isDark: boolean) => {
     successBannerStyle: {
       backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5',
       border: `1px solid ${isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0'}`,
-      color: isDark ? '#34d399' : '#059669',
+      color: 'var(--success)',
       padding: '12px 16px',
       borderRadius: '12px',
       fontSize: '0.84rem',

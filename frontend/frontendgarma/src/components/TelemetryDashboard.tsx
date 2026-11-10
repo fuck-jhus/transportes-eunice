@@ -131,6 +131,14 @@ const isTelemetryFresh = (bus: LiveTelemetryData, now: number) => (
   !bus.isOffline && Boolean(bus.lastObservedAt && now - bus.lastObservedAt < 30000 && bus.lastObservedAt <= now + 5000)
 );
 
+// Mismos umbrales que los marcadores del mapa: más de 80 km/h es alerta y más de 50 es precaución.
+const speedChipColors = (speed: number | undefined) => {
+  const kmh = speed || 0;
+  if (kmh > 80) return { backgroundColor: 'var(--danger-soft)', color: 'var(--danger-ink)', border: '1px solid transparent' };
+  if (kmh > 50) return { backgroundColor: 'var(--warning-soft)', color: 'var(--warning-ink)', border: '1px solid transparent' };
+  return { backgroundColor: 'var(--success-soft)', color: 'var(--success)', border: '1px solid transparent' };
+};
+
 const CHAT_SENDER_PALETTE = [
   { accent: '#2563eb', light: '#eff6ff', dark: 'rgba(37, 99, 235, 0.18)' },
   { accent: '#7c3aed', light: '#f5f3ff', dark: 'rgba(124, 58, 237, 0.18)' },
@@ -1775,9 +1783,9 @@ export const TelemetryDashboard: React.FC = () => {
             <div className="fleet-panel" style={{
               width: '360px',
               maxWidth: '100%',
-              backgroundColor: isDark ? '#111827' : '#ffffff',
+              backgroundColor: 'var(--surface)',
               borderRadius: '20px',
-              border: `1px solid ${isDark ? '#1f2937' : '#e2e8f0'}`,
+              border: `1px solid ${'var(--line)'}`,
               padding: '20px',
               display: 'flex',
               flexDirection: 'column',
@@ -1790,7 +1798,7 @@ export const TelemetryDashboard: React.FC = () => {
               {/* Toggle Pills: [ En Ruta ] [ Flota Completa ] */}
               <div style={{
                 display: 'flex',
-                backgroundColor: isDark ? '#1f2937' : '#f1f5f9',
+                backgroundColor: 'var(--surface-soft)',
                 padding: '4px',
                 borderRadius: '12px',
                 gap: '4px'
@@ -1856,16 +1864,16 @@ export const TelemetryDashboard: React.FC = () => {
                     width: '100%',
                     padding: '10px 14px 10px 38px',
                     borderRadius: '10px',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                    color: isDark ? '#f8fafc' : '#0f172a',
+                    border: `1.5px solid ${'var(--line)'}`,
+                    backgroundColor: 'var(--surface-soft)',
+                    color: 'var(--ink)',
                     fontSize: '0.85rem',
                     fontWeight: 500,
                     outline: 'none',
                     boxSizing: 'border-box'
                   }}
                 />
-                <span style={{ position: 'absolute', left: '12px', top: '11px', color: isDark ? '#64748b' : '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '11px', color: 'var(--subtle)', display: 'flex', alignItems: 'center' }}>
                   <Search size={16} />
                 </span>
               </div>
@@ -1889,7 +1897,7 @@ export const TelemetryDashboard: React.FC = () => {
 
                   if (filtered.length === 0) {
                     return (
-                      <div style={{ textAlign: 'center', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.85rem', padding: '30px 10px' }}>
+                      <div style={{ textAlign: 'center', color: 'var(--subtle)', fontSize: '0.85rem', padding: '30px 10px' }}>
                         {trackingTabFilter === 'active' ? 'No hay unidades transmitiendo en este momento.' : 'No se encontraron unidades registradas.'}
                       </div>
                     );
@@ -1918,8 +1926,8 @@ export const TelemetryDashboard: React.FC = () => {
                           }
                         }}
                         style={{
-                          backgroundColor: isDark ? '#1f2937' : '#ffffff',
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface)',
+                          border: `1px solid ${'var(--line)'}`,
                           borderRadius: '16px',
                           padding: '16px',
                           cursor: hasPosition ? 'pointer' : 'default',
@@ -1932,10 +1940,10 @@ export const TelemetryDashboard: React.FC = () => {
                       >
                         {/* Header: Placa */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--muted)' }}>
                             Unidad Asignada
                           </span>
-                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--ink)' }}>
                             {bus.placaAutobus}
                           </span>
                         </div>
@@ -1946,22 +1954,22 @@ export const TelemetryDashboard: React.FC = () => {
                             width: '40px',
                             height: '40px',
                             borderRadius: '12px',
-                            backgroundColor: isDark ? '#111827' : '#f1f5f9',
+                            backgroundColor: 'var(--surface-soft)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 700,
                             fontSize: '0.9rem',
                             color: 'var(--accent)',
-                            border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`
+                            border: `1px solid ${'var(--line)'}`
                           }}>
                             {bus.nombrePiloto?.charAt(0) || 'P'}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--ink)' }}>
                               {bus.nombrePiloto || 'Piloto'}
                             </span>
-                            <span style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                               {bus.isOffline
                                 ? (bus.marcaModelo || 'Unidad registrada · sin conexión')
                                 : (bus.destinoNombre ? `Destino: ${bus.destinoNombre}` : (bus.nombreRuta && bus.nombreRuta !== 'N/D' && bus.nombreRuta !== 'Sin Ruta Asignada' ? `Ruta: ${bus.nombreRuta}` : 'Sin ruta asignada'))}
@@ -1969,10 +1977,8 @@ export const TelemetryDashboard: React.FC = () => {
                           </div>
                           {hasPosition && (
                             <div style={{
-                              backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5',
-                              border: `1px solid ${isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0'}`,
-                              color: isDark ? '#34d399' : '#059669',
-                              borderRadius: '8px',
+                              ...speedChipColors(bus.velocidadKmh),
+                              borderRadius: '999px',
                               padding: '3px 8px',
                               fontSize: '0.75rem',
                               fontWeight: 700
@@ -1984,15 +1990,15 @@ export const TelemetryDashboard: React.FC = () => {
 
                         {/* Footer con Estado */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: `1px solid ${isDark ? '#374151' : '#f1f5f9'}` }}>
-                          <span style={{ fontSize: '0.74rem', color: isDark ? '#64748b' : '#94a3b8' }}>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--subtle)' }}>
                             {bus.fechaHoraDispositivo
                               ? new Date(bus.fechaHoraDispositivo).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                               : (bus.isOffline ? 'Sin transmisión reciente' : 'En línea')}
                           </span>
                           <span style={{
-                            backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : (isDark ? '#111827' : '#f1f5f9'),
-                            border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : (isDark ? '#374151' : '#e2e8f0')}`,
-                            color: hasPosition ? (isDark ? '#34d399' : '#059669') : (isDark ? '#94a3b8' : '#64748b'),
+                            backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : ('var(--surface-soft)'),
+                            border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : ('var(--line)')}`,
+                            color: hasPosition ? ('var(--success)') : ('var(--muted)'),
                             fontSize: '0.72rem',
                             fontWeight: 700,
                             padding: '3px 10px',
@@ -2099,8 +2105,8 @@ export const TelemetryDashboard: React.FC = () => {
                     bottom: '24px',
                     left: '24px',
                     right: '24px',
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
-                    border: `1px solid ${isDark ? '#1f2937' : '#e2e8f0'}`,
+                    backgroundColor: 'var(--surface)',
+                    border: `1px solid ${'var(--line)'}`,
                     borderRadius: '18px',
                     padding: '16px 20px',
                     display: 'flex',
@@ -2129,12 +2135,12 @@ export const TelemetryDashboard: React.FC = () => {
                       </div>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <strong style={{ fontSize: '0.98rem', color: isDark ? '#f8fafc' : '#0f172a' }}>{focusedBus.nombrePiloto}</strong>
+                          <strong style={{ fontSize: '0.98rem', color: 'var(--ink)' }}>{focusedBus.nombrePiloto}</strong>
                           <span style={{ fontSize: '0.74rem', color: 'var(--accent)', backgroundColor: 'var(--accent-soft)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
                             Piloto
                           </span>
                         </div>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                        <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--muted)' }}>
                           Ruta: <strong>{focusedBus.nombreRuta || 'Ruta Principal'}</strong> • Autobús: <strong>{focusedBus.placaAutobus}</strong>
                         </p>
                       </div>
@@ -2143,14 +2149,14 @@ export const TelemetryDashboard: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {hasPosition && (
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b' }}>Velocidad</div>
-                          <strong style={{ fontSize: '1rem', color: '#10b981' }}>{focusedBus.velocidadKmh || 0} km/h</strong>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Velocidad</div>
+                          <strong style={{ fontSize: '1rem', color: speedChipColors(focusedBus.velocidadKmh).color }}>{focusedBus.velocidadKmh || 0} km/h</strong>
                         </div>
                       )}
                       <span style={{
-                        backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : (isDark ? '#111827' : '#f1f5f9'),
-                        border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : (isDark ? '#374151' : '#e2e8f0')}`,
-                        color: hasPosition ? (isDark ? '#34d399' : '#059669') : (isDark ? '#94a3b8' : '#64748b'),
+                        backgroundColor: hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5') : ('var(--surface-soft)'),
+                        border: `1px solid ${hasPosition ? (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0') : ('var(--line)')}`,
+                        color: hasPosition ? ('var(--success)') : ('var(--muted)'),
                         fontSize: '0.75rem',
                         fontWeight: 700,
                         padding: '5px 12px',
@@ -2820,7 +2826,7 @@ export const TelemetryDashboard: React.FC = () => {
                   type="date" 
                   value={filterFechaInicio}
                   onChange={(e) => setFilterFechaInicio(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                 />
               </div>
               <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -2829,7 +2835,7 @@ export const TelemetryDashboard: React.FC = () => {
                   type="date" 
                   value={filterFechaFin}
                   onChange={(e) => setFilterFechaFin(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                 />
               </div>
               <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -2838,7 +2844,7 @@ export const TelemetryDashboard: React.FC = () => {
                   aria-label="Filtrar alertas por piloto"
                   value={filterPiloto}
                   onChange={(e) => setFilterPiloto(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                 >
                   <option value="">Todos los Pilotos</option>
                   {users
@@ -2854,7 +2860,7 @@ export const TelemetryDashboard: React.FC = () => {
                   aria-label="Filtrar por tipo de alerta"
                   value={filterTipoAlerta}
                   onChange={(e) => setFilterTipoAlerta(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                 >
                   <option value="">Todas las Alertas</option>
                   <option value="Exceso de Velocidad">Exceso de Velocidad</option>
@@ -2875,9 +2881,9 @@ export const TelemetryDashboard: React.FC = () => {
                   type="button"
                   onClick={handleClearFilters} 
                   style={{
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    color: isDark ? '#cbd5e1' : '#64748b',
+                    backgroundColor: 'var(--surface)',
+                    border: `1.5px solid ${'var(--line)'}`,
+                    color: 'var(--muted)',
                     borderRadius: '8px',
                     padding: '4px 10px',
                     height: '30px',
@@ -2945,13 +2951,13 @@ export const TelemetryDashboard: React.FC = () => {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '8px 14px',
-                    borderTop: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
+                    borderTop: `1px solid ${'var(--line)'}`,
+                    backgroundColor: 'var(--surface)',
                     borderRadius: '0 0 12px 12px',
                     flexWrap: 'wrap',
                     gap: '8px'
                   }}>
-                    <div className="table-pagination-summary" style={{ fontSize: '0.76rem', color: isDark ? '#94a3b8' : '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="table-pagination-summary" style={{ fontSize: '0.76rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span>
                         Mostrando <strong>{(alertsPage - 1) * alertsPageSize + 1} - {Math.min(alertsPage * alertsPageSize, historicalAlerts.length)}</strong> de <strong>{historicalAlerts.length.toLocaleString()}</strong> alertas
                       </span>
@@ -2967,9 +2973,9 @@ export const TelemetryDashboard: React.FC = () => {
                           }}
                           style={{
                             width: '68px',
-                            backgroundColor: isDark ? '#1f2937' : '#f1f5f9',
-                            color: isDark ? '#f8fafc' : '#0f172a',
-                            border: `1px solid ${isDark ? '#374151' : '#cbd5e1'}`,
+                            backgroundColor: 'var(--surface-soft)',
+                            color: 'var(--ink)',
+                            border: `1px solid ${'var(--line-strong)'}`,
                             borderRadius: '6px',
                             padding: '2px 6px',
                             fontSize: '0.74rem',
@@ -2991,9 +2997,9 @@ export const TelemetryDashboard: React.FC = () => {
                         onClick={() => setAlertsPage(1)}
                         title="Primera página"
                         style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage <= 1 ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          color: alertsPage <= 1 ? ('var(--line-strong)') : ('var(--ink)'),
+                          border: `1px solid ${'var(--line)'}`,
                           borderRadius: '6px',
                           padding: '3px 7px',
                           fontSize: '0.74rem',
@@ -3010,9 +3016,9 @@ export const TelemetryDashboard: React.FC = () => {
                         disabled={alertsPage <= 1}
                         onClick={() => setAlertsPage(prev => Math.max(1, prev - 1))}
                         style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage <= 1 ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          color: alertsPage <= 1 ? ('var(--line-strong)') : ('var(--ink)'),
+                          border: `1px solid ${'var(--line)'}`,
                           borderRadius: '6px',
                           padding: '3px 8px',
                           fontSize: '0.74rem',
@@ -3041,9 +3047,9 @@ export const TelemetryDashboard: React.FC = () => {
                         disabled={alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize)}
                         onClick={() => setAlertsPage(prev => Math.min(Math.ceil(historicalAlerts.length / alertsPageSize), prev + 1))}
                         style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? ('var(--line-strong)') : ('var(--ink)'),
+                          border: `1px solid ${'var(--line)'}`,
                           borderRadius: '6px',
                           padding: '3px 8px',
                           fontSize: '0.74rem',
@@ -3061,9 +3067,9 @@ export const TelemetryDashboard: React.FC = () => {
                         onClick={() => setAlertsPage(Math.max(1, Math.ceil(historicalAlerts.length / alertsPageSize)))}
                         title="Última página"
                         style={{
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? (isDark ? '#4b5563' : '#cbd5e1') : (isDark ? '#f8fafc' : '#0f172a'),
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? ('var(--line-strong)') : ('var(--ink)'),
+                          border: `1px solid ${'var(--line)'}`,
                           borderRadius: '6px',
                           padding: '3px 7px',
                           fontSize: '0.74rem',
@@ -3223,10 +3229,10 @@ export const TelemetryDashboard: React.FC = () => {
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    backgroundColor: isDark ? '#1f2937' : '#f1f5f9',
+                    backgroundColor: 'var(--surface-soft)',
                     padding: '3px',
                     borderRadius: '12px',
-                    border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                    border: `1px solid ${'var(--line)'}`,
                     gap: '3px'
                   }}>
                     <button
@@ -3289,30 +3295,30 @@ export const TelemetryDashboard: React.FC = () => {
                 gap: '12px',
                 padding: '14px 16px',
                 borderRadius: '16px',
-                backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                backgroundColor: 'var(--surface-soft)',
+                border: `1px solid ${'var(--line)'}`,
                 width: '100%',
                 boxSizing: 'border-box'
               }}>
                 <div style={{ flex: '2 1 200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Buscar Ruta / Destino / Placa</label>
+                  <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Buscar Ruta / Destino / Placa</label>
                   <input
                     type="text"
                     placeholder="Ej: XELABUS, Terminal, C-102BKL..."
                     value={activitySearchQuery}
                     onChange={(e) => setActivitySearchQuery(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                   />
                 </div>
 
                 {(user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador' || user?.tipoRol === 'Supervisor') && (
                   <div style={{ flex: '1 1 160px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Filtrar por Piloto</label>
+                    <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Filtrar por Piloto</label>
                     <AnimatedSelect
                       aria-label="Filtrar actividad por piloto"
                       value={activityFilterPilot}
                       onChange={(e) => setActivityFilterPilot(e.target.value)}
-                      style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                      style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                     >
                       <option value="">Todos los Pilotos</option>
                       {users.filter(u => u.tipoRol === 'Piloto').map(u => (
@@ -3323,12 +3329,12 @@ export const TelemetryDashboard: React.FC = () => {
                 )}
 
                 <div style={{ flex: '1 1 150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Estado del Viaje</label>
+                  <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Estado del Viaje</label>
                   <AnimatedSelect
                     aria-label="Filtrar actividad por estado"
                     value={activityFilterStatus}
                     onChange={(e) => setActivityFilterStatus(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                   >
                     <option value="">Todos los Estados</option>
                     <option value="En Curso">En Curso</option>
@@ -3338,12 +3344,12 @@ export const TelemetryDashboard: React.FC = () => {
                 </div>
 
                 <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.76rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Fecha Específica</label>
+                  <label style={{ fontSize: '0.76rem', color: 'var(--muted)', fontWeight: 600 }}>Fecha Específica</label>
                   <input
                     type="date"
                     value={activityFilterDate}
                     onChange={(e) => setActivityFilterDate(e.target.value)}
-                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#374151' : '#e2e8f0', color: isDark ? '#f8fafc' : '#0f172a' }}
+                    style={{ ...formInputStyle, padding: '8px 12px', height: '38px', minHeight: 'unset', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
                   />
                 </div>
 
@@ -3357,9 +3363,9 @@ export const TelemetryDashboard: React.FC = () => {
                     setActivityTimeRange('week');
                   }}
                   style={{
-                    backgroundColor: isDark ? '#111827' : '#ffffff',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
-                    color: isDark ? '#cbd5e1' : '#64748b',
+                    backgroundColor: 'var(--surface)',
+                    border: `1.5px solid ${'var(--line)'}`,
+                    color: 'var(--muted)',
                     borderRadius: '10px',
                     padding: '8px 16px',
                     height: '38px',
@@ -3422,7 +3428,7 @@ export const TelemetryDashboard: React.FC = () => {
                   if (filtered.length === 0) {
                     return (
                       <div className="empty-state" style={{ textAlign: 'center', color: 'var(--muted)', padding: '48px 24px', backgroundColor: 'var(--surface-soft)', borderRadius: '12px', border: '1px solid var(--line)' }}>
-                        <p style={{ fontSize: '1rem', fontWeight: 600, color: isDark ? '#f8fafc' : '#0f172a', margin: '8px 0' }}>
+                        <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', margin: '8px 0' }}>
                           {activityTimeRange === 'week'
                             ? 'No se encontraron viajes en los últimos 7 días con los filtros actuales'
                             : 'No se encontraron registros de viajes en el historial'}
@@ -3501,15 +3507,15 @@ export const TelemetryDashboard: React.FC = () => {
                               </div>
 
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <strong style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.98rem', fontWeight: 700 }}>
+                                <strong style={{ color: 'var(--ink)', fontSize: '0.98rem', fontWeight: 700 }}>
                                   {trip.nombreRuta && trip.nombreRuta !== 'N/D'
                                     ? trip.nombreRuta
                                     : trip.destinoNombre || 'Ruta sin guardar'}
                                 </strong>
-                                <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.8rem', fontWeight: 500 }}>
+                                <div style={{ color: 'var(--muted)', fontSize: '0.8rem', fontWeight: 500 }}>
                                   {formattedDate} • {formattedTime}
                                 </div>
-                                <div style={{ color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ color: 'var(--subtle)', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <span><strong>{trip.placaAutobus}</strong></span>
                                   <span>•</span>
                                   <span>{trip.nombrePiloto}</span>
@@ -3525,7 +3531,7 @@ export const TelemetryDashboard: React.FC = () => {
                                 padding: '4px 10px',
                                 borderRadius: '8px',
                                 backgroundColor: isEnCurso ? 'var(--accent-soft)' : isCancelado ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2') : (isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5'),
-                                color: isEnCurso ? 'var(--accent)' : isCancelado ? '#ef4444' : (isDark ? '#34d399' : '#059669'),
+                                color: isEnCurso ? 'var(--accent)' : isCancelado ? '#ef4444' : ('var(--success)'),
                                 border: `1px solid ${isEnCurso ? 'var(--accent-line)' : isCancelado ? (isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca') : (isDark ? 'rgba(5, 150, 105, 0.3)' : '#a7f3d0')}`,
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -3590,9 +3596,9 @@ export const TelemetryDashboard: React.FC = () => {
                                   setShowTripDetailModal(true);
                                 }}
                                 style={{
-                                  backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                                  color: isDark ? '#f8fafc' : '#0f172a',
-                                  border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                                  backgroundColor: 'var(--surface-soft)',
+                                  color: 'var(--ink)',
+                                  border: `1.5px solid ${'var(--line)'}`,
                                   borderRadius: '10px',
                                   padding: '7px 14px',
                                   fontSize: '0.82rem',
@@ -3607,7 +3613,7 @@ export const TelemetryDashboard: React.FC = () => {
                                   e.currentTarget.style.backgroundColor = isDark ? '#374151' : '#f1f5f9';
                                 }}
                                 onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDark ? '#1f2937' : '#f8fafc';
+                                  e.currentTarget.style.backgroundColor = 'var(--surface-soft)';
                                 }}
                               >
                                 Ver Detalle
@@ -3624,9 +3630,9 @@ export const TelemetryDashboard: React.FC = () => {
                             type="button"
                             onClick={() => setActivityTimeRange('all')}
                             style={{
-                              backgroundColor: isDark ? '#111827' : '#ffffff',
+                              backgroundColor: 'var(--surface)',
                               color: 'var(--accent)',
-                              border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                              border: `1.5px solid ${'var(--line)'}`,
                               borderRadius: '12px',
                               padding: '10px 22px',
                               fontSize: '0.84rem',
@@ -3643,8 +3649,8 @@ export const TelemetryDashboard: React.FC = () => {
                               e.currentTarget.style.borderColor = 'var(--accent-line)';
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = isDark ? '#111827' : '#ffffff';
-                              e.currentTarget.style.borderColor = isDark ? '#374151' : '#e2e8f0';
+                              e.currentTarget.style.backgroundColor = 'var(--surface)';
+                              e.currentTarget.style.borderColor = 'var(--line)';
                             }}
                           >
                             Ver todo el historial completo <ChevronDown size={15} />
@@ -3682,18 +3688,18 @@ export const TelemetryDashboard: React.FC = () => {
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '18px 24px',
-              borderBottom: `1px solid ${isDark ? '#1f2937' : '#f1f5f9'}`
+              borderBottom: `1px solid ${'var(--surface-soft)'}`
             }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--ink)' }}>
                 Detalles del Viaje
               </h3>
               <button
                 onClick={() => setShowTripDetailModal(false)}
                 style={{
-                  background: isDark ? '#1f2937' : '#f1f5f9',
-                  border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                  background: 'var(--surface-soft)',
+                  border: `1px solid ${'var(--line)'}`,
                   borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#64748b',
+                  color: 'var(--muted)',
                   fontSize: '16px',
                   cursor: 'pointer',
                   width: '30px',
@@ -3713,10 +3719,10 @@ export const TelemetryDashboard: React.FC = () => {
               {/* Encabezado del Viaje con Avatar */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
                 <div style={{ flex: 1 }}>
-                  <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1.2 }}>
+                  <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
                     Viaje con {selectedTripDetail.nombrePiloto}
                   </h2>
-                  <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.85rem', marginTop: '4px', fontWeight: 500 }}>
+                  <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '4px', fontWeight: 500 }}>
                     {new Date(selectedTripDetail.fechaInicio).toLocaleDateString('es-GT', { day: 'numeric', month: 'short' })} {new Date(selectedTripDetail.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Placa: {selectedTripDetail.placaAutobus}
                   </div>
                 </div>
@@ -3802,8 +3808,8 @@ export const TelemetryDashboard: React.FC = () => {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                     <div>
-                      <strong style={{ color: isDark ? '#f8fafc' : '#172429', fontSize: '0.88rem' }}>Seguimiento para pasajeros</strong>
-                      <p style={{ margin: '4px 0 0', color: isDark ? '#94a3b8' : '#66777d', fontSize: '0.76rem', lineHeight: 1.45 }}>
+                      <strong style={{ color: 'var(--ink)', fontSize: '0.88rem' }}>Seguimiento para pasajeros</strong>
+                      <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: '0.76rem', lineHeight: 1.45 }}>
                         Compartir reutiliza el enlace vigente. Rotar invalida el anterior y conserva el historial interno.
                       </p>
                     </div>
@@ -3842,10 +3848,10 @@ export const TelemetryDashboard: React.FC = () => {
 
               {/* Puntos de Origen y Destino */}
               <div style={{
-                backgroundColor: isDark ? '#1f2937' : '#f8fafc',
+                backgroundColor: 'var(--surface-soft)',
                 borderRadius: '14px',
                 padding: '16px',
-                border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                border: `1px solid ${'var(--line)'}`,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px'
@@ -3861,17 +3867,17 @@ export const TelemetryDashboard: React.FC = () => {
                     flexShrink: 0
                   }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.9rem', fontWeight: 700 }}>
+                    <div style={{ color: 'var(--ink)', fontSize: '0.9rem', fontWeight: 700 }}>
                       Origen: {selectedTripDetail.origenRuta || 'Punto de salida'}
                     </div>
-                    <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.78rem', marginTop: '2px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: '2px' }}>
                       Salida programada • {new Date(selectedTripDetail.fechaInicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                 </div>
 
                 {/* Línea divisoria */}
-                <div style={{ width: '2px', height: '12px', backgroundColor: isDark ? '#374151' : '#cbd5e1', marginLeft: '4px' }} />
+                <div style={{ width: '2px', height: '12px', backgroundColor: 'var(--line-strong)', marginLeft: '4px' }} />
 
                 {/* Destino */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -3884,10 +3890,10 @@ export const TelemetryDashboard: React.FC = () => {
                     flexShrink: 0
                   }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.9rem', fontWeight: 700 }}>
+                    <div style={{ color: 'var(--ink)', fontSize: '0.9rem', fontWeight: 700 }}>
                       Destino: {selectedTripDetail.destinoRuta || selectedTripDetail.destinoNombre || 'Destino por confirmar'}
                     </div>
-                    <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.78rem', marginTop: '2px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: '2px' }}>
                       {selectedTripDetail.fechaFin
                         ? `Llegada registrada • ${new Date(selectedTripDetail.fechaFin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                         : 'Recorrido en progreso (En Ruta)'}
@@ -3898,22 +3904,22 @@ export const TelemetryDashboard: React.FC = () => {
 
               {/* Registro de Seguridad y Alertas */}
               <div style={{
-                backgroundColor: isDark ? '#1f2937' : '#f8fafc',
+                backgroundColor: 'var(--surface-soft)',
                 borderRadius: '14px',
                 padding: '16px',
-                border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                border: `1px solid ${'var(--line)'}`,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.88rem' }}>Seguridad y Telemetría</strong>
-                  <span style={{ fontSize: '0.76rem', color: isDark ? '#34d399' : '#059669', fontWeight: 700, backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5', padding: '2px 8px', borderRadius: '6px' }}>
+                  <strong style={{ color: 'var(--ink)', fontSize: '0.88rem' }}>Seguridad y Telemetría</strong>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--success)', fontWeight: 700, backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5', padding: '2px 8px', borderRadius: '6px' }}>
                     Estado: {selectedTripDetail.estadoViaje}
                   </span>
                 </div>
                 {historicalAlerts.filter(a => a.idViaje === selectedTripDetail.idViaje).length === 0 ? (
-                  <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.82rem', marginTop: '4px' }}>
+                  <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginTop: '4px' }}>
                     <strong>Conducción Segura:</strong> No se detectaron infracciones de velocidad ni maniobras bruscas durante este recorrido.
                   </div>
                 ) : (
@@ -4059,7 +4065,7 @@ export const TelemetryDashboard: React.FC = () => {
                     borderRadius: '8px',
                     border: 'none',
                     backgroundColor: 'transparent',
-                    color: isDark ? '#94a3b8' : '#64748b',
+                    color: 'var(--muted)',
                     fontWeight: 600,
                     fontSize: '0.82rem',
                     cursor: 'pointer',
@@ -4089,14 +4095,14 @@ export const TelemetryDashboard: React.FC = () => {
                     <div style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Radio size={14} /> Canal de Radio General
                     </div>
-                    <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.74rem', marginTop: '2px' }}>Toda la Flota Sincronizada</div>
+                    <div style={{ color: 'var(--muted)', fontSize: '0.74rem', marginTop: '2px' }}>Toda la Flota Sincronizada</div>
                   </div>
 
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: isDark ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '8px' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '8px' }}>
                     Pilotos en Turno ({users.filter(u => u.tipoRol === 'Piloto').length})
                   </div>
                   {users.filter(u => u.tipoRol === 'Piloto').length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '14px', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.78rem' }}>
+                    <div style={{ textAlign: 'center', padding: '14px', color: 'var(--subtle)', fontSize: '0.78rem' }}>
                       Cargando conductores...
                     </div>
                   ) : (
@@ -4106,8 +4112,8 @@ export const TelemetryDashboard: React.FC = () => {
                         style={{
                           padding: '10px 12px',
                           borderRadius: '12px',
-                          backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          border: `1px solid ${'var(--line)'}`,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '10px'
@@ -4117,8 +4123,8 @@ export const TelemetryDashboard: React.FC = () => {
                           width: '32px',
                           height: '32px',
                           borderRadius: '10px',
-                          backgroundColor: isDark ? '#111827' : '#f1f5f9',
-                          border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                          backgroundColor: 'var(--surface-soft)',
+                          border: `1px solid ${'var(--line)'}`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -4130,10 +4136,10 @@ export const TelemetryDashboard: React.FC = () => {
                           {pilot.nombreCompleto?.charAt(0) || 'P'}
                         </div>
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <div style={{ color: isDark ? '#f8fafc' : '#0f172a', fontWeight: 600, fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ color: 'var(--ink)', fontWeight: 600, fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {pilot.nombreCompleto} {pilot.idUsuario === user?.idUsuario && ' (Tú)'}
                           </div>
-                          <div style={{ color: pilot.estado === 'Activo' ? (isDark ? '#34d399' : '#059669') : (isDark ? '#64748b' : '#94a3b8'), fontSize: '0.72rem', marginTop: '1px', fontWeight: 500 }}>
+                          <div style={{ color: pilot.estado === 'Activo' ? ('var(--success)') : ('var(--subtle)'), fontSize: '0.72rem', marginTop: '1px', fontWeight: 500 }}>
                             <span className={`presence-label ${pilot.estado === 'Activo' ? 'is-online' : ''}`}><span className="presence-dot" />{pilot.estado === 'Activo' ? 'En línea' : 'Desconectado'}</span>
                           </div>
                         </div>
@@ -4144,7 +4150,7 @@ export const TelemetryDashboard: React.FC = () => {
               ) : (
                 /* Modo Privado */
                 <>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: isDark ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {user?.tipoRol === 'Piloto' ? 'Canal con Despacho' : 'Seleccionar Piloto'}
                   </div>
 
@@ -4158,24 +4164,24 @@ export const TelemetryDashboard: React.FC = () => {
                       <div style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <MessageSquare size={14} /> Centro de Despacho
                       </div>
-                      <div style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.74rem', marginTop: '2px' }}>Línea Confidencial Directa</div>
+                      <div style={{ color: 'var(--muted)', fontSize: '0.74rem', marginTop: '2px' }}>Línea Confidencial Directa</div>
                     </div>
                   ) : (
                     loadingUsers ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.8rem' }}>
+                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--subtle)', fontSize: '0.8rem' }}>
                         Cargando pilotos...
                       </div>
                     ) : users.filter(u => u.tipoRol === 'Piloto').length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.8rem' }}>
+                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--subtle)', fontSize: '0.8rem' }}>
                         <div>No se encontraron pilotos registrados.</div>
                         <button
                           type="button"
                           onClick={() => fetchUsers()}
                           style={{
                             marginTop: '10px',
-                            backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                            backgroundColor: 'var(--surface)',
                             color: 'var(--accent)',
-                            border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                            border: `1.5px solid ${'var(--line)'}`,
                             padding: '6px 12px',
                             borderRadius: '8px',
                             cursor: 'pointer',
@@ -4203,9 +4209,9 @@ export const TelemetryDashboard: React.FC = () => {
                               gap: '10px',
                               padding: '10px 12px',
                               borderRadius: '12px',
-                              backgroundColor: isActive ? 'var(--accent-soft)' : (isDark ? '#1f2937' : '#ffffff'),
-                              border: `1px solid ${isActive ? 'var(--accent-line)' : (isDark ? '#374151' : '#e2e8f0')}`,
-                              color: isDark ? '#f8fafc' : '#0f172a',
+                              backgroundColor: isActive ? 'var(--accent-soft)' : ('var(--surface)'),
+                              border: `1px solid ${isActive ? 'var(--accent-line)' : ('var(--line)')}`,
+                              color: 'var(--ink)',
                               cursor: 'pointer',
                               textAlign: 'left',
                               width: '100%',
@@ -4217,7 +4223,7 @@ export const TelemetryDashboard: React.FC = () => {
                               width: '32px',
                               height: '32px',
                               borderRadius: '10px',
-                              backgroundColor: isActive ? 'var(--accent-soft)' : (isDark ? '#111827' : '#f1f5f9'),
+                              backgroundColor: isActive ? 'var(--accent-soft)' : ('var(--surface-soft)'),
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -4229,10 +4235,10 @@ export const TelemetryDashboard: React.FC = () => {
                               {pilot.nombreCompleto?.charAt(0) || 'P'}
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
-                              <div style={{ fontWeight: 600, fontSize: '0.84rem', color: isDark ? '#f8fafc' : '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {pilot.nombreCompleto}
                               </div>
-                              <div style={{ fontSize: '0.72rem', color: pilot.estado === 'Activo' ? (isDark ? '#34d399' : '#059669') : (isDark ? '#64748b' : '#94a3b8'), marginTop: '1px', fontWeight: 500 }}>
+                              <div style={{ fontSize: '0.72rem', color: pilot.estado === 'Activo' ? ('var(--success)') : ('var(--subtle)'), marginTop: '1px', fontWeight: 500 }}>
                                 <span className={`presence-label ${pilot.estado === 'Activo' ? 'is-online' : ''}`}><span className="presence-dot" />{pilot.estado === 'Activo' ? 'Operativo' : 'Desconectado'}</span>
                               </div>
                             </div>
@@ -4267,7 +4273,7 @@ export const TelemetryDashboard: React.FC = () => {
               backgroundColor: 'var(--surface)'
             }}>
               <div>
-                <h3 style={{ margin: 0, color: isDark ? '#f8fafc' : '#0f172a', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
                   <MessageSquare size={18} color="var(--accent)" />
                   <span>
                     {chatMode === 'general'
@@ -4275,7 +4281,7 @@ export const TelemetryDashboard: React.FC = () => {
                       : (user?.tipoRol === 'Piloto' ? 'Piloto y despacho' : `${selectedChatPilotName} y despacho`)}
                   </span>
                 </h3>
-                <p style={{ margin: '2px 0 0 0', color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.82rem' }}>
+                <p style={{ margin: '2px 0 0 0', color: 'var(--muted)', fontSize: '0.82rem' }}>
                   {chatMode === 'general'
                     ? 'Comunicación abierta y sincronizada entre Administración y todos los Pilotos'
                     : (user?.tipoRol === 'Piloto' ? 'Línea directa y confidencial con el Centro de Control' : 'Conversación privada 1-a-1 con el conductor')}
@@ -4334,13 +4340,13 @@ export const TelemetryDashboard: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
-                backgroundColor: isDark ? '#0b0f19' : '#f8fafc'
+                backgroundColor: 'var(--canvas)'
               }}
             >
               {chatLoading ? (
-                <div style={{ margin: 'auto', color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.88rem' }}>Cargando mensajes...</div>
+                <div style={{ margin: 'auto', color: 'var(--muted)', fontSize: '0.88rem' }}>Cargando mensajes...</div>
               ) : chatMessages.length === 0 ? (
-                <div style={{ margin: 'auto', textAlign: 'center', color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.88rem' }}>
+                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--muted)', fontSize: '0.88rem' }}>
                   No hay mensajes en esta conversación.
                 </div>
               ) : (
@@ -4381,7 +4387,7 @@ export const TelemetryDashboard: React.FC = () => {
                             fontSize: '0.72rem',
                             fontWeight: 900,
                             letterSpacing: '0.02em',
-                            boxShadow: `0 0 0 3px ${isDark ? '#0b0f19' : '#f8fafc'}`
+                            boxShadow: `0 0 0 3px ${'var(--canvas)'}`
                           }}
                         >
                           {getChatInitials(msg.nombreEmisor)}
@@ -4401,7 +4407,7 @@ export const TelemetryDashboard: React.FC = () => {
                           borderBottomRightRadius: isMine ? '3px' : '14px',
                           borderBottomLeftRadius: isMine ? '14px' : '3px',
                           padding: '10px 16px',
-                          color: isMine ? 'var(--on-accent)' : (isDark ? '#f8fafc' : '#0f172a'),
+                          color: isMine ? 'var(--on-accent)' : ('var(--ink)'),
                           cursor: 'pointer',
                           userSelect: 'none',
                           position: 'relative',
@@ -4426,7 +4432,7 @@ export const TelemetryDashboard: React.FC = () => {
                             </span>
                           </div>
                         )}
-                        <div style={{ fontSize: '0.9rem', lineHeight: '1.45', wordBreak: 'break-word', color: isMine ? 'var(--on-accent)' : (isDark ? '#f8fafc' : '#0f172a') }}>
+                        <div style={{ fontSize: '0.9rem', lineHeight: '1.45', wordBreak: 'break-word', color: isMine ? 'var(--on-accent)' : ('var(--ink)') }}>
                           {msg.contenido}
                         </div>
                         <div style={{
@@ -4435,7 +4441,7 @@ export const TelemetryDashboard: React.FC = () => {
                           alignItems: 'center',
                           gap: '5px',
                           marginTop: '5px',
-                          color: isMine ? 'rgba(255,255,255,0.76)' : (isDark ? '#cbd5e1' : '#64748b'),
+                          color: isMine ? 'rgba(255,255,255,0.76)' : ('var(--muted)'),
                           fontSize: '0.68rem',
                           fontWeight: 600
                         }}>
@@ -4446,7 +4452,7 @@ export const TelemetryDashboard: React.FC = () => {
                         {isExpanded && (
                           <div style={{
                             fontSize: '0.72rem',
-                            color: isMine ? 'rgba(255,255,255,0.86)' : (isDark ? '#cbd5e1' : '#64748b'),
+                            color: isMine ? 'rgba(255,255,255,0.86)' : ('var(--muted)'),
                             marginTop: '6px',
                             paddingTop: '6px',
                             borderTop: `1px solid ${isMine ? 'rgba(255,255,255,0.3)' : `${senderVisual.accent}44`}`,
@@ -4469,8 +4475,8 @@ export const TelemetryDashboard: React.FC = () => {
             {/* Chips de Respuestas Rápidas */}
             <div className="chat-quick-replies" style={{
               padding: '10px 24px',
-              backgroundColor: isDark ? '#111827' : '#ffffff',
-              borderTop: `1px solid ${isDark ? '#1f2937' : '#f1f5f9'}`,
+              backgroundColor: 'var(--surface)',
+              borderTop: `1px solid ${'var(--surface-soft)'}`,
               display: 'flex',
               gap: '8px',
               overflowX: 'auto',
@@ -4510,9 +4516,9 @@ export const TelemetryDashboard: React.FC = () => {
                   onClick={() => handleSendChatMessage(chip.text, 'alerta')}
                   disabled={user?.tipoRol === 'Supervisor'}
                   style={{
-                    backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                    color: isDark ? '#cbd5e1' : '#475569',
-                    border: `1.5px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+                    backgroundColor: 'var(--surface-soft)',
+                    color: 'var(--muted)',
+                    border: `1.5px solid ${'var(--line)'}`,
                     borderRadius: '10px',
                     padding: '6px 14px',
                     fontSize: '0.8rem',
@@ -4524,11 +4530,11 @@ export const TelemetryDashboard: React.FC = () => {
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = isDark ? '#374151' : '#f1f5f9';
-                    e.currentTarget.style.color = isDark ? '#f8fafc' : '#0f172a';
+                    e.currentTarget.style.color = 'var(--ink)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = isDark ? '#1f2937' : '#f8fafc';
-                    e.currentTarget.style.color = isDark ? '#cbd5e1' : '#475569';
+                    e.currentTarget.style.backgroundColor = 'var(--surface-soft)';
+                    e.currentTarget.style.color = 'var(--muted)';
                   }}
                 >
                   {chip.label}
@@ -4545,11 +4551,11 @@ export const TelemetryDashboard: React.FC = () => {
               }}
               style={{
                 padding: '16px 24px',
-                borderTop: `1px solid ${isDark ? '#1f2937' : '#f1f5f9'}`,
+                borderTop: `1px solid ${'var(--surface-soft)'}`,
                 display: 'flex',
                 gap: '12px',
                 alignItems: 'center',
-                backgroundColor: isDark ? '#111827' : '#ffffff',
+                backgroundColor: 'var(--surface)',
                 flexShrink: 0
               }}
             >
@@ -4561,9 +4567,9 @@ export const TelemetryDashboard: React.FC = () => {
                 disabled={user?.tipoRol === 'Supervisor'}
                 style={{
                   ...formInputStyle,
-                  backgroundColor: isDark ? '#1f2937' : '#f8fafc',
-                  borderColor: isDark ? '#374151' : '#e2e8f0',
-                  color: isDark ? '#f8fafc' : '#0f172a',
+                  backgroundColor: 'var(--surface-soft)',
+                  borderColor: 'var(--line)',
+                  color: 'var(--ink)',
                   padding: '12px 18px',
                   borderRadius: '14px',
                   fontSize: '0.9rem',
@@ -4575,7 +4581,7 @@ export const TelemetryDashboard: React.FC = () => {
                 disabled={user?.tipoRol === 'Supervisor' || !chatInput.trim() || chatSending}
                 style={{
                   ...saveButtonStyle,
-                  backgroundColor: user?.tipoRol !== 'Supervisor' && chatInput.trim() && !chatSending ? 'var(--accent)' : (isDark ? '#374151' : '#cbd5e1'),
+                  backgroundColor: user?.tipoRol !== 'Supervisor' && chatInput.trim() && !chatSending ? 'var(--accent)' : ('var(--line-strong)'),
                   padding: '12px 22px',
                   borderRadius: '14px',
                   opacity: user?.tipoRol !== 'Supervisor' && chatInput.trim() && !chatSending ? 1 : 0.6,
@@ -4605,8 +4611,8 @@ export const TelemetryDashboard: React.FC = () => {
             position: 'fixed',
             top: Math.min(chatContextMenu.y, window.innerHeight - 90),
             left: Math.min(chatContextMenu.x, window.innerWidth - 180),
-            backgroundColor: isDark ? '#1f2937' : '#ffffff',
-            border: `1px solid ${isDark ? '#374151' : '#e2e8f0'}`,
+            backgroundColor: 'var(--surface)',
+            border: `1px solid ${'var(--line)'}`,
             borderRadius: '12px',
             padding: '4px',
             boxShadow: isDark ? '0 12px 30px rgba(0, 0, 0, 0.6)' : '0 12px 30px rgba(0, 0, 0, 0.12)',

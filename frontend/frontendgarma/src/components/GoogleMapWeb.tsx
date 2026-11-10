@@ -433,7 +433,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     }
 
     uniqueBuses.forEach((bus) => {
-      const spdColor = bus.velocidadKmh > 80 ? '#ef4444' : bus.velocidadKmh > 50 ? '#f59e0b' : '#10b981';
+      const spdColor = bus.velocidadKmh > 80 ? '#B23A2E' : bus.velocidadKmh > 50 ? '#C98A0C' : '#1F5C46';
       const isSelected = selectedBusPlaca === bus.placaAutobus;
       const safePlate = escapeHtml(bus.placaAutobus);
       const safePilot = escapeHtml(bus.nombrePiloto || 'Piloto');
@@ -455,7 +455,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
             width: 36px;
             height: 36px;
             background: ${spdColor};
-            border: 2.5px solid ${isSelected ? '#38bdf8' : '#ffffff'};
+            border: ${isSelected ? '3.5px solid #E8A317' : '2.5px solid #FFFDF8'};
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -468,8 +468,8 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
             </svg>
           </div>
           <div style="
-            background: #18181b;
-            color: #ffffff;
+            background: #1E2A24;
+            color: #FFFDF8;
             padding: 2px 7px;
             border-radius: 8px;
             font-size: 10px;
@@ -492,17 +492,17 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
       });
 
       const popupHtml = `
-        <div class="fleet-map-popup" style="font-family: sans-serif; padding: 6px; color: #1e293b; min-width: 240px;">
-          <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 900; color: #0f172a;">Autobús: ${safePlate}</h4>
-          <p style="margin: 3px 0; font-size: 0.85rem; color: #2563eb; font-weight: 800;">Piloto: ${safePilot}</p>
-          <p style="margin: 3px 0; font-size: 0.85rem; color: #475569;">Ruta: <strong>${safeRoute}</strong></p>
+        <div class="fleet-map-popup" style="font-family: sans-serif; padding: 6px; color: #1E2A24; min-width: 240px;">
+          <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 900; color: #1E2A24;">Autobús: ${safePlate}</h4>
+          <p style="margin: 3px 0; font-size: 0.85rem; color: #1F5C46; font-weight: 800;">Piloto: ${safePilot}</p>
+          <p style="margin: 3px 0; font-size: 0.85rem; color: #5B6660;">Ruta: <strong>${safeRoute}</strong></p>
           
           <div style="display: flex; justify-content: space-between; align-items: center; margin: 6px 0;">
             <span style="font-weight: 800; color: ${spdColor}; font-size: 0.85rem;">${bus.velocidadKmh} km/h</span>
             <button
               ${hasLiveRoute ? 'data-route-toggle="true"' : 'disabled'}
               style="
-                background: ${activeLiveRoutePlaca === bus.placaAutobus ? '#ef4444' : (hasLiveRoute ? '#2563eb' : '#64748b')};
+                background: ${activeLiveRoutePlaca === bus.placaAutobus ? '#B23A2E' : (hasLiveRoute ? '#1F5C46' : '#5B6660')};
                 color: #ffffff;
                 border: none;
                 border-radius: 8px;
@@ -519,11 +519,11 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
             </button>
           </div>
 
-          <div style="background: #f1f5f9; padding: 6px; border-radius: 8px; font-size: 0.75rem; margin: 6px 0;">
+          <div style="background: #F8F3EA; padding: 6px; border-radius: 8px; font-size: 0.75rem; margin: 6px 0;">
             <div>Giroscopio: X: ${(bus.giroscopioX ?? 0).toFixed(2)} | Y: ${(bus.giroscopioY ?? 0).toFixed(2)} | Z: ${(bus.giroscopioZ ?? 0).toFixed(2)}</div>
             <div>Aceleración: X: ${(bus.aceleracionX ?? 0).toFixed(2)} | Y: ${(bus.aceleracionY ?? 0).toFixed(2)} | Z: ${(bus.aceleracionZ ?? 9.8).toFixed(2)}</div>
           </div>
-          <p style="margin: 4px 0 0 0; font-size: 0.75rem; color: #64748b; font-family: monospace;">GPS: ${Number(bus.latitud).toFixed(5)}, ${Number(bus.longitud).toFixed(5)}</p>
+          <p style="margin: 4px 0 0 0; font-size: 0.75rem; color: #5B6660; font-family: monospace;">GPS: ${Number(bus.latitud).toFixed(5)}, ${Number(bus.longitud).toFixed(5)}</p>
         </div>
       `;
 
@@ -681,7 +681,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
 
           // Fondo oscuro de la polilínea (Borde exterior)
           L.polyline(coords, {
-            color: '#0b297a',
+            color: '#163F31',
             weight: 10,
             opacity: 1,
             lineCap: 'round',
@@ -690,7 +690,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
 
           // Línea azul rey oficial (Núcleo)
           L.polyline(coords, {
-            color: 'var(--focus)',
+            color: '#E8A317',
             weight: 6,
             opacity: 1,
             lineCap: 'round',
@@ -708,7 +708,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
               <div style="
                 width: 38px;
                 height: 38px;
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                background: #1F5C46;
                 border: 2.5px solid #ffffff;
                 border-radius: 50%;
                 display: flex;
@@ -735,7 +735,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
                 align-items: center;
                 gap: 5px;
               ">
-                <span style="background: #10b981; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">UNIDAD</span>
+                <span style="background: #1F5C46; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">UNIDAD</span>
                 <span title="${safeStartName}">${safeStartLabel} • ${currentSpd} km/h</span>
               </div>
             </div>
@@ -754,7 +754,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
               <div style="
                 width: 38px;
                 height: 38px;
-                background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+                background: #B23A2E;
                 border: 2.5px solid #ffffff;
                 border-radius: 50%;
                 display: flex;
@@ -781,7 +781,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
                 align-items: center;
                 gap: 5px;
               ">
-                <span style="background: #ef4444; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">LLEGADA</span>
+                <span style="background: #B23A2E; color: #ffffff; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 900;">LLEGADA</span>
                 <span>${safeDestinationName} • ${distKm} km (${durMin} min)</span>
               </div>
             </div>
@@ -941,7 +941,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     routes.forEach((r, idx) => {
       if (idx !== selectedIdx) {
         const altBg = L.polyline(r.coords, {
-          color: '#2563eb',
+          color: '#5B6660',
           weight: 8.5,
           opacity: 0.85,
           lineCap: 'round',
@@ -949,7 +949,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         }).addTo(routeLayerGroup);
 
         const altFg = L.polyline(r.coords, {
-          color: '#bfdbfe',
+          color: '#DDD3C0',
           weight: 4.8,
           opacity: 0.65,
           lineCap: 'round',
@@ -993,7 +993,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     const main = routes[selectedIdx];
     if (main) {
       L.polyline(main.coords, {
-        color: '#0b297a',
+        color: '#163F31',
         weight: 10.5,
         opacity: 1,
         lineCap: 'round',
@@ -1001,7 +1001,7 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
       }).addTo(routeLayerGroup);
 
       L.polyline(main.coords, {
-        color: 'var(--focus)',
+        color: '#E8A317',
         weight: 7,
         opacity: 1,
         lineCap: 'round',
@@ -1012,13 +1012,13 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         const midPoint = main.coords[Math.floor(main.coords.length * 0.5)];
         const mainBubbleHtml = `
           <div style="
-            background: #1a56db;
+            background: #1F5C46;
             color: #ffffff;
             padding: 6px 12px;
             border-radius: 12px;
             font-size: 12px;
             font-weight: 800;
-            border: 1.5px solid #3b82f6;
+            border: 1.5px solid #E8A317;
             box-shadow: 0 4px 14px rgba(0,0,0,0.45);
             white-space: nowrap;
           ">${formatDuration(main.durationMin)}</div>
@@ -1705,30 +1705,30 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
           <div className="map-save-route-modal" style={{
             ...modalPlanCardStyle,
             maxWidth: '440px',
-            background: isDark ? '#0f1929' : '#ffffff',
-            borderColor: isDark ? '#253349' : '#dbe4e7',
+            background: 'var(--surface)',
+            borderColor: 'var(--line)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <div style={{ color: '#fb7a43', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ruta frecuente</div>
-                <h3 style={{ margin: '4px 0 0', color: isDark ? '#fff' : '#0f172a' }}>Guardar este recorrido</h3>
+                <h3 style={{ margin: '4px 0 0', color: 'var(--ink)' }}>Guardar este recorrido</h3>
               </div>
               <button aria-label="Cerrar" onClick={() => setShowSaveRouteModal(false)} style={modalCloseBtnStyle}><X size={17} /></button>
             </div>
-            <div style={{ background: isDark ? '#111c2e' : '#f8fafc', border: `1px solid ${isDark ? '#253349' : '#e2e8f0'}`, borderRadius: '16px', padding: '14px', marginBottom: '14px' }}>
+            <div style={{ background: 'var(--surface-soft)', border: `1px solid ${'var(--line)'}`, borderRadius: '16px', padding: '14px', marginBottom: '14px' }}>
               <div style={{ color: '#94a3b8', fontSize: '0.76rem' }}>Desde</div>
-              <strong style={{ color: isDark ? '#fff' : '#0f172a', display: 'block', marginBottom: '12px' }}>{userAddress}</strong>
+              <strong style={{ color: 'var(--ink)', display: 'block', marginBottom: '12px' }}>{userAddress}</strong>
               <div style={{ color: '#94a3b8', fontSize: '0.76rem' }}>Hasta</div>
-              <strong style={{ color: isDark ? '#fff' : '#0f172a' }}>{selectedDestination.name}</strong>
+              <strong style={{ color: 'var(--ink)' }}>{selectedDestination.name}</strong>
             </div>
-            <label htmlFor="pilot-route-name" style={{ display: 'block', color: isDark ? '#cbd5e1' : '#334155', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>Nombre de la ruta</label>
+            <label htmlFor="pilot-route-name" style={{ display: 'block', color: 'var(--muted)', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>Nombre de la ruta</label>
             <input
               id="pilot-route-name"
               value={routeSaveName}
               maxLength={100}
               onChange={(event) => setRouteSaveName(event.target.value)}
               placeholder="Ej. Terminal - Centro"
-              style={{ ...activeSearchInputStyle, background: isDark ? activeSearchInputStyle.background : '#f8fafc', color: isDark ? '#fff' : '#0f172a', borderColor: isDark ? '#334155' : '#cbd5e1' }}
+              style={{ ...activeSearchInputStyle, background: isDark ? activeSearchInputStyle.background : '#f8fafc', color: 'var(--ink)', borderColor: 'var(--line-strong)' }}
               autoFocus
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>

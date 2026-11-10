@@ -32,6 +32,7 @@
   --on-highlight: #1e2a24;
   --warning-soft: #f7e7c4;
   --warning-ink: #7a5300;
+  --success-soft: #dcebe3;
   --danger-soft: #f5ddd9;
   --danger-ink: #8f2c22;
   --success: #1f7a55;
@@ -83,6 +84,7 @@ body.dark-theme,
   --on-highlight: #0b0f14;
   --warning-soft: rgba(232, 163, 23, 0.14);
   --warning-ink: #f2c66b;
+  --success-soft: rgba(76, 195, 138, 0.14);
   --danger-soft: rgba(255, 123, 107, 0.14);
   --danger-ink: #ff9d90;
   --success: #4cc38a;
