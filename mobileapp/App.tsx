@@ -51,14 +51,14 @@ interface TabDefinition {
 }
 
 const tabTitles: Record<TabType, { eyebrow: string; title: string }> = {
-  map: { eyebrow: 'CENTRO DE CONTROL / EN VIVO', title: 'Monitoreo de unidades' },
-  telemetry: { eyebrow: 'PILOTO', title: 'Mi viaje' },
-  alerts: { eyebrow: 'SEGURIDAD OPERATIVA', title: 'Alertas y reportes' },
-  trips: { eyebrow: 'OPERACIÓN DE FLOTA', title: 'Recorridos y despachos' },
-  buses: { eyebrow: 'ADMINISTRACIÓN', title: 'Flota de autobuses' },
-  routes: { eyebrow: 'OPERACIÓN DE FLOTA', title: 'Rutas guardadas' },
-  users: { eyebrow: 'ADMINISTRACIÓN', title: 'Personal y pilotos' },
-  chat: { eyebrow: 'COMUNICACIÓN', title: 'Canal operativo' },
+  map: { eyebrow: 'Centro de control', title: 'Monitoreo' },
+  telemetry: { eyebrow: 'Piloto', title: 'Mi viaje' },
+  alerts: { eyebrow: 'Seguridad', title: 'Alertas' },
+  trips: { eyebrow: 'Operación', title: 'Viajes' },
+  buses: { eyebrow: 'Administración', title: 'Autobuses' },
+  routes: { eyebrow: 'Operación', title: 'Rutas' },
+  users: { eyebrow: 'Administración', title: 'Personal' },
+  chat: { eyebrow: 'Comunicación', title: 'Chat' },
 };
 
 const allTabs: TabDefinition[] = [
@@ -376,7 +376,7 @@ const MainNavigator: React.FC = () => {
       !isDesktop && { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 8) },
     ]}>
       <View style={styles.brandBlock}>
-        <View style={styles.brandIcon}><MaterialCommunityIcons name="bus" size={22} color={colors.accent} /></View>
+        <View style={styles.brandIcon}><MaterialCommunityIcons name="bus" size={22} color={colors.onHighlight} /></View>
         <View style={styles.brandCopy}>
           <Text style={styles.brandName}>Eunice</Text>
           <Text style={styles.brandSubtitle}>Operaciones de flota</Text>
@@ -433,18 +433,15 @@ const MainNavigator: React.FC = () => {
 
         <View style={[styles.mainColumn, !isDesktop && { paddingTop: insets.top }]}>
           <View style={styles.header}>
-            {!isDesktop && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Abrir menú de navegación" style={styles.headerIconButton} onPress={() => setDrawerOpen(true)}>
-                <Feather name="menu" size={20} color={colors.ink} />
-              </Pressable>
-            )}
             <View style={styles.headerCopy}>
               <Text style={styles.headerEyebrow}>{title.eyebrow}</Text>
               <Text style={styles.headerTitle} numberOfLines={2}>{title.title}</Text>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} style={styles.themeHeaderButton} onPress={() => void toggleTheme()}>
-              <Feather name={isDark ? 'sun' : 'moon'} size={17} color={colors.accent} />
-            </Pressable>
+            {isDesktop && (
+              <Pressable accessibilityRole="button" accessibilityLabel={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} style={styles.themeHeaderButton} onPress={() => void toggleTheme()}>
+                <Feather name={isDark ? 'sun' : 'moon'} size={18} color={colors.ink} />
+              </Pressable>
+            )}
             <Pressable accessibilityRole="button" accessibilityLabel={`Abrir menú de cuenta de ${user.nombreCompleto}`} style={styles.profileChip} onPress={() => setDrawerOpen(true)}>
               <View style={styles.avatar}><Text style={styles.avatarText}>{user.nombreCompleto?.charAt(0).toUpperCase() || 'U'}</Text></View>
               {isDesktop && (
@@ -456,14 +453,14 @@ const MainNavigator: React.FC = () => {
             </Pressable>
           </View>
 
-          {isPilot && (
+          {isPilot && activeTab !== 'telemetry' && (
             <View style={styles.trackingBar}>
               <View style={[styles.trackingIcon, { backgroundColor: tracking.phase === 'tracking' ? colors.successSoft : colors.surfaceRaised }]}>
                 <Feather name={tracking.phase === 'tracking' ? 'radio' : tracking.phase === 'paused' ? 'shield' : 'navigation'} size={18} color={tracking.phase === 'tracking' ? colors.success : tracking.phase === 'paused' ? colors.warning : colors.accent} />
               </View>
               <View style={styles.trackingCopy}>
-                <Text style={styles.trackingTitle} numberOfLines={2}>{tracking.statusText}</Text>
-                <Text style={styles.trackingMeta} numberOfLines={2}>
+                <Text style={styles.trackingTitle} numberOfLines={1}>{tracking.statusText}</Text>
+                <Text style={styles.trackingMeta} numberOfLines={1}>
                   {tracking.assignedTrip ? `${tracking.assignedTrip.placaAutobus} · ${tracking.locationFresh ? tracking.speedKmh.toFixed(0) : '—'} km/h${tracking.backgroundStatus !== 'active' && !isPrivacyMode ? ' · solo con la app abierta' : ''}` : `GPS local · ${tracking.locationFresh ? tracking.speedKmh.toFixed(0) : '—'} km/h · no compartido`}
                   {tracking.queuedReadings > 0 ? ` · ${tracking.queuedReadings} pendientes` : ''}
                 </Text>
@@ -503,7 +500,7 @@ const MainNavigator: React.FC = () => {
                 return (
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} key={tab.id} style={styles.bottomNavItem} onPress={() => selectTab(tab.id)}>
                     <View style={[styles.bottomIconBox, active && styles.bottomIconBoxActive]}>
-                      <Feather name={tab.icon} size={19} color={active ? colors.onAccent : colors.muted} />
+                      <Feather name={tab.icon} size={20} color={active ? colors.accent : colors.muted} />
                     </View>
                     <Text style={[styles.bottomNavLabel, active && styles.bottomNavLabelActive]}>{tab.label}</Text>
                   </Pressable>
@@ -511,7 +508,7 @@ const MainNavigator: React.FC = () => {
               })}
               <Pressable accessibilityRole="button" accessibilityLabel={`Más secciones${chatUnreadCount ? `, ${chatUnreadCount} mensajes sin leer` : ''}`} style={styles.bottomNavItem} onPress={() => setDrawerOpen(true)}>
                 <View style={styles.bottomIconBox}>
-                  <Feather name="grid" size={19} color={colors.muted} />
+                  <Feather name="grid" size={20} color={colors.muted} />
                   {chatUnreadCount > 0 && <View style={styles.bottomUnreadBadge}><Text style={styles.navUnreadText}>{chatUnreadCount > 9 ? '9+' : chatUnreadCount}</Text></View>}
                 </View>
                 <Text style={styles.bottomNavLabel}>Más</Text>
@@ -634,70 +631,70 @@ const createStyles = (colors: AppColors, isDesktop: boolean) => StyleSheet.creat
   loadingMark: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent, marginBottom: 22 },
   loadingTitle: { color: colors.ink, fontSize: 17, fontWeight: '900', marginTop: 15 },
   loadingSubtitle: { color: colors.muted, fontSize: 11.5, marginTop: 4 },
-  sidebar: { width: 242, backgroundColor: colors.nav, borderRightWidth: 1, borderRightColor: colors.line },
+  sidebar: { width: 252, backgroundColor: colors.nav },
   navContent: { flex: 1, backgroundColor: colors.nav },
-  brandBlock: { minHeight: 86, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.line },
-  brandIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
+  brandBlock: { minHeight: 86, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' },
+  brandIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.highlight },
   brandCopy: { flex: 1, marginLeft: 11 },
-  brandName: { color: colors.ink, fontSize: 15, fontWeight: '900' },
-  brandSubtitle: { color: colors.navMuted, fontSize: 10.5, marginTop: 2 },
+  brandName: { color: colors.ink, fontSize: 17, fontWeight: '800' },
+  brandSubtitle: { color: colors.navMuted, fontSize: 12, marginTop: 2 },
   drawerClose: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   navList: { paddingHorizontal: 12, paddingVertical: 18, gap: 5 },
-  navSectionLabel: { color: colors.subtle, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginHorizontal: 10, marginBottom: 7 },
-  navItem: { minHeight: 46, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 11, position: 'relative' },
+  navSectionLabel: { color: colors.subtle, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginHorizontal: 14, marginBottom: 6 },
+  navItem: { minHeight: 48, borderRadius: 24, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12, position: 'relative' },
   navItemActive: { backgroundColor: colors.navSoft },
-  navItemText: { flex: 1, color: colors.navMuted, fontSize: 12, fontWeight: '700' },
-  navItemTextActive: { color: colors.ink, fontWeight: '900' },
+  navItemText: { flex: 1, color: colors.navMuted, fontSize: 14, fontWeight: '600' },
+  navItemTextActive: { color: colors.ink, fontWeight: '800' },
   navUnreadBadge: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
   navUnreadText: { color: colors.onStatus, fontSize: 8.5, fontWeight: '900' },
-  navActiveIndicator: { position: 'absolute', left: 0, width: 3, height: 22, borderRadius: 2, backgroundColor: colors.accent },
-  navFooter: { padding: 12, borderTopWidth: 1, borderTopColor: colors.line, gap: 8 },
-  navUtilityButton: { minHeight: 48, borderRadius: 13, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
-  navUtilityText: { color: colors.navMuted, fontSize: 11.5, fontWeight: '800' },
-  logoutButton: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
-  deleteAccountButton: { backgroundColor: colors.surfaceSoft, borderColor: colors.danger },
+  navActiveIndicator: { display: 'none' },
+  navFooter: { padding: 12, gap: 2 },
+  navUtilityButton: { minHeight: 48, borderRadius: 24, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  navUtilityText: { color: colors.navMuted, fontSize: 13.5, fontWeight: '600' },
+  logoutButton: {},
+  deleteAccountButton: {},
   mainColumn: { flex: 1, minWidth: 0 },
-  header: { minHeight: isDesktop ? 78 : 68, paddingHorizontal: isDesktop ? 24 : 14, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line, gap: 10 },
+  header: { minHeight: isDesktop ? 78 : 64, paddingHorizontal: isDesktop ? 28 : 20, paddingTop: isDesktop ? 0 : 6, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.canvas, gap: 10 },
   headerIconButton: { width: 48, height: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
   headerCopy: { flex: 1, minWidth: 0 },
-  headerEyebrow: { color: colors.accent, fontSize: 8.5, fontWeight: '900', letterSpacing: 0.8, marginBottom: 3 },
-  headerTitle: { color: colors.ink, fontSize: isDesktop ? 21 : 17, fontWeight: '900', letterSpacing: -0.4 },
-  themeHeaderButton: { width: 48, height: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
-  profileChip: { minHeight: 48, minWidth: 48, maxWidth: 230, borderRadius: 14, paddingHorizontal: 7, paddingRight: isDesktop ? 13 : 7, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
-  avatar: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accentLine },
-  avatarText: { color: colors.accent, fontSize: 12, fontWeight: '900' },
-  profileName: { maxWidth: 150, color: colors.ink, fontSize: 11, fontWeight: '900', marginLeft: 9 },
-  profileRole: { color: colors.muted, fontSize: 9.5, marginLeft: 9, marginTop: 1 },
-  trackingBar: { minHeight: 60, marginHorizontal: isDesktop ? 22 : 12, marginTop: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center' },
-  trackingIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  headerEyebrow: { color: colors.muted, fontSize: 11, fontWeight: '600', letterSpacing: 0.2, marginBottom: 1 },
+  headerTitle: { color: colors.ink, fontSize: isDesktop ? 24 : 26, fontWeight: '800', letterSpacing: -0.6 },
+  themeHeaderButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  profileChip: { minHeight: 44, minWidth: 44, maxWidth: 230, borderRadius: 22, paddingHorizontal: 4, paddingRight: isDesktop ? 14 : 4, flexDirection: 'row', alignItems: 'center', backgroundColor: isDesktop ? colors.surface : 'transparent' },
+  avatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+  avatarText: { color: colors.accent, fontSize: 15, fontWeight: '800' },
+  profileName: { maxWidth: 150, color: colors.ink, fontSize: 13, fontWeight: '700', marginLeft: 10 },
+  profileRole: { color: colors.muted, fontSize: 11, marginLeft: 10, marginTop: 1 },
+  trackingBar: { minHeight: 52, marginHorizontal: isDesktop ? 28 : 16, marginTop: 4, marginBottom: 4, paddingLeft: 8, paddingRight: 6, borderRadius: 26, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center' },
+  trackingIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   trackingCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
-  trackingTitle: { color: colors.ink, fontSize: 11.5, fontWeight: '900' },
-  trackingMeta: { color: colors.muted, fontSize: 10, marginTop: 3 },
-  privacyQuickButton: { minWidth: 48, minHeight: 48, borderRadius: 12, paddingHorizontal: isDesktop ? 12 : 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: colors.warningSoft, borderWidth: 1, borderColor: colors.warning },
-  privacyQuickButtonActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  privacyQuickText: { color: colors.warning, fontSize: 10.5, fontWeight: '900' },
+  trackingTitle: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  trackingMeta: { color: colors.muted, fontSize: 11.5, marginTop: 1 },
+  privacyQuickButton: { minWidth: 40, minHeight: 40, borderRadius: 20, paddingHorizontal: isDesktop ? 14 : 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: colors.surfaceSoft },
+  privacyQuickButtonActive: { backgroundColor: colors.accent },
+  privacyQuickText: { color: colors.ink, fontSize: 12.5, fontWeight: '700' },
   screen: { flex: 1, minHeight: 0 },
-  bottomNav: { minHeight: 72, paddingHorizontal: 8, paddingTop: 7, flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line },
+  bottomNav: { minHeight: 70, paddingHorizontal: 10, paddingTop: 8, flexDirection: 'row', backgroundColor: colors.surface, shadowColor: '#1e2a24', shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: -4 }, elevation: 8 },
   bottomNavItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  bottomIconBox: { width: 36, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  bottomIconBox: { width: 56, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   bottomUnreadBadge: { position: 'absolute', right: -7, top: -5, minWidth: 17, height: 17, paddingHorizontal: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger, borderWidth: 1.5, borderColor: colors.surface },
-  bottomIconBoxActive: { backgroundColor: colors.accent },
-  bottomNavLabel: { color: colors.muted, fontSize: 9, fontWeight: '700' },
-  bottomNavLabelActive: { color: colors.accent, fontWeight: '900' },
+  bottomIconBoxActive: { backgroundColor: colors.accentSoft },
+  bottomNavLabel: { color: colors.muted, fontSize: 11, fontWeight: '600' },
+  bottomNavLabelActive: { color: colors.ink, fontWeight: '800' },
   drawerLayer: { flex: 1, flexDirection: 'row' },
   drawerBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   drawer: { width: '82%', maxWidth: 320, height: '100%', backgroundColor: colors.nav, shadowColor: '#000000', shadowOpacity: 0.35, shadowRadius: 30, elevation: 20 },
   modalLayer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#04121cb8' },
-  confirmCard: { width: '100%', maxWidth: 420, borderRadius: 22, padding: 23, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.lineStrong },
+  confirmCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 24, backgroundColor: colors.surface },
   confirmIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.dangerSoft },
-  confirmTitle: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: 16 },
-  confirmMessage: { color: colors.muted, fontSize: 12.5, lineHeight: 19, marginTop: 7 },
+  confirmTitle: { color: colors.ink, fontSize: 20, fontWeight: '800', marginTop: 16 },
+  confirmMessage: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 7 },
   confirmActions: { flexDirection: 'row', gap: 9, marginTop: 22 },
-  cancelButton: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.line },
-  cancelText: { color: colors.ink, fontSize: 12, fontWeight: '900' },
-  confirmLogoutButton: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
-  confirmLogoutText: { color: colors.onStatus, fontSize: 12, fontWeight: '900' },
+  cancelButton: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft },
+  cancelText: { color: colors.ink, fontSize: 14, fontWeight: '700' },
+  confirmLogoutButton: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
+  confirmLogoutText: { color: colors.onStatus, fontSize: 14, fontWeight: '700' },
   deletePasswordLabel: { color: colors.ink, fontSize: 11.5, fontWeight: '900', marginTop: 18, marginBottom: 7 },
   deletePasswordField: { minHeight: 50, borderRadius: 14, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.lineStrong },
   deletePasswordInput: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 12.5, paddingVertical: 12 },

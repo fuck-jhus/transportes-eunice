@@ -5,7 +5,7 @@ const THEME_KEY = '@map_theme_preference';
 
 // Paleta "Ruta cálida": verde profundo y amarillo de bus sobre crema; modo oscuro de centro de control.
 export const lightColors = {
-  canvas: '#efe8da',
+  canvas: '#f4efe6',
   surface: '#fffdf8',
   surfaceSoft: '#f8f3ea',
   surfaceRaised: '#f3ecdf',
