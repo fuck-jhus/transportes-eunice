@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
-import { animateMarkerPosition, stopMarkerMotion } from '../utils/markerMotion';
+import { animateMarkerPosition, getMarkerHeading, stopMarkerMotion } from '../utils/markerMotion';
 import { getAdminMapStyles } from '../styles/mapStyles';
 import { ArrowLeft, BookmarkPlus, BusFront, ChevronDown, LoaderCircle, LocateFixed, ScanSearch, Search, X } from 'lucide-react';
 import {
@@ -53,6 +53,9 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const busMarkersRef = useRef<Record<string, BusMarker>>({});
+  // Qué versión del ícono tiene cada bus, para no rehacer su HTML con cada lectura GPS.
+  const busIconKeyRef = useRef<Record<string, string>>({});
+  const busPopupHtmlRef = useRef<Record<string, string>>({});
   const routeLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const adminRouteLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const lastFittedRoutePlacaRef = useRef<string | null>(null);
@@ -306,6 +309,9 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
       attributionControl: true,
       center: initialCenter,
       zoom: 15,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 90,
       dragging: true,
       touchZoom: true,
       doubleClickZoom: true,
@@ -410,6 +416,8 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         stopMarkerMotion(busMarkersRef.current[placa]);
         map.removeLayer(busMarkersRef.current[placa]);
         delete busMarkersRef.current[placa];
+        delete busIconKeyRef.current[placa];
+        delete busPopupHtmlRef.current[placa];
       }
     });
 
@@ -435,6 +443,10 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
     uniqueBuses.forEach((bus) => {
       const spdColor = bus.velocidadKmh > 80 ? '#B23A2E' : bus.velocidadKmh > 50 ? '#C98A0C' : '#1F5C46';
       const isSelected = selectedBusPlaca === bus.placaAutobus;
+      const existingMarker = busMarkersRef.current[bus.placaAutobus];
+      const heading = existingMarker ? getMarkerHeading(existingMarker) : null;
+      const labelText = `${bus.placaAutobus} • ${bus.velocidadKmh} km/h`;
+      const iconKey = `${spdColor}|${isSelected}`;
       const safePlate = escapeHtml(bus.placaAutobus);
       const safePilot = escapeHtml(bus.nombrePiloto || 'Piloto');
       const safeRoute = escapeHtml(
@@ -451,7 +463,8 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
           align-items: center;
           cursor: pointer;
         ">
-          <div style="
+          <div class="bus-pin-dot" style="
+            position: relative;
             width: 36px;
             height: 36px;
             background: ${spdColor};
@@ -461,13 +474,13 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            transition: transform 0.2s ease;
           ">
+            <span class="bus-pin-heading" style="color: ${spdColor}; ${heading == null ? 'opacity: 0;' : ''} transform: rotate(${heading ?? 0}deg);"></span>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff">
               <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
             </svg>
           </div>
-          <div style="
+          <div class="bus-pin-label" style="
             background: #1E2A24;
             color: #FFFDF8;
             padding: 2px 7px;
@@ -539,14 +552,38 @@ export const GoogleMapWeb: React.FC<GoogleMapWebProps> = ({
         marker.on('popupopen', routeToggleHandler);
       };
 
-      if (busMarkersRef.current[bus.placaAutobus]) {
-        const marker = busMarkersRef.current[bus.placaAutobus];
-        animateMarkerPosition(marker, [bus.latitud, bus.longitud]);
-        marker.setIcon(busIcon);
-        marker.setPopupContent(popupHtml);
-        bindPopupRouteAction(marker);
+      const rotateHeading = (marker: BusMarker) => (degrees: number) => {
+        const arrow = marker.getElement()?.querySelector<HTMLElement>('.bus-pin-heading');
+        if (!arrow) return;
+        arrow.style.opacity = '1';
+        arrow.style.transform = `rotate(${degrees}deg)`;
+      };
+
+      if (existingMarker) {
+        const marker = existingMarker;
+        if (busIconKeyRef.current[bus.placaAutobus] !== iconKey) {
+          // Solo cambia el ícono cuando cambia su color o la selección; si no, se mueve el mismo elemento.
+          marker.setIcon(busIcon);
+          busIconKeyRef.current[bus.placaAutobus] = iconKey;
+        } else {
+          const label = marker.getElement()?.querySelector<HTMLElement>('.bus-pin-label');
+          if (label && label.textContent?.trim() !== labelText) label.textContent = labelText;
+        }
+        animateMarkerPosition(marker, [bus.latitud, bus.longitud], rotateHeading(marker));
+        if (busPopupHtmlRef.current[bus.placaAutobus] !== popupHtml) {
+          marker.setPopupContent(popupHtml);
+          busPopupHtmlRef.current[bus.placaAutobus] = popupHtml;
+          bindPopupRouteAction(marker);
+        }
+
+        // Si es el bus seleccionado y se acerca al borde, el mapa lo sigue con suavidad.
+        if (isSelected && !map.getBounds().pad(-0.2).contains([bus.latitud, bus.longitud])) {
+          map.panTo([bus.latitud, bus.longitud], { animate: true, duration: 0.8, easeLinearity: 0.4 });
+        }
       } else {
         const marker = L.marker([bus.latitud, bus.longitud], { icon: busIcon, zIndexOffset: 500 }).addTo(map);
+        busIconKeyRef.current[bus.placaAutobus] = iconKey;
+        busPopupHtmlRef.current[bus.placaAutobus] = popupHtml;
         marker.bindPopup(popupHtml);
         bindPopupRouteAction(marker);
         marker.on('click', () => {

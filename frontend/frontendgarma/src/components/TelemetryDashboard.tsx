@@ -38,9 +38,7 @@ import {
   FileDown,
   Sheet,
   ChevronDown,
-  Activity,
   Gauge,
-  ShieldAlert,
   Wifi,
   BarChart3,
   Copy,
@@ -127,9 +125,13 @@ const mergeLiveSnapshot = (
   return snapshot;
 };
 
-const isTelemetryFresh = (bus: LiveTelemetryData, now: number) => (
-  !bus.isOffline && Boolean(bus.lastObservedAt && now - bus.lastObservedAt < 30000 && bus.lastObservedAt <= now + 5000)
-);
+// `now` es el reloj de frescura del panel, que avanza cada pocos segundos. Una lectura más nueva que ese
+// reloj es normal (llegó entre dos avances), así que el límite de "fecha futura" usa la hora real.
+const isTelemetryFresh = (bus: LiveTelemetryData, now: number) => {
+  if (bus.isOffline || !bus.lastObservedAt) return false;
+  const wallClock = Math.max(now, Date.now());
+  return now - bus.lastObservedAt < 30000 && bus.lastObservedAt <= wallClock + 5000;
+};
 
 // Mismos umbrales que los marcadores del mapa: más de 80 km/h es alerta y más de 50 es precaución.
 const speedChipColors = (speed: number | undefined) => {
@@ -204,7 +206,7 @@ export const TelemetryDashboard: React.FC = () => {
   }, [theme]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setFreshnessTimestamp(Date.now()), 30000);
+    const timer = window.setInterval(() => setFreshnessTimestamp(Date.now()), 5000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -1754,7 +1756,7 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
       <main className="main-content" style={mainContentWrapperStyle}>
-        {activeTab !== 'map' && activeTab !== 'telemetry' && (
+        {activeTab !== 'map' && activeTab !== 'telemetry' && activeTab !== 'alerts' && (
           <DashboardHeader activeTab={activeTab} isDark={isDark} />
         )}
 
@@ -2479,377 +2481,196 @@ export const TelemetryDashboard: React.FC = () => {
 
       {/* VISTA DE HISTORIAL Y REPORTES DE ALERTAS (Administradores/Supervisores) */}
       {activeTab === 'alerts' && (user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador' || user?.tipoRol === 'Supervisor') && (
-        <div className="dashboard-view" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-          
-          <section className="telemetry-hero">
-            <div className="telemetry-hero-copy">
-              <span className="section-eyebrow"><Activity size={14} /> Panorama de seguridad</span>
-              <h2>Riesgo vial, resumido para decidir</h2>
-              <p>Señales críticas, conductores prioritarios y estado de la conexión en una sola lectura.</p>
-            </div>
-            <span className={`connection-pill ${wsConnected ? 'is-connected' : 'is-offline'}`}>
-              <Wifi size={15} /> {wsConnected ? 'Telemetría conectada' : 'Telemetría desconectada'}
-            </span>
-          </section>
+        (() => {
+          const pageCount = Math.max(1, Math.ceil(historicalAlerts.length / alertsPageSize));
+          const pageItems = historicalAlerts.slice((alertsPage - 1) * alertsPageSize, alertsPage * alertsPageSize);
+          const byType = Object.entries(statAlertsByTipo).sort((a, b) => b[1] - a[1]);
+          const maxType = Math.max(...byType.map(([, n]) => n), 1);
+          const topPilots = statPilotosMasInfracciones.slice(0, 5);
+          const maxPilot = topPilots[0]?.cantidadAlertas || 1;
+          const severity = (tipo: string) => /velocidad/i.test(tipo) ? 'alert' : 'warn';
+          const hasFilters = Boolean(filterFechaInicio || filterFechaFin || filterPiloto || filterTipoAlerta);
 
-          <div className="telemetry-metrics">
-            <article className="telemetry-metric is-critical">
-              <div className="metric-icon"><ShieldAlert size={20} /></div>
-              <div><span>Infracciones registradas</span><strong>{loadingStats ? '—' : Number(statTotalAlerts).toLocaleString()}</strong></div>
-            </article>
-            <article className="telemetry-metric">
-              <div className="metric-icon"><Users size={20} /></div>
-              <div><span>Conductor prioritario</span><strong>{statPilotosMasInfracciones[0]?.nombrePiloto || 'Sin datos'}</strong></div>
-            </article>
-            <article className="telemetry-metric">
-              <div className="metric-icon"><Gauge size={20} /></div>
-              <div><span>Evento más frecuente</span><strong>{Object.entries(statAlertsByTipo).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin eventos'}</strong></div>
-            </article>
-            <article className="telemetry-metric is-positive">
-              <div className="metric-icon"><CheckCircle2 size={20} /></div>
-              <div><span>Estado del sistema</span><strong>{wsConnected ? 'Operativo' : 'Sin conexión'}</strong></div>
-            </article>
-          </div>
-
-          <div className="telemetry-insights">
-            <section className="insight-card live-events-card">
-              <div className="insight-heading">
-                <div><span className="section-eyebrow"><Radio size={13} /> Flujo en vivo</span><h3>Eventos recientes</h3></div>
-                <span>{alerts.length} activos</span>
-              </div>
-              <div className="live-event-list">
-                {loadingAlerts ? (
-                  <div className="insight-empty">Consultando telemetría…</div>
-                ) : alerts.length === 0 ? (
-                  <div className="insight-empty success"><CheckCircle2 size={20} /> Sin incidencias recientes</div>
-                ) : alerts.slice(0, 5).map((a) => (
-                  <div className="live-event-row" key={a.idAlerta}>
-                    <span className="event-severity" />
-                    <div><strong>{a.tipoAlerta}</strong><span>{a.nombrePiloto} · {a.placaAutobus}</span></div>
-                    <time>{new Date(a.fechaHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="insight-card risk-card">
-              <div className="insight-heading"><div><span className="section-eyebrow"><BarChart3 size={13} /> Análisis</span><h3>Concentración de riesgo</h3></div></div>
-              <div className="risk-columns">
-                <div><h4>Por tipo de alerta</h4>{Object.entries(statAlertsByTipo).slice(0, 3).map(([tipo, cantidad]) => {
-                  const maxVal = Math.max(...Object.values(statAlertsByTipo), 1);
-                  const percentage = Math.round((cantidad / maxVal) * 100);
-                  return <div className="risk-row" key={tipo}><div><span>{tipo}</span><strong>{cantidad}</strong></div><div className="risk-track"><i style={{ width: `${percentage}%` }} /></div></div>;
-                })}</div>
-                <div><h4>Conductores con más eventos</h4>{statPilotosMasInfracciones.slice(0, 3).map((p, idx) => {
-                  const maxVal = statPilotosMasInfracciones[0]?.cantidadAlertas || 1;
-                  const percentage = Math.round((p.cantidadAlertas / maxVal) * 100);
-                  return <div className="risk-row" key={`${p.nombrePiloto}-${idx}`}><div><span>{idx + 1}. {p.nombrePiloto}</span><strong>{p.cantidadAlertas}</strong></div><div className="risk-track"><i style={{ width: `${percentage}%` }} /></div></div>;
-                })}</div>
-              </div>
-            </section>
-          </div>
-
-          {/* FILA INFERIOR: Historial y Auditoría de Alertas (Tabla compacta y estilizada) */}
-          <div className="alert-history data-view" style={{
-            ...usersContainerStyle,
-            padding: '18px',
-            borderRadius: '14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px'
-          }}>
-            <div className="alert-history-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <h2 style={{ ...cardTitleStyle, fontSize: '0.92rem', margin: 0 }}>Historial y Auditoría de Alertas</h2>
-              <div className="alert-export-actions" style={{ display: 'flex', gap: '8px' }}>
-                <button type="button" className="button-with-icon secondary-action" disabled={exportingReport !== null} onClick={handleExportPdf} style={{ ...addButtonStyle, padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}>
-                  <FileDown size={14} /> {exportingReport === 'pdf' ? 'Generando…' : 'Exportar PDF'}
-                </button>
-                <button type="button" className="button-with-icon secondary-action" disabled={exportingReport !== null} onClick={handleExportExcel} style={{ ...addButtonStyle, padding: '6px 12px', fontSize: '0.76rem', borderRadius: '8px' }}>
-                  <Sheet size={14} /> {exportingReport === 'excel' ? 'Generando…' : 'Exportar Excel'}
-                </button>
-              </div>
-            </div>
-
-            {/* Barra de Filtros Compacta */}
-            <div className="filter-bar" style={{ 
-              display: 'flex', 
-              flexWrap: 'wrap',
-              alignItems: 'flex-end',
-              gap: '8px', 
-              padding: '12px', 
-              borderRadius: '10px', 
-              backgroundColor: 'var(--surface-soft)',
-              border: '1px solid var(--line)',
-              width: '100%',
-              boxSizing: 'border-box'
-            }}>
-              <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Fecha Inicio</label>
-                <input 
-                  type="date" 
-                  value={filterFechaInicio}
-                  onChange={(e) => setFilterFechaInicio(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                />
-              </div>
-              <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Fecha Fin</label>
-                <input 
-                  type="date" 
-                  value={filterFechaFin}
-                  onChange={(e) => setFilterFechaFin(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                />
-              </div>
-              <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Piloto</label>
-                <AnimatedSelect
-                  aria-label="Filtrar alertas por piloto"
-                  value={filterPiloto}
-                  onChange={(e) => setFilterPiloto(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                >
-                  <option value="">Todos los Pilotos</option>
-                  {users
-                    .filter(u => u.tipoRol === 'Piloto')
-                    .map(u => (
-                      <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
-                    ))}
-                </AnimatedSelect>
-              </div>
-              <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ fontSize: '0.68rem', color: isDark ? '#cbd5e1' : '#18181b', fontWeight: 700 }}>Tipo Alerta</label>
-                <AnimatedSelect
-                  aria-label="Filtrar por tipo de alerta"
-                  value={filterTipoAlerta}
-                  onChange={(e) => setFilterTipoAlerta(e.target.value)}
-                  style={{ ...formInputStyle, padding: '4px 8px', height: '30px', minHeight: 'unset', fontSize: '0.76rem', backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)' }}
-                >
-                  <option value="">Todas las Alertas</option>
-                  <option value="Exceso de Velocidad">Exceso de Velocidad</option>
-                  <option value="Frenado Brusco">Frenado Brusco</option>
-                  <option value="Aceleración Peligrosa">Aceleración Peligrosa</option>
-                  <option value="Giro Brusco">Giro Brusco</option>
-                </AnimatedSelect>
-              </div>
-              <div className="filter-actions" style={{ display: 'flex', gap: '6px', alignItems: 'flex-end' }}>
-                <button 
-                  type="button"
-                  onClick={fetchHistoricalAlerts} 
-                  style={{ ...addButtonStyle, padding: '4px 12px', height: '30px', fontSize: '0.76rem', borderRadius: '8px', whiteSpace: 'nowrap' }}
-                >
-                  Filtrar
-                </button>
-                <button 
-                  type="button"
-                  onClick={handleClearFilters} 
-                  style={{
-                    backgroundColor: 'var(--surface)',
-                    border: `1.5px solid ${'var(--line)'}`,
-                    color: 'var(--muted)',
-                    borderRadius: '8px',
-                    padding: '4px 10px',
-                    height: '30px',
-                    fontWeight: 600,
-                    fontSize: '0.76rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  Limpiar
-                </button>
-              </div>
-            </div>
-
-            {loadingHistorical ? (
-              <div style={loadingTableStyle}>Cargando histórico de alertas de SQL Server...</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div className="responsive-table" style={{ ...tableWrapperStyle, maxHeight: 'calc(100vh - 380px)', minHeight: '180px', overflowY: 'auto' }}>
-                  <table style={tableStyle}>
-                    <thead>
-                      <tr>
-                        <th style={{ ...thStyle, padding: '8px 10px', fontSize: '0.78rem' }}>ID</th>
-                        <th style={{ ...thStyle, padding: '8px 10px', fontSize: '0.78rem' }}>Fecha / Hora</th>
-                        <th style={thStyle}>Tipo de Alerta</th>
-                        <th style={thStyle}>Conductor</th>
-                        <th style={thStyle}>Autobús</th>
-                        <th style={thStyle}>Ruta</th>
-                        <th style={thStyle}>Valor Registrado</th>
-                        <th style={thStyle}>Límite Permitido</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historicalAlerts.length === 0 ? (
-                        <tr>
-                          <td className="responsive-table-empty" colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: '#475569', padding: '20px' }}>
-                            No se encontraron registros de alertas con los filtros seleccionados.
-                          </td>
-                        </tr>
-                      ) : (
-                        historicalAlerts
-                          .slice((alertsPage - 1) * alertsPageSize, alertsPage * alertsPageSize)
-                          .map((a) => (
-                            <tr key={a.idAlerta} style={trStyle}>
-                              <td data-label="ID" style={tdStyle}>{a.idAlerta}</td>
-                              <td data-label="Fecha / hora" style={tdStyle}>{new Date(a.fechaHora).toLocaleString()}</td>
-                              <td data-label="Tipo" style={{ ...tdStyle, color: '#dc2626', fontWeight: 700 }}>{a.tipoAlerta}</td>
-                              <td data-label="Conductor" style={tdStyle}>{a.nombrePiloto}</td>
-                              <td data-label="Autobús" style={tdStyle}>{a.placaAutobus}</td>
-                              <td data-label="Ruta" style={tdStyle}>{a.nombreRuta}</td>
-                              <td data-label="Valor" style={{ ...tdStyle, fontWeight: 'bold' }}>{a.valorRegistrado}</td>
-                              <td data-label="Límite" style={tdStyle}>{a.limitePermitido}</td>
-                            </tr>
-                          ))
-                      )}
-                    </tbody>
-                  </table>
+          return (
+            <div className="screen alerts-screen">
+              <header className="screen-head">
+                <div>
+                  <h1>Alertas</h1>
+                  <p>Lo que pasó en la carretera y quién necesita atención.</p>
                 </div>
+                <div className="screen-head-actions">
+                  <span className={`status-dot-pill ${wsConnected ? 'is-on' : 'is-off'}`}>
+                    <Wifi size={14} aria-hidden="true" /> {wsConnected ? 'En vivo' : 'Sin conexión'}
+                  </span>
+                  <button type="button" className="pill-button is-ghost" disabled={exportingReport !== null} onClick={handleExportPdf}>
+                    <FileDown size={15} aria-hidden="true" /> {exportingReport === 'pdf' ? 'Generando…' : 'PDF'}
+                  </button>
+                  <button type="button" className="pill-button is-ghost" disabled={exportingReport !== null} onClick={handleExportExcel}>
+                    <Sheet size={15} aria-hidden="true" /> {exportingReport === 'excel' ? 'Generando…' : 'Excel'}
+                  </button>
+                </div>
+              </header>
 
-                {/* Controles de Paginación */}
-                {historicalAlerts.length > 0 && (
-                  <div className="table-pagination" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 14px',
-                    borderTop: `1px solid ${'var(--line)'}`,
-                    backgroundColor: 'var(--surface)',
-                    borderRadius: '0 0 12px 12px',
-                    flexWrap: 'wrap',
-                    gap: '8px'
-                  }}>
-                    <div className="table-pagination-summary" style={{ fontSize: '0.76rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <section className="big-stats" aria-label="Resumen">
+                <div>
+                  <span>Infracciones registradas</span>
+                  <strong>{loadingStats ? '—' : Number(statTotalAlerts).toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span>Evento más frecuente</span>
+                  <strong className="is-text">{byType[0]?.[0] || 'Sin eventos'}</strong>
+                </div>
+                <div>
+                  <span>Piloto con más eventos</span>
+                  <strong className="is-text">{topPilots[0]?.nombrePiloto || 'Sin datos'}</strong>
+                </div>
+              </section>
+
+              <div className="alerts-layout">
+                <section className="alerts-feed" aria-label="Historial de alertas">
+                  <form
+                    className="filter-row"
+                    onSubmit={(event) => { event.preventDefault(); setAlertsPage(1); void fetchHistoricalAlerts(); }}
+                  >
+                    <label className="filter-field">
+                      <span>Desde</span>
+                      <input type="date" value={filterFechaInicio} onChange={(e) => setFilterFechaInicio(e.target.value)} />
+                    </label>
+                    <label className="filter-field">
+                      <span>Hasta</span>
+                      <input type="date" value={filterFechaFin} onChange={(e) => setFilterFechaFin(e.target.value)} />
+                    </label>
+                    <div className="filter-field">
+                      <span>Piloto</span>
+                      <AnimatedSelect aria-label="Filtrar alertas por piloto" value={filterPiloto} onChange={(e) => setFilterPiloto(e.target.value)}>
+                        <option value="">Todos</option>
+                        {users.filter(u => u.tipoRol === 'Piloto').map(u => (
+                          <option key={u.idUsuario} value={u.idUsuario}>{u.nombreCompleto}</option>
+                        ))}
+                      </AnimatedSelect>
+                    </div>
+                    <div className="filter-field">
+                      <span>Tipo</span>
+                      <AnimatedSelect aria-label="Filtrar por tipo de alerta" value={filterTipoAlerta} onChange={(e) => setFilterTipoAlerta(e.target.value)}>
+                        <option value="">Todos</option>
+                        <option value="Exceso de Velocidad">Exceso de velocidad</option>
+                        <option value="Frenado Brusco">Frenado brusco</option>
+                        <option value="Aceleración Peligrosa">Aceleración peligrosa</option>
+                        <option value="Giro Brusco">Giro brusco</option>
+                      </AnimatedSelect>
+                    </div>
+                    <div className="filter-buttons">
+                      <button type="submit" className="pill-button">Aplicar</button>
+                      {hasFilters && <button type="button" className="pill-button is-ghost" onClick={handleClearFilters}>Limpiar</button>}
+                    </div>
+                  </form>
+
+                  {loadingHistorical ? (
+                    <p className="feed-empty">Cargando alertas…</p>
+                  ) : pageItems.length === 0 ? (
+                    <p className="feed-empty"><CheckCircle2 size={20} aria-hidden="true" /> No hay alertas con estos filtros.</p>
+                  ) : (
+                    <ol className="alert-feed">
+                      {pageItems.map((a) => {
+                        const level = severity(a.tipoAlerta);
+                        const when = new Date(a.fechaHora);
+                        return (
+                          <li key={a.idAlerta} className="alert-item" data-level={level}>
+                            <span className="alert-item-icon" aria-hidden="true">
+                              {level === 'alert' ? <Gauge size={18} /> : <AlertTriangle size={18} />}
+                            </span>
+                            <div className="alert-item-main">
+                              <strong>{a.tipoAlerta}</strong>
+                              <span>{a.nombrePiloto} · {a.placaAutobus}{a.nombreRuta ? ` · ${a.nombreRuta}` : ''}</span>
+                            </div>
+                            <div className="alert-item-value">
+                              <strong>{a.valorRegistrado}</strong>
+                              {a.limitePermitido != null && <span>límite {a.limitePermitido}</span>}
+                            </div>
+                            <time dateTime={a.fechaHora}>
+                              <span>{when.toLocaleDateString([], { day: '2-digit', month: 'short' })}</span>
+                              {when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </time>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+
+                  {historicalAlerts.length > 0 && (
+                    <nav className="pager" aria-label="Páginas de alertas">
                       <span>
-                        Mostrando <strong>{(alertsPage - 1) * alertsPageSize + 1} - {Math.min(alertsPage * alertsPageSize, historicalAlerts.length)}</strong> de <strong>{historicalAlerts.length.toLocaleString()}</strong> alertas
+                        {(alertsPage - 1) * alertsPageSize + 1}–{Math.min(alertsPage * alertsPageSize, historicalAlerts.length)} de {historicalAlerts.length.toLocaleString()}
                       </span>
-                      <span>•</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>Por página:</span>
+                      <div className="pager-controls">
                         <AnimatedSelect
                           aria-label="Alertas por página"
                           value={alertsPageSize}
-                          onChange={(e) => {
-                            setAlertsPageSize(Number(e.target.value));
-                            setAlertsPage(1);
-                          }}
-                          style={{
-                            width: '68px',
-                            backgroundColor: 'var(--surface-soft)',
-                            color: 'var(--ink)',
-                            border: `1px solid ${'var(--line-strong)'}`,
-                            borderRadius: '6px',
-                            padding: '2px 6px',
-                            fontSize: '0.74rem',
-                            cursor: 'pointer'
-                          }}
+                          onChange={(e) => { setAlertsPageSize(Number(e.target.value)); setAlertsPage(1); }}
                         >
-                          <option value={5}>5</option>
-                          <option value={10}>10</option>
-                          <option value={20}>20</option>
-                          <option value={50}>50</option>
+                          <option value={10}>10 por página</option>
+                          <option value={20}>20 por página</option>
+                          <option value={50}>50 por página</option>
                         </AnimatedSelect>
+                        <button type="button" className="pill-button is-ghost" disabled={alertsPage <= 1} onClick={() => setAlertsPage(p => Math.max(1, p - 1))}>Anterior</button>
+                        <span className="pager-count">{alertsPage} / {pageCount}</span>
+                        <button type="button" className="pill-button is-ghost" disabled={alertsPage >= pageCount} onClick={() => setAlertsPage(p => Math.min(pageCount, p + 1))}>Siguiente</button>
                       </div>
-                    </div>
+                    </nav>
+                  )}
+                </section>
 
-                    <div className="table-pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <button
-                        type="button"
-                        disabled={alertsPage <= 1}
-                        onClick={() => setAlertsPage(1)}
-                        title="Primera página"
-                        style={{
-                          backgroundColor: 'var(--surface-soft)',
-                          color: alertsPage <= 1 ? ('var(--line-strong)') : ('var(--ink)'),
-                          border: `1px solid ${'var(--line)'}`,
-                          borderRadius: '6px',
-                          padding: '3px 7px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: alertsPage <= 1 ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage <= 1 ? 0.4 : 1
-                        }}
-                      >
-                        ««
-                      </button>
+                <aside className="alerts-side">
+                  <section className="side-card">
+                    <h2><Radio size={15} aria-hidden="true" /> Ahora mismo</h2>
+                    {loadingAlerts ? (
+                      <p className="side-empty">Consultando…</p>
+                    ) : alerts.length === 0 ? (
+                      <p className="side-empty">Sin incidencias recientes.</p>
+                    ) : (
+                      <ul className="mini-feed">
+                        {alerts.slice(0, 5).map((a) => (
+                          <li key={a.idAlerta} data-level={severity(a.tipoAlerta)}>
+                            <div><strong>{a.tipoAlerta}</strong><span>{a.nombrePiloto} · {a.placaAutobus}</span></div>
+                            <time>{new Date(a.fechaHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
 
-                      <button
-                        type="button"
-                        disabled={alertsPage <= 1}
-                        onClick={() => setAlertsPage(prev => Math.max(1, prev - 1))}
-                        style={{
-                          backgroundColor: 'var(--surface-soft)',
-                          color: alertsPage <= 1 ? ('var(--line-strong)') : ('var(--ink)'),
-                          border: `1px solid ${'var(--line)'}`,
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '0.74rem',
-                          fontWeight: 600,
-                          cursor: alertsPage <= 1 ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage <= 1 ? 0.4 : 1
-                        }}
-                      >
-                        ‹ Anterior
-                      </button>
+                  <section className="side-card">
+                    <h2><BarChart3 size={15} aria-hidden="true" /> Por tipo</h2>
+                    {byType.length === 0 ? <p className="side-empty">Sin datos.</p> : (
+                      <ul className="bar-list">
+                        {byType.map(([tipo, n]) => (
+                          <li key={tipo}>
+                            <div><span>{tipo}</span><strong>{n}</strong></div>
+                            <i style={{ width: `${Math.round((n / maxType) * 100)}%` }} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
 
-                      <span style={{
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        color: 'var(--accent)',
-                        padding: '3px 9px',
-                        backgroundColor: 'var(--accent-soft)',
-                        border: '1px solid var(--accent-line)',
-                        borderRadius: '6px'
-                      }}>
-                        {alertsPage} / {Math.max(1, Math.ceil(historicalAlerts.length / alertsPageSize))}
-                      </span>
-
-                      <button
-                        type="button"
-                        disabled={alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize)}
-                        onClick={() => setAlertsPage(prev => Math.min(Math.ceil(historicalAlerts.length / alertsPageSize), prev + 1))}
-                        style={{
-                          backgroundColor: 'var(--surface-soft)',
-                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? ('var(--line-strong)') : ('var(--ink)'),
-                          border: `1px solid ${'var(--line)'}`,
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '0.74rem',
-                          fontWeight: 600,
-                          cursor: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 0.4 : 1
-                        }}
-                      >
-                        Siguiente ›
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize)}
-                        onClick={() => setAlertsPage(Math.max(1, Math.ceil(historicalAlerts.length / alertsPageSize)))}
-                        title="Última página"
-                        style={{
-                          backgroundColor: 'var(--surface-soft)',
-                          color: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? ('var(--line-strong)') : ('var(--ink)'),
-                          border: `1px solid ${'var(--line)'}`,
-                          borderRadius: '6px',
-                          padding: '3px 7px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 'not-allowed' : 'pointer',
-                          opacity: alertsPage >= Math.ceil(historicalAlerts.length / alertsPageSize) ? 0.4 : 1
-                        }}
-                      >
-                        »»
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  <section className="side-card">
+                    <h2><Users size={15} aria-hidden="true" /> Pilotos con más eventos</h2>
+                    {topPilots.length === 0 ? <p className="side-empty">Sin datos.</p> : (
+                      <ul className="bar-list is-pilots">
+                        {topPilots.map((p, idx) => (
+                          <li key={`${p.nombrePiloto}-${idx}`}>
+                            <div><span>{idx + 1}. {p.nombrePiloto}</span><strong>{p.cantidadAlertas}</strong></div>
+                            <i style={{ width: `${Math.round((p.cantidadAlertas / maxPilot) * 100)}%` }} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </aside>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          );
+        })()
       )}
 
 
