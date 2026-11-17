@@ -312,6 +312,33 @@ public class OperationsServiceTests
     }
 
     [Fact]
+    public async Task SpeedingReading_PushesAlertToTheAffectedPilot()
+    {
+        await using var context = TestDb.Create();
+        context.AddRange(
+            new Usuario { IdUsuario = 1, NombreCompleto = "Piloto", UsuarioLogin = "pilot", Contrasena = "hash", TipoRol = "Piloto", Estado = "Activo" },
+            new Autobus { IdAutobus = 1, Placa = "BUS-001", Estado = "Activo" },
+            new Rutum { IdRuta = 1, NombreRuta = "Ruta", Origen = "A", Destino = "B" });
+        context.ViajesDiarios.Add(new ViajeDiario { IdViaje = 1, IdUsuario = 1, IdAutobus = 1, IdRuta = 1, FechaInicio = DateTime.UtcNow, EstadoViaje = "En Curso" });
+        await context.SaveChangesAsync();
+        var push = new RecordingPushNotificationService();
+
+        await new TelemetriaService(context, pushNotifications: push).RegistrarTelemetriaAsync(1, new CrearTelemetriaDto
+        {
+            Latitud = 17.2m,
+            Longitud = -88.9m,
+            VelocidadKmh = 92m,
+            FechaHoraDispositivo = DateTime.UtcNow
+        });
+
+        var call = Assert.Single(push.UserCalls);
+        Assert.Equal([1], call.UserIds);
+        Assert.Equal("speed_alert", call.Data!["type"]);
+        Assert.Equal("telemetry", call.Data["tab"]);
+        Assert.Contains("92 km/h", call.Body);
+    }
+
+    [Fact]
     public async Task TelemetryReading_IgnoresDuplicateAndOutOfOrderPositions()
     {
         await using var context = TestDb.Create();

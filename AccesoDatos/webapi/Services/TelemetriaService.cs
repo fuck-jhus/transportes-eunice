@@ -251,6 +251,27 @@ namespace webapi.Services
                         ["tripId"] = viaje.IdViaje.ToString()
                     },
                     cancellationToken: CancellationToken.None);
+
+                // El piloto también recibe el aviso en su teléfono, aunque la app esté en segundo plano.
+                var excesos = alertasCreadas.Where(x => x.alerta.TipoAlerta == "Exceso de Velocidad").Select(x => x.alerta).ToList();
+                if (excesos.Count > 0)
+                {
+                    var maxima = excesos.Max(a => a.ValorRegistrado);
+                    var limite = excesos[0].LimitePermitido ?? maxima;
+                    await _pushNotifications.SendToUsersAsync(
+                        [idPiloto],
+                        "⚠️ Exceso de velocidad",
+                        $"Se registraron {maxima:0} km/h en {viaje.IdAutobusNavigation?.Placa ?? "tu unidad"}; el límite es {limite:0} km/h. Reduce la velocidad.",
+                        new Dictionary<string, string?>
+                        {
+                            ["eventKey"] = "speed:" + string.Join("-", excesos.Select(a => a.IdAlerta)),
+                            ["type"] = "speed_alert",
+                            ["tab"] = "telemetry",
+                            ["tripId"] = viaje.IdViaje.ToString(),
+                            ["recipientId"] = idPiloto.ToString()
+                        },
+                        cancellationToken: CancellationToken.None);
+                }
             }
 
             await transaction.CommitAsync();
