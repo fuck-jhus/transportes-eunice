@@ -22,6 +22,8 @@ import { ToastProvider, useToast } from './src/context/ToastContext';
 import { AppThemeProvider, type AppColors, useAppTheme } from './src/theme/AppTheme';
 import { useLiveTelemetryStreamer } from './src/hooks/useLiveTelemetryStreamer';
 import { useNavigationSession } from './src/hooks/useNavigationSession';
+import { useSpeedAlert } from './src/hooks/useSpeedAlert';
+import { SpeedAlertBanner } from './src/components/SpeedAlertBanner';
 import type { NavigationTarget } from './src/types/navigation';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { PilotDashboardScreen } from './src/screens/PilotDashboardScreen';
@@ -136,6 +138,9 @@ const MainNavigator: React.FC = () => {
   }, [isPrivacyMode, navigation.state, navigation.calculateRoutes, tracking.location, tracking.accuracy]);
 
   const isPilot = user?.tipoRol === 'Piloto';
+  // Solo avisa durante un viaje asignado y con GPS reciente; en privacidad no hay lecturas.
+  const speedAlert = useSpeedAlert(user?.idUsuario, tracking.speedKmh, tracking.locationFresh !== false,
+    isPilot && !isPrivacyMode && Boolean(tracking.assignedTrip), tracking.locationTimestamp);
   const isAdministrator = user?.tipoRol === 'Administrador' || user?.tipoRol === 'SuperAdministrador';
   const isSupervisor = user?.tipoRol === 'Supervisor';
 
@@ -517,6 +522,7 @@ const MainNavigator: React.FC = () => {
           )}
         </View>
       </View>
+      {isPilot && <SpeedAlertBanner alert={speedAlert} top={insets.top} />}
 
       {!isDesktop && (
         <Modal visible={drawerOpen} transparent animationType="fade" onRequestClose={() => setDrawerOpen(false)}>
